@@ -1,0 +1,2119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Talent Pipeline - Yahoo! v2</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Fraunces:opsz,wght@9..144,300;9..144,500;9..144,700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --bg: #F5F6F8;
+    --surface: #FFFFFF;
+    --surface-raised: #F9FAFB;
+    --surface-hover: #F0F2F5;
+    --border: #E2E5EB;
+    --border-light: #D0D5DD;
+    --text-primary: #262D3D;
+    --text-secondary: #5A6378;
+    --text-muted: #8C95A6;
+    --toptal-blue: #204ECF;
+    --toptal-blue-light: #EBF0FF;
+    --toptal-blue-mid: #3B6AE8;
+    --toptal-dark: #262D3D;
+    --green: #0D9E6E;
+    --green-bg: #E6F9F1;
+    --amber: #D97B00;
+    --amber-bg: #FFF5E0;
+    --rose: #D6336C;
+    --rose-bg: #FDE8EF;
+    --violet: #6941C6;
+    --violet-bg: #F0EBFF;
+    --radius: 10px;
+    --radius-sm: 6px;
+    --shadow-sm: 0 1px 2px rgba(38,45,61,0.06);
+    --shadow: 0 1px 4px rgba(38,45,61,0.08), 0 4px 12px rgba(38,45,61,0.04);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text-primary);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .app { max-width: 1400px; margin: 0 auto; }
+
+  /* ── Loading ── */
+  .loading-screen {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; height: 100vh; gap: 20px;
+  }
+  .loading-screen .spinner {
+    width: 36px; height: 36px;
+    border: 3px solid var(--border);
+    border-top-color: var(--toptal-blue);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-screen p { color: var(--text-secondary); font-size: 14px; }
+
+  .error-screen {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; height: 100vh; gap: 16px;
+    padding: 40px; text-align: center;
+  }
+  .error-screen .err-icon { font-size: 40px; }
+  .error-screen h2 { color: var(--rose); font-family: 'Fraunces', serif; font-weight: 500; }
+  .error-screen p { color: var(--text-secondary); font-size: 14px; max-width: 560px; line-height: 1.6; }
+  .retry-btn {
+    background: var(--toptal-blue); border: none;
+    color: white; padding: 10px 28px; border-radius: 100px;
+    font-family: inherit; font-size: 13px; font-weight: 600;
+    cursor: pointer; transition: all 0.2s; margin-top: 8px;
+  }
+  .retry-btn:hover { background: var(--toptal-blue-mid); }
+
+  /* ── Header ── */
+  .header {
+    padding: 28px 40px 0;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    box-shadow: var(--shadow-sm);
+  }
+  .header-top {
+    display: flex; justify-content: space-between;
+    align-items: flex-end; flex-wrap: wrap; gap: 16px;
+    padding-bottom: 16px;
+  }
+
+  .header-left h1 {
+    font-family: 'Fraunces', serif; font-weight: 500; font-size: 26px;
+    letter-spacing: -0.5px; color: var(--toptal-dark);
+    display: flex; align-items: center; gap: 12px;
+  }
+  .header-left h1 .logo-icon { display: flex; align-items: center; gap: 2px; }
+  .header-left h1 .logo-icon svg { display: block; }
+  .header-left p { color: var(--text-secondary); font-size: 13px; margin-top: 4px; }
+  .header-left .last-refresh {
+    color: var(--text-muted); font-size: 11px; margin-top: 4px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .header-left .last-refresh .live-dot {
+    width: 6px; height: 6px; background: var(--green);
+    border-radius: 50%; animation: pulse 2s ease infinite;
+  }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+  .header-right { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+  .filter-btn {
+    background: var(--surface); border: 1px solid var(--border);
+    color: var(--text-secondary); padding: 7px 14px; border-radius: 100px;
+    font-size: 12px; font-family: inherit; cursor: pointer;
+    transition: all 0.2s; display: flex; align-items: center;
+    gap: 6px; white-space: nowrap; font-weight: 500;
+  }
+  .filter-btn:hover { border-color: var(--border-light); color: var(--text-primary); background: var(--surface-hover); }
+  .filter-btn.active { background: var(--toptal-blue-light); border-color: var(--toptal-blue); color: var(--toptal-blue); }
+  .filter-btn .dot { width: 7px; height: 7px; border-radius: 50%; }
+
+  .refresh-btn {
+    background: var(--surface); border: 1px solid var(--border);
+    color: var(--text-muted); width: 34px; height: 34px;
+    border-radius: 100px; display: flex; align-items: center;
+    justify-content: center; cursor: pointer; transition: all 0.2s;
+  }
+  .refresh-btn:hover { border-color: var(--toptal-blue); color: var(--toptal-blue); }
+  .refresh-btn.spinning svg { animation: spin 0.6s linear; }
+
+  /* ── Tabs ── */
+  .view-tabs {
+    display: flex; gap: 0; margin-top: 8px;
+  }
+  .view-tab {
+    padding: 10px 24px; font-size: 13px; font-weight: 600;
+    color: var(--text-muted); background: none; border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer; font-family: inherit; transition: all 0.2s;
+  }
+  .view-tab:hover { color: var(--text-primary); }
+  .view-tab.active {
+    color: var(--toptal-blue); border-bottom-color: var(--toptal-blue);
+  }
+  .chat-fab {
+    position: fixed; bottom: 28px; right: 28px;
+    width: 52px; height: 52px; border-radius: 50%;
+    background: var(--toptal-blue); color: white; border: none;
+    font-size: 22px; cursor: pointer; box-shadow: 0 4px 16px rgba(32,78,207,0.35);
+    display: flex; align-items: center; justify-content: center;
+    transition: transform 0.2s, box-shadow 0.2s; z-index: 100;
+  }
+  .chat-fab:hover { transform: scale(1.08); box-shadow: 0 6px 24px rgba(32,78,207,0.45); }
+
+  /* ── Summary Strip ── */
+  .summary-strip { display: flex; gap: 16px; padding: 24px 40px; }
+  .summary-card {
+    flex: 1; background: var(--surface); padding: 20px 22px;
+    display: flex; align-items: center; gap: 14px;
+    border-radius: var(--radius); border: 1px solid var(--border);
+    transition: box-shadow 0.2s; cursor: default; box-shadow: var(--shadow-sm);
+  }
+  .summary-card:hover { box-shadow: var(--shadow); }
+  .summary-icon {
+    width: 42px; height: 42px; border-radius: var(--radius-sm);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; flex-shrink: 0;
+  }
+  .summary-info { min-width: 0; }
+  .summary-info .label {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 1.1px;
+    color: var(--text-muted); font-weight: 600;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .summary-info .value {
+    font-family: 'Fraunces', serif; font-size: 28px;
+    font-weight: 500; margin-top: 2px;
+  }
+
+  /* ── Main ── */
+  .main { padding: 0 40px 64px; }
+  .search-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
+  .search-input {
+    flex: 1; max-width: 360px; background: var(--surface);
+    border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 10px 16px 10px 40px; color: var(--text-primary);
+    font-family: inherit; font-size: 14px; outline: none;
+    transition: border-color 0.2s; box-shadow: var(--shadow-sm);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24'%3E%3Cpath d='M21 21l-4.35-4.35m0 0A7.5 7.5 0 1 0 5.65 5.65a7.5 7.5 0 0 0 10.99 10.99z' stroke='%238C95A6' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: 14px center;
+  }
+  .search-input::placeholder { color: var(--text-muted); }
+  .search-input:focus { border-color: var(--toptal-blue); box-shadow: 0 0 0 3px rgba(32,78,207,0.1); }
+  .expand-all-btn {
+    background: var(--surface); border: 1px solid var(--border);
+    color: var(--text-secondary); padding: 10px 18px; border-radius: var(--radius);
+    font-size: 13px; font-family: inherit; font-weight: 500;
+    cursor: pointer; transition: all 0.2s; box-shadow: var(--shadow-sm);
+  }
+  .expand-all-btn:hover { border-color: var(--border-light); color: var(--text-primary); }
+
+  /* ── BU Accordion ── */
+  .bu-section {
+    margin-bottom: 12px; border: 1px solid var(--border);
+    border-radius: var(--radius); overflow: hidden;
+    background: var(--surface); animation: fadeSlideIn 0.4s ease both;
+    box-shadow: var(--shadow-sm);
+  }
+  .bu-section:nth-child(2) { animation-delay: 0.05s; }
+  .bu-section:nth-child(3) { animation-delay: 0.1s; }
+  .bu-section:nth-child(4) { animation-delay: 0.15s; }
+  @keyframes fadeSlideIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .bu-header {
+    display: flex; align-items: center; padding: 16px 20px;
+    cursor: pointer; user-select: none; transition: background 0.15s; gap: 14px;
+  }
+  .bu-header:hover { background: var(--surface-hover); }
+  .bu-chevron {
+    width: 20px; height: 20px; transition: transform 0.25s ease;
+    color: var(--text-muted); flex-shrink: 0;
+  }
+  .bu-section.open .bu-chevron { transform: rotate(90deg); color: var(--toptal-blue); }
+  .bu-color-bar { width: 4px; height: 28px; border-radius: 2px; flex-shrink: 0; }
+  .bu-icon {
+    width: 34px; height: 34px; border-radius: var(--radius-sm);
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .bu-title { font-weight: 600; font-size: 15px; flex: 1; color: var(--toptal-dark); }
+  .bu-meta { display: flex; gap: 20px; align-items: center; }
+  .bu-stat { font-size: 12px; color: var(--text-secondary); display: flex; align-items: center; gap: 5px; }
+  .bu-stat strong { color: var(--toptal-dark); font-weight: 600; font-size: 14px; }
+  .bu-body { max-height: 0; overflow: hidden; transition: max-height 0.35s ease; }
+  .bu-section.open .bu-body { max-height: 8000px; }
+
+  /* ── Project ── */
+  .project-section { border-top: 1px solid var(--border); }
+  .project-header {
+    display: flex; align-items: center; padding: 12px 20px 12px 52px;
+    cursor: pointer; user-select: none; transition: background 0.15s; gap: 10px;
+  }
+  .project-header:hover { background: var(--surface-hover); }
+  .project-chevron {
+    width: 16px; height: 16px; transition: transform 0.25s ease;
+    color: var(--text-muted); flex-shrink: 0;
+  }
+  .project-section.open .project-chevron { transform: rotate(90deg); color: var(--toptal-blue); }
+  .project-name { font-size: 14px; font-weight: 500; flex: 1; color: var(--text-secondary); }
+  .project-section.open .project-name { color: var(--toptal-dark); }
+  .project-count {
+    font-size: 11px; background: var(--surface-raised);
+    border: 1px solid var(--border); padding: 2px 10px;
+    border-radius: 100px; color: var(--text-secondary); font-weight: 600;
+  }
+  .poc-badge {
+    font-size: 11px; color: var(--text-muted);
+    background: var(--surface-raised); border: 1px solid var(--border);
+    padding: 2px 10px; border-radius: 100px; white-space: nowrap; margin-right: 4px;
+  }
+  .poc-badge span { color: var(--toptal-dark); font-weight: 600; }
+  .project-statuses { display: flex; gap: 3px; margin-right: 6px; }
+  .mini-pip { width: 7px; height: 7px; border-radius: 50%; opacity: 0.9; }
+  .project-body { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; }
+  .project-section.open .project-body { max-height: 5000px; }
+
+  /* ── Table ── */
+  .talent-table { width: 100%; border-collapse: collapse; }
+  .talent-table thead th {
+    text-align: left; padding: 8px 16px; font-size: 10px;
+    text-transform: uppercase; letter-spacing: 1.2px;
+    color: var(--text-muted); font-weight: 600;
+    background: var(--surface-raised); border-bottom: 1px solid var(--border);
+  }
+  .talent-table thead th:first-child { padding-left: 68px; }
+  .talent-table tbody tr { transition: background 0.12s; }
+  .talent-table tbody tr:hover { background: var(--surface-hover); }
+  .talent-table td {
+    padding: 10px 16px; font-size: 13px;
+    border-bottom: 1px solid var(--border); vertical-align: middle;
+  }
+  .talent-table td:first-child { padding-left: 68px; }
+  .talent-name-cell { display: flex; align-items: center; gap: 10px; }
+  .avatar {
+    width: 32px; height: 32px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; flex-shrink: 0; color: white;
+    transition: transform 0.15s, box-shadow 0.15s; position: relative;
+  }
+  .avatar[data-profile] { cursor: pointer; }
+  .avatar[data-profile]:hover { transform: scale(1.1); box-shadow: 0 2px 8px rgba(32,78,207,0.25); }
+  .avatar[data-profile]::after {
+    content: ''; position: absolute; bottom: -1px; right: -1px;
+    width: 10px; height: 10px; background: var(--toptal-blue);
+    border-radius: 50%; border: 2px solid white;
+  }
+  .talent-label { font-weight: 600; color: var(--toptal-dark); }
+  .talent-role { color: var(--text-secondary); font-size: 12px; margin-top: 1px; }
+  .talent-location { color: var(--text-muted); font-size: 11px; margin-top: 1px; }
+  .status-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 12px; border-radius: 100px;
+    font-size: 11px; font-weight: 600; white-space: nowrap;
+  }
+  .status-badge .pip { width: 6px; height: 6px; border-radius: 50%; }
+  .status-introduced { background: var(--toptal-blue-light); color: var(--toptal-blue); }
+  .status-introduced .pip { background: var(--toptal-blue); }
+  .status-interview { background: var(--violet-bg); color: var(--violet); }
+  .status-interview .pip { background: var(--violet); }
+  .status-pending-decision { background: var(--amber-bg); color: var(--amber); }
+  .status-pending-decision .pip { background: var(--amber); }
+  .status-2nd-interview { background: var(--rose-bg); color: var(--rose); }
+  .status-2nd-interview .pip { background: var(--rose); }
+  .date-cell { color: var(--text-secondary); font-size: 12px; white-space: nowrap; }
+  .no-results { text-align: center; padding: 60px 20px; color: var(--text-muted); font-size: 14px; }
+
+  /* ── Staleness Badge ── */
+  .stale-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 2px 8px; border-radius: 100px; font-size: 10px; font-weight: 600;
+    margin-left: 6px;
+  }
+  .stale-badge.stale-warn { background: var(--amber-bg); color: var(--amber); }
+  .stale-badge.stale-danger { background: var(--rose-bg); color: var(--rose); }
+
+  /* ── Wins / Hired Section ── */
+  .wins-section {
+    margin-bottom: 28px; border-radius: var(--radius); overflow: hidden;
+    background: linear-gradient(135deg, #F0FDF4 0%, #ECFDF5 40%, #F0F9FF 100%);
+    border: 1px solid #BBF7D0; box-shadow: var(--shadow);
+    animation: fadeSlideIn 0.5s ease both;
+  }
+  .wins-header {
+    padding: 20px 24px; display: flex; align-items: center; gap: 10px;
+    cursor: pointer; user-select: none; transition: background 0.15s;
+  }
+  .wins-header:hover { background: rgba(22,101,52,0.04); }
+  .wins-chevron {
+    width: 20px; height: 20px; transition: transform 0.25s ease;
+    color: #15803D; flex-shrink: 0;
+  }
+  .wins-section.open .wins-chevron { transform: rotate(90deg); }
+  .wins-header .trophy { font-size: 24px; }
+  .wins-header h2 {
+    font-family: 'Fraunces', serif; font-weight: 600; font-size: 20px;
+    color: #166534; flex: 1;
+  }
+  .wins-header .wins-count {
+    background: #166534; color: white; font-size: 12px;
+    font-weight: 700; padding: 3px 12px; border-radius: 100px;
+  }
+  .wins-body { max-height: 0; overflow: hidden; transition: max-height 0.4s ease; }
+  .wins-section.open .wins-body { max-height: 2000px; }
+  .wins-subtitle { padding: 0 24px 16px; font-size: 13px; color: #15803D; }
+  .wins-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 12px; padding: 0 20px 20px;
+  }
+  .win-card {
+    background: white; border: 1px solid #D1FAE5; border-radius: var(--radius);
+    padding: 16px 18px; position: relative; overflow: hidden;
+    transition: transform 0.2s, box-shadow 0.2s; animation: popIn 0.4s ease both;
+  }
+  .win-card:nth-child(2) { animation-delay: 0.08s; }
+  .win-card:nth-child(3) { animation-delay: 0.16s; }
+  .win-card:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(22,101,52,0.1); }
+  .win-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: linear-gradient(90deg, #22C55E, #16A34A, #15803D);
+  }
+  @keyframes popIn {
+    from { opacity: 0; transform: scale(0.95) translateY(8px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+  }
+  .win-card-top { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+  .win-avatar {
+    width: 40px; height: 40px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 700; color: white; flex-shrink: 0;
+    border: 2px solid #BBF7D0; transition: transform 0.15s; position: relative;
+  }
+  .win-avatar[data-profile] { cursor: pointer; }
+  .win-avatar[data-profile]:hover { transform: scale(1.1); }
+  .win-avatar[data-profile]::after {
+    content: ''; position: absolute; bottom: 0; right: 0;
+    width: 11px; height: 11px; background: var(--toptal-blue);
+    border-radius: 50%; border: 2px solid white;
+  }
+  .win-name { font-weight: 700; font-size: 15px; color: var(--toptal-dark); }
+  .win-role { font-size: 12px; color: var(--text-secondary); margin-top: 1px; }
+  .win-details { display: flex; flex-wrap: wrap; gap: 6px; }
+  .win-tag {
+    font-size: 11px; padding: 3px 10px; border-radius: 100px;
+    font-weight: 500; display: inline-flex; align-items: center; gap: 4px;
+  }
+  .win-tag.bu-tag { background: var(--toptal-blue-light); color: var(--toptal-blue); }
+  .win-tag.project-tag { background: #F0F2F5; color: var(--text-secondary); }
+  .win-tag.date-tag { background: #F0FDF4; color: #15803D; border: 1px solid #BBF7D0; }
+  .win-tag.location-tag { background: #FFF; color: var(--text-muted); border: 1px solid var(--border); }
+  .confetti-emoji { position: absolute; top: 10px; right: 12px; font-size: 18px; opacity: 0.7; }
+
+  /* ── Fulfillment View ── */
+  .fulfillment-grid {
+    display: grid; grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .fulfillment-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 20px 24px;
+    box-shadow: var(--shadow-sm); transition: box-shadow 0.2s;
+    animation: fadeSlideIn 0.4s ease both;
+  }
+  .fulfillment-card:hover { box-shadow: var(--shadow); }
+  .fulfillment-card-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 14px; flex-wrap: wrap; gap: 8px;
+  }
+  .fulfillment-card-title {
+    font-weight: 600; font-size: 15px; color: var(--toptal-dark);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .fulfillment-card-bu {
+    font-size: 11px; padding: 2px 10px; border-radius: 100px;
+    font-weight: 600;
+  }
+  .fulfillment-metrics {
+    display: flex; gap: 16px; flex-wrap: wrap;
+  }
+  .fulfillment-metric {
+    display: flex; flex-direction: column; align-items: center;
+    background: var(--surface-raised); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 10px 16px; min-width: 80px;
+  }
+  .fulfillment-metric .metric-value {
+    font-family: 'Fraunces', serif; font-size: 22px; font-weight: 500;
+  }
+  .fulfillment-metric .metric-label {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.8px;
+    color: var(--text-muted); font-weight: 600; margin-top: 2px;
+  }
+  .fulfillment-bar {
+    height: 6px; background: var(--border); border-radius: 3px;
+    margin-top: 14px; overflow: hidden;
+  }
+  .fulfillment-bar-fill {
+    height: 100%; border-radius: 3px; transition: width 0.6s ease;
+  }
+  .needs-attention-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 3px 10px; border-radius: 100px; font-size: 11px; font-weight: 600;
+    background: var(--rose-bg); color: var(--rose);
+  }
+  .fulfillment-links {
+    display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap;
+  }
+  .fulfillment-link {
+    font-size: 11px; color: var(--toptal-blue); text-decoration: none;
+    padding: 4px 12px; border: 1px solid var(--toptal-blue-light);
+    border-radius: 100px; transition: all 0.2s; font-weight: 500;
+  }
+  .fulfillment-link:hover { background: var(--toptal-blue-light); }
+
+  /* ── Chat Drawer ── */
+  .chat-overlay {
+    position: fixed; inset: 0; background: rgba(38,45,61,0.3);
+    z-index: 200; opacity: 0; pointer-events: none; transition: opacity 0.3s;
+  }
+  .chat-overlay.open { opacity: 1; pointer-events: all; }
+  .chat-drawer {
+    position: fixed; top: 0; right: 0; bottom: 0; width: 460px;
+    background: var(--surface); z-index: 201;
+    transform: translateX(100%); transition: transform 0.35s ease;
+    display: flex; flex-direction: column;
+    box-shadow: -4px 0 24px rgba(38,45,61,0.12);
+  }
+  .chat-drawer.open { transform: translateX(0); }
+  .chat-drawer-header {
+    padding: 20px 24px; border-bottom: 1px solid var(--border);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .chat-drawer-header h3 {
+    font-family: 'Fraunces', serif; font-weight: 500; font-size: 18px;
+    color: var(--toptal-dark);
+  }
+  .chat-close-btn {
+    background: none; border: none; color: var(--text-muted);
+    font-size: 22px; cursor: pointer; padding: 4px;
+    transition: color 0.2s;
+  }
+  .chat-close-btn:hover { color: var(--text-primary); }
+  .chat-messages {
+    flex: 1; overflow-y: auto; padding: 20px 24px;
+    display: flex; flex-direction: column; gap: 16px;
+  }
+  .chat-msg {
+    max-width: 90%; padding: 12px 16px; border-radius: var(--radius);
+    font-size: 13px; line-height: 1.6;
+  }
+  .chat-msg.user {
+    align-self: flex-end; background: var(--toptal-blue); color: white;
+    border-bottom-right-radius: 4px;
+  }
+  .chat-msg.assistant {
+    align-self: flex-start; background: var(--surface-raised);
+    border: 1px solid var(--border); color: var(--text-primary);
+    border-bottom-left-radius: 4px;
+  }
+  .chat-msg.system {
+    align-self: center; background: var(--amber-bg); color: var(--amber);
+    font-size: 12px; font-weight: 500; text-align: center;
+    border-radius: 100px; padding: 6px 16px;
+  }
+  .chat-action-card {
+    background: var(--surface); border: 1px solid var(--toptal-blue);
+    border-radius: var(--radius); padding: 14px 18px; margin-top: 8px;
+  }
+  .chat-action-card h4 {
+    font-size: 13px; font-weight: 600; color: var(--toptal-blue);
+    margin-bottom: 8px;
+  }
+  .chat-action-card p { font-size: 12px; color: var(--text-secondary); margin-bottom: 10px; }
+  .chat-action-btns { display: flex; gap: 8px; }
+  .chat-action-btns button {
+    padding: 6px 16px; border-radius: 100px; font-size: 12px;
+    font-family: inherit; font-weight: 600; cursor: pointer;
+    border: 1px solid var(--border); transition: all 0.2s;
+  }
+  .chat-action-btns .confirm-btn {
+    background: var(--toptal-blue); color: white; border-color: var(--toptal-blue);
+  }
+  .chat-action-btns .confirm-btn:hover { background: var(--toptal-blue-mid); }
+  .chat-action-btns .cancel-btn { background: var(--surface); color: var(--text-secondary); }
+  .chat-action-btns .cancel-btn:hover { background: var(--surface-hover); }
+  .chat-input-row {
+    padding: 16px 24px; border-top: 1px solid var(--border);
+    display: flex; gap: 8px;
+  }
+  .chat-input {
+    flex: 1; border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 10px 14px; font-family: inherit; font-size: 13px;
+    outline: none; transition: border-color 0.2s; color: var(--text-primary);
+  }
+  .chat-input:focus { border-color: var(--toptal-blue); }
+  .chat-send-btn {
+    background: var(--toptal-blue); border: none; color: white;
+    width: 40px; height: 40px; border-radius: var(--radius);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: background 0.2s; flex-shrink: 0;
+  }
+  .chat-send-btn:hover { background: var(--toptal-blue-mid); }
+  .chat-send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .typing-indicator { display: flex; gap: 4px; padding: 8px 0; }
+  .typing-indicator span {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--text-muted); animation: typingBounce 1.4s ease infinite;
+  }
+  .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+  .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes typingBounce {
+    0%, 60%, 100% { transform: translateY(0); }
+    30% { transform: translateY(-6px); }
+  }
+
+  /* ── Login Screen ── */
+  .login-screen {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; height: 100vh; gap: 24px;
+    background: var(--bg); position: fixed; inset: 0; z-index: 9999;
+  }
+  .login-screen.hidden { display: none; }
+  .login-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 48px 40px;
+    box-shadow: var(--shadow); max-width: 400px; width: 90%;
+    text-align: center;
+  }
+  .login-card h2 {
+    font-family: 'Fraunces', serif; font-weight: 500;
+    font-size: 24px; color: var(--toptal-dark); margin-bottom: 8px;
+  }
+  .login-card .login-sub { color: var(--text-secondary); font-size: 14px; margin-bottom: 24px; }
+  .login-input {
+    width: 100%; padding: 12px 16px; border: 1px solid var(--border);
+    border-radius: var(--radius); font-family: inherit; font-size: 14px;
+    outline: none; margin-bottom: 16px; box-sizing: border-box;
+  }
+  .login-input:focus { border-color: var(--toptal-blue); box-shadow: 0 0 0 3px rgba(32,78,207,0.1); }
+  .login-btn {
+    width: 100%; background: var(--toptal-blue); color: white;
+    border: none; padding: 12px; border-radius: 100px;
+    font-family: inherit; font-size: 14px; font-weight: 600;
+    cursor: pointer; transition: background 0.2s;
+  }
+  .login-btn:hover { background: #1a3ea8; }
+  .login-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+  .login-msg { font-size: 13px; margin-top: 12px; min-height: 20px; }
+  .login-msg.success { color: var(--green); }
+  .login-msg.error { color: var(--rose); }
+
+  /* ── User Menu ── */
+  .user-menu { position: relative; }
+  .user-menu-btn {
+    display: flex; align-items: center; gap: 8px; padding: 4px 12px 4px 4px;
+    border: 1px solid var(--border); border-radius: 100px; cursor: pointer;
+    background: var(--surface); font-family: inherit; font-size: 13px;
+    color: var(--text-secondary); transition: all 0.2s;
+  }
+  .user-menu-btn:hover { border-color: var(--toptal-blue); color: var(--text-primary); }
+  .user-dropdown {
+    display: none; position: absolute; right: 0; top: 100%; margin-top: 6px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); box-shadow: var(--shadow); min-width: 200px;
+    z-index: 100; overflow: hidden;
+  }
+  .user-dropdown.open { display: block; }
+  .user-dropdown-item {
+    display: block; width: 100%; padding: 10px 16px; border: none;
+    background: none; font-family: inherit; font-size: 13px;
+    color: var(--text-primary); cursor: pointer; text-align: left;
+  }
+  .user-dropdown-item:hover { background: var(--surface-hover); }
+  .user-dropdown-divider { height: 1px; background: var(--border); margin: 4px 0; }
+  .user-dropdown-info { padding: 12px 16px; border-bottom: 1px solid var(--border); }
+  .user-dropdown-info strong { display: block; font-size: 13px; color: var(--text-primary); }
+  .user-dropdown-info span { font-size: 12px; color: var(--text-secondary); }
+
+  /* ── Admin View ── */
+  .admin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 24px; }
+  .admin-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 24px;
+  }
+  .admin-card h3 { font-size: 16px; font-weight: 600; margin-bottom: 16px; color: var(--toptal-dark); }
+  .member-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 0; border-bottom: 1px solid var(--border);
+  }
+  .member-row:last-child { border-bottom: none; }
+  .member-info { display: flex; align-items: center; gap: 10px; }
+  .member-name { font-size: 13px; font-weight: 500; }
+  .member-email { font-size: 12px; color: var(--text-secondary); }
+  .role-badge {
+    font-size: 11px; padding: 3px 10px; border-radius: 100px;
+    font-weight: 600; text-transform: uppercase;
+  }
+  .role-badge.admin { background: rgba(32,78,207,0.1); color: var(--toptal-blue); }
+  .role-badge.member { background: var(--surface-hover); color: var(--text-secondary); }
+  .invite-form { display: flex; gap: 8px; margin-top: 8px; }
+  .invite-form input {
+    flex: 1; padding: 10px 14px; border: 1px solid var(--border);
+    border-radius: var(--radius); font-family: inherit; font-size: 13px;
+  }
+  .invite-form button {
+    padding: 10px 20px; background: var(--toptal-blue); color: white;
+    border: none; border-radius: 100px; font-family: inherit;
+    font-size: 13px; font-weight: 600; cursor: pointer;
+  }
+  .invite-msg { font-size: 12px; margin-top: 8px; min-height: 18px; }
+
+  @media (max-width: 900px) {
+    .header, .main, .summary-strip { padding-left: 20px; padding-right: 20px; }
+    .summary-strip { flex-wrap: wrap; gap: 10px; }
+    .summary-card { min-width: calc(50% - 5px); }
+    .project-header { padding-left: 36px; }
+    .talent-table td:first-child, .talent-table thead th:first-child { padding-left: 44px; }
+    .bu-meta { display: none; }
+    .header-right { gap: 6px; }
+    .filter-btn { font-size: 11px; padding: 6px 10px; }
+    .poc-badge { display: none; }
+    .chat-drawer { width: 100%; }
+    .admin-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="login-screen" id="loginScreen">
+  <div class="login-card">
+    <div style="margin-bottom: 20px; color: var(--toptal-blue);">
+      <svg width="40" height="40" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="#204ECF"><path d="M20.227 10.038L10.188 0l-2.04 2.04 3.773 3.769-8.155 8.153L13.807 24l2.039-2.039-3.772-3.771 8.16-8.152h-.007zM8.301 14.269l6.066-6.063 1.223 1.223-6.064 6.113-1.223-1.26-.002-.013z"/></svg>
+    </div>
+    <h2>Talent Pipeline</h2>
+    <p class="login-sub">Sign in with your email to continue</p>
+    <input class="login-input" id="loginEmail" type="email" placeholder="you@company.com" />
+    <button class="login-btn" id="loginBtn">Send Magic Link</button>
+    <div class="login-msg" id="loginMsg"></div>
+  </div>
+</div>
+
+<div class="app" id="app" style="display:none;"></div>
+<div class="chat-overlay" id="chatOverlay"></div>
+<div class="chat-drawer" id="chatDrawer">
+  <div class="chat-drawer-header">
+    <h3>Pipeline Assistant</h3>
+    <button class="chat-close-btn" id="chatCloseBtn">&times;</button>
+  </div>
+  <div class="chat-messages" id="chatMessages"></div>
+  <div class="chat-input-row">
+    <input class="chat-input" id="chatInput" type="text" placeholder="Ask about the pipeline..." />
+    <button class="chat-send-btn" id="chatSendBtn">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+    </button>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════
+//  CONFIGURATION
+// ═══════════════════════════════════════════════════
+const SUPABASE_URL = 'https://jbbjofdkbkymiqmlylcy.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpiYmpvZmRrYmt5bWlxbWx5bGN5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyODk4NDgsImV4cCI6MjA4ODg2NTg0OH0.Oi2_WxqI4Xx7LmMJrqZe_DoG_HCS3kfCdVsnPifKb7A';
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// ── Auth State ──
+var currentUser = null;
+var currentProfile = null;
+
+async function getSession() {
+  var { data } = await sb.auth.getSession();
+  return data.session;
+}
+
+async function getAccessToken() {
+  var session = await getSession();
+  return session ? session.access_token : null;
+}
+
+async function loadProfile(userId) {
+  var { data } = await sb.from('profiles').select('*').eq('id', userId).single();
+  currentProfile = data;
+  return data;
+}
+
+function showLogin() {
+  document.getElementById('loginScreen').classList.remove('hidden');
+  document.getElementById('app').style.display = 'none';
+}
+
+function hideLogin() {
+  document.getElementById('loginScreen').classList.add('hidden');
+  document.getElementById('app').style.display = '';
+}
+
+function getInitials(name) {
+  if (!name) return '?';
+  return name.split(' ').map(function(w) { return w[0]; }).join('').toUpperCase().substring(0, 2);
+}
+
+// Auth state change listener
+sb.auth.onAuthStateChange(async function(event, session) {
+  if (session && session.user) {
+    currentUser = session.user;
+    await loadProfile(session.user.id);
+    hideLogin();
+    fetchAllData();
+    setupRealtime();
+  } else {
+    currentUser = null;
+    currentProfile = null;
+    showLogin();
+  }
+});
+
+// Login button handler
+document.getElementById('loginBtn').addEventListener('click', async function() {
+  var email = document.getElementById('loginEmail').value.trim();
+  var msgEl = document.getElementById('loginMsg');
+  var btn = document.getElementById('loginBtn');
+
+  if (!email) { msgEl.textContent = 'Please enter your email'; return; }
+
+  btn.disabled = true;
+  btn.textContent = 'Sending...';
+  msgEl.textContent = '';
+
+  var { error } = await sb.auth.signInWithOtp({ email: email });
+
+  if (error) {
+    msgEl.textContent = error.message;
+    btn.disabled = false;
+    btn.textContent = 'Send Magic Link';
+  } else {
+    msgEl.style.color = 'var(--green)';
+    msgEl.textContent = 'Check your email for the magic link!';
+    btn.textContent = 'Link Sent';
+  }
+});
+
+const TARGET_STATUSES = new Set([
+  'introduced', 'interview_scheduled',
+  'pending_decision', 'pending_2nd_interview'
+]);
+const HIRED_STATUS = 'hired';
+
+// Normalize DB status strings (e.g. "TALENT INTRODUCED") to internal keys (e.g. "introduced")
+function normalizeStatus(s) {
+  if (!s) return '';
+  var map = {
+    'TALENT INTRODUCED': 'introduced',
+    'INTERVIEW SCHEDULED': 'interview_scheduled',
+    'PENDING DECISION': 'pending_decision',
+    'PENDING 2ND INTERVIEW': 'pending_2nd_interview',
+    'HIRED-PENDING SOW': 'hired',
+    'ACTIVE': 'active',
+    'REJECTED': 'rejected',
+    'ENGAGEMENT COMPLETED': 'engagement_completed',
+    'ON-HOLD': 'on_hold',
+    'CANCELLED': 'cancelled',
+    'CONSIDER FOR OTHER ROLE': 'consider_other',
+    'REMOVED DUE TO LOCATION': 'removed_location',
+    'TALENT NO LONGER AVAILABLE': 'unavailable',
+    'TALENT WITHDRAWN': 'withdrawn',
+  };
+  return map[s.toUpperCase()] || s.toLowerCase().replace(/\s+/g, '_');
+}
+
+const BU_COLORS = {
+  'Mail': '#204ECF', 'Home Eco': '#0D9E6E', 'Sports': '#D97B00',
+  'Paranoids': '#D6336C', 'Search': '#6941C6', 'Ads': '#C4320A', 'Platform': '#0D9E6E',
+};
+const DEFAULT_BU_COLOR = '#5A6378';
+
+const STATUS_MAP = {
+  'introduced': { cls: 'status-introduced', color: '#204ECF', label: 'Talent Introduced' },
+  'interview_scheduled': { cls: 'status-interview', color: '#6941C6', label: 'Interview Scheduled' },
+  'pending_decision': { cls: 'status-pending-decision', color: '#D97B00', label: 'Pending Decision' },
+  'pending_2nd_interview': { cls: 'status-2nd-interview', color: '#D6336C', label: 'Pending 2nd Interview' },
+};
+
+const BU_ICONS = {
+  'Mail': '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M2 5l10 7 10-7"/><line x1="6" y1="19" x2="6" y2="21"/><line x1="18" y1="19" x2="18" y2="21"/><line x1="4" y1="21" x2="20" y2="21"/></svg>',
+  'Home Eco': '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>',
+  'Sports': '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>',
+  'Paranoids': '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/><circle cx="12" cy="16.5" r="1.5"/><line x1="12" y1="18" x2="12" y2="20"/></svg>',
+};
+const DEFAULT_BU_ICON = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="4"/><line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="12" y2="16"/></svg>';
+const TOPTAL_LOGO = '<svg width="26" height="26" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="#204ECF"><path d="M20.227 10.038L10.188 0l-2.04 2.04 3.773 3.769-8.155 8.153L13.807 24l2.039-2.039-3.772-3.771 8.16-8.152h-.007zM8.301 14.269l6.066-6.063 1.223 1.223-6.064 6.113-1.223-1.26-.002-.013z"/></svg>';
+
+// ═══════════════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════════════
+function escHTML(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+function initials(n) { return (n||'').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2); }
+function hashColor(name) {
+  let h = 0;
+  for (let i = 0; i < (name||'').length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
+  return 'hsl(' + (Math.abs(h) % 360) + ', 50%, 44%)';
+}
+function avatarHTML(name, profileLink, size) {
+  size = size || 32;
+  const bg = hashColor(name);
+  const ini = escHTML(initials(name));
+  const profAttr = profileLink ? ' data-profile="' + escHTML(profileLink) + '"' : '';
+  return '<div class="avatar" style="width:'+size+'px;height:'+size+'px;background:'+bg+';font-size:'+Math.round(size*0.34)+'px"'+profAttr+'>'+ini+'</div>';
+}
+function bindAvatarClicks() {
+  document.querySelectorAll('.avatar[data-profile], .win-avatar[data-profile]').forEach(function(el) {
+    el.style.cursor = 'pointer';
+    el.title = 'View Toptal Profile';
+    el.addEventListener('click', function(e) { e.stopPropagation(); window.open(el.dataset.profile, '_blank'); });
+  });
+}
+function fmtDate(d) {
+  if (!d) return '\u2014';
+  const dt = new Date(d);
+  if (isNaN(dt)) return d;
+  return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+function daysSince(d) {
+  if (!d) return 999;
+  const dt = new Date(d);
+  if (isNaN(dt)) return 999;
+  return Math.floor((Date.now() - dt.getTime()) / 86400000);
+}
+function stalenessHTML(days) {
+  if (days >= 14) return '<span class="stale-badge stale-danger">' + days + 'd</span>';
+  if (days >= 7) return '<span class="stale-badge stale-warn">' + days + 'd</span>';
+  return '';
+}
+
+// ═══════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════
+let PIPELINE_DATA = [];
+let FULFILLMENT_DATA = [];
+let HIRED_DATA = [];
+let lastRefresh = null;
+let activeFilters = new Set();
+let searchQuery = '';
+let openBUs = new Set();
+let openProjects = new Set();
+let allExpanded = false;
+let winsOpen = true;
+let currentView = 'pipeline'; // pipeline | fulfillment
+let chatOpen = false;
+let chatMessages = [];
+
+// ═══════════════════════════════════════════════════
+//  SUPABASE DATA LAYER
+// ═══════════════════════════════════════════════════
+async function loadPipelineData() {
+  const { data, error } = await sb
+    .from('job_candidates')
+    .select('*, jobs(*), candidates(*)')
+    .order('created_at', { ascending: false });
+  if (error) throw new Error('Pipeline fetch failed: ' + error.message);
+  return data || [];
+}
+
+async function loadFulfillmentData() {
+  const { data: jobs, error: jobsErr } = await sb.from('jobs').select('*');
+  if (jobsErr) throw new Error('Jobs fetch failed: ' + jobsErr.message);
+  const { data: jcData, error: jcErr } = await sb.from('job_candidates').select('*');
+  if (jcErr) throw new Error('JC fetch failed: ' + jcErr.message);
+  // Aggregate client-side
+  var jobMap = {};
+  (jobs || []).forEach(function(j) {
+    jobMap[j.id] = {
+      id: j.id, bu: j.bu, project_name: j.project_name, role_title: j.role_title,
+      openings: j.openings || 1, toptal_job_link: j.toptal_job_link,
+      salesforce_link: j.salesforce_link, slack_channel: j.slack_channel,
+      total_candidates: 0, active_candidates: 0, hired_count: 0, rejected_count: 0,
+      needs_attention: 0, latest_contact: null
+    };
+  });
+  var activeSt = new Set(['introduced','interview_scheduled','pending_decision','pending_2nd_interview']);
+  (jcData || []).forEach(function(jc) {
+    var j = jobMap[jc.job_id];
+    if (!j) return;
+    var ns = normalizeStatus(jc.status);
+    j.total_candidates++;
+    if (activeSt.has(ns)) j.active_candidates++;
+    if (ns === 'hired') j.hired_count++;
+    if (ns === 'rejected' || ns === 'client_rejected') j.rejected_count++;
+    // Needs attention: active but no update in 7+ days
+    if (activeSt.has(ns)) {
+      var d = daysSince(jc.updated_at || jc.created_at);
+      if (d >= 7) j.needs_attention++;
+    }
+    // Latest contact
+    var contactDate = jc.last_client_contact || jc.updated_at;
+    if (contactDate) {
+      if (!j.latest_contact || new Date(contactDate) > new Date(j.latest_contact)) {
+        j.latest_contact = contactDate;
+      }
+    }
+  });
+  return Object.values(jobMap).map(function(j) {
+    j.days_since_contact = j.latest_contact ? daysSince(j.latest_contact) : null;
+    return j;
+  });
+}
+
+function transformPipeline(rows) {
+  // Normalize all statuses from DB format to internal keys
+  rows.forEach(function(r) { r._status = normalizeStatus(r.status); });
+  const active = rows.filter(function(r) { return TARGET_STATUSES.has(r._status); });
+  const hired = rows.filter(function(r) { return r._status === HIRED_STATUS; });
+  const buMap = {};
+  active.forEach(function(r) {
+    var job = r.jobs || {};
+    var cand = r.candidates || {};
+    var bu = job.bu || 'Unknown';
+    var proj = job.project_name || 'Unknown';
+    var poc = job.poc_names || '';
+    if (!buMap[bu]) buMap[bu] = {};
+    if (!buMap[bu][proj]) buMap[bu][proj] = { poc: poc, talent: [] };
+    if (poc && !buMap[bu][proj].poc) buMap[bu][proj].poc = poc;
+    buMap[bu][proj].talent.push({
+      name: cand.name || '',
+      role: job.role_title || '',
+      status: r._status,
+      date: r.date_introduced,
+      location: cand.location || '',
+      profileLink: cand.profile_link || '',
+      interviewDate: r.date_interview || '',
+      updatedAt: r.updated_at || r.date_introduced,
+    });
+  });
+  // Transform hired rows too
+  var hiredList = hired.map(function(r) {
+    var job = r.jobs || {};
+    var cand = r.candidates || {};
+    return {
+      candidate_name: cand.name || '',
+      role_title: job.role_title || '',
+      bu: job.bu || '',
+      project_name: job.project_name || '',
+      candidate_location: cand.location || '',
+      date_hired: r.date_hired,
+      profile_link: cand.profile_link || '',
+    };
+  });
+  var result = Object.entries(buMap).map(function(entry) {
+    var buName = entry[0], projects = entry[1];
+    return {
+      businessUnit: buName,
+      color: BU_COLORS[buName] || DEFAULT_BU_COLOR,
+      projects: Object.entries(projects).map(function(pe) {
+        return { name: pe[0], poc: pe[1].poc, talent: pe[1].talent };
+      }).sort(function(a,b){ return b.talent.length - a.talent.length; })
+    };
+  }).sort(function(a,b) {
+    var ac = a.projects.reduce(function(s,p){return s+p.talent.length;},0);
+    var bc = b.projects.reduce(function(s,p){return s+p.talent.length;},0);
+    return bc - ac;
+  });
+  return { pipeline: result, hired: hiredList };
+}
+
+async function fetchAllData() {
+  var app = document.getElementById('app');
+  app.innerHTML = '<div class="loading-screen"><div class="spinner"></div><p>Connecting to Supabase\u2026</p></div>';
+  try {
+    var results = await Promise.all([loadPipelineData(), loadFulfillmentData()]);
+    var pipelineRows = results[0];
+    var fulfillmentRows = results[1];
+    var transformed = transformPipeline(pipelineRows);
+    PIPELINE_DATA = transformed.pipeline;
+    HIRED_DATA = transformed.hired;
+    FULFILLMENT_DATA = fulfillmentRows;
+    lastRefresh = new Date();
+    render();
+  } catch(err) {
+    app.innerHTML = '<div class="error-screen"><div class="err-icon">\u26A0\uFE0F</div><h2>Unable to load data</h2><p>' + escHTML(err.message) + '</p><button class="retry-btn" onclick="fetchAllData()">Try Again</button></div>';
+  }
+}
+
+async function refreshData() {
+  try {
+    var results = await Promise.all([loadPipelineData(), loadFulfillmentData()]);
+    var transformed = transformPipeline(results[0]);
+    PIPELINE_DATA = transformed.pipeline;
+    HIRED_DATA = transformed.hired;
+    FULFILLMENT_DATA = results[1];
+    lastRefresh = new Date();
+    render();
+  } catch(e) { console.error('Refresh failed:', e); }
+}
+
+// Realtime subscription
+var realtimeDebounce = null;
+function setupRealtime() {
+  sb.channel('pipeline-changes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'job_candidates' }, function() {
+      clearTimeout(realtimeDebounce);
+      realtimeDebounce = setTimeout(refreshData, 2000);
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'jobs' }, function() {
+      clearTimeout(realtimeDebounce);
+      realtimeDebounce = setTimeout(refreshData, 2000);
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'candidates' }, function() {
+      clearTimeout(realtimeDebounce);
+      realtimeDebounce = setTimeout(refreshData, 2000);
+    })
+    .subscribe();
+}
+
+// ═══════════════════════════════════════════════════
+//  RENDER
+// ═══════════════════════════════════════════════════
+function getAllTalent() {
+  var all = [];
+  PIPELINE_DATA.forEach(function(bu) { bu.projects.forEach(function(p) { p.talent.forEach(function(t) { all.push(t); }); }); });
+  return all;
+}
+
+function render() {
+  var allTalent = getAllTalent();
+  var statusCounts = {};
+  Object.keys(STATUS_MAP).forEach(function(s) { statusCounts[s] = 0; });
+  allTalent.forEach(function(t) { if (statusCounts[t.status] !== undefined) statusCounts[t.status]++; });
+
+  var refreshTime = lastRefresh ? lastRefresh.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : '';
+  var totalProjects = PIPELINE_DATA.reduce(function(s, bu) { return s + bu.projects.length; }, 0);
+
+  var headerHTML = '<div class="header"><div class="header-top"><div class="header-left">' +
+    '<h1><span class="logo-icon">' + TOPTAL_LOGO + '</span> Talent Pipeline - Yahoo! v2</h1>' +
+    '<p>' + allTalent.length + ' candidates across ' + PIPELINE_DATA.length + ' business units &middot; ' + totalProjects + ' active projects</p>' +
+    '<div class="last-refresh"><span class="live-dot"></span>Live from Supabase &middot; Last refreshed ' + refreshTime + '</div>' +
+    '</div><div class="header-right">';
+
+  Object.entries(STATUS_MAP).forEach(function(entry) {
+    var key = entry[0], cfg = entry[1];
+    headerHTML += '<button class="filter-btn ' + (activeFilters.has(key) ? 'active' : '') + '" data-status="' + key + '">' +
+      '<span class="dot" style="background:' + cfg.color + '"></span>' + cfg.label + '</button>';
+  });
+
+  headerHTML += '<button class="refresh-btn" id="refreshBtn" title="Refresh data"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg></button>';
+
+  // User menu
+  var displayName = (currentProfile && currentProfile.full_name) || (currentUser && currentUser.email) || '';
+  var initials = getInitials(displayName);
+  headerHTML += '<div class="user-menu">' +
+    '<button class="user-menu-btn" id="userMenuBtn" title="' + escHTML(displayName) + '">' +
+    '<span style="background:var(--toptal-blue);color:white;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;">' + initials + '</span>' +
+    '<span style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escHTML(displayName.split('@')[0]) + '</span>' +
+    '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>' +
+    '</button>' +
+    '<div class="user-dropdown" id="userDropdown">' +
+    '<div style="padding:12px 16px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text-muted);">' + escHTML(currentUser ? currentUser.email : '') + '</div>' +
+    '<button class="user-dropdown-item" id="signOutBtn">Sign Out</button>' +
+    '</div></div>';
+
+  headerHTML += '</div></div>' +
+    '<div class="view-tabs">' +
+    '<button class="view-tab ' + (currentView==='pipeline'?'active':'') + '" data-view="pipeline">Pipeline</button>' +
+    '<button class="view-tab ' + (currentView==='fulfillment'?'active':'') + '" data-view="fulfillment">Fulfillment</button>';
+
+  // Admin tab (visible only for admins)
+  if (currentProfile && currentProfile.role === 'admin') {
+    headerHTML += '<button class="view-tab ' + (currentView==='admin'?'active':'') + '" data-view="admin">Admin</button>';
+  }
+
+  headerHTML += '</div></div>';
+
+  var summaryHTML = '<div class="summary-strip">';
+  var bgMap = { 'introduced': '#EBF0FF', 'interview_scheduled': '#F0EBFF', 'pending_decision': '#FFF5E0', 'pending_2nd_interview': '#FDE8EF' };
+  var iconMap = { 'introduced': '\uD83D\uDC64', 'interview_scheduled': '\uD83D\uDCC5', 'pending_decision': '\u23F3', 'pending_2nd_interview': '\uD83D\uDD04' };
+  Object.entries(STATUS_MAP).forEach(function(entry) {
+    var key = entry[0], cfg = entry[1];
+    summaryHTML += '<div class="summary-card"><div class="summary-icon" style="background:' + bgMap[key] + '; color:' + cfg.color + '">' + iconMap[key] + '</div>' +
+      '<div class="summary-info"><div class="label">' + cfg.label + '</div><div class="value" style="color:' + cfg.color + '">' + statusCounts[key] + '</div></div></div>';
+  });
+  summaryHTML += '<div class="summary-card"><div class="summary-icon" style="background:#F0F2F5; color:var(--toptal-dark)">\uD83D\uDCCA</div>' +
+    '<div class="summary-info"><div class="label">Total Active</div><div class="value" style="color:var(--toptal-dark)">' + allTalent.length + '</div></div></div></div>';
+
+  var bodyHTML = '';
+  if (currentView === 'pipeline') {
+    bodyHTML = renderPipelineView();
+  } else if (currentView === 'admin') {
+    bodyHTML = renderAdminView();
+  } else {
+    bodyHTML = renderFulfillmentView();
+  }
+
+  document.getElementById('app').innerHTML = headerHTML + summaryHTML + '<div class="main">' + bodyHTML + '</div>' +
+    '<button class="chat-fab" id="chatFab" title="Open AI Assistant (Ctrl+/)">\uD83E\uDD16</button>';
+
+  bindEvents();
+}
+
+function renderPipelineView() {
+  var filtered = PIPELINE_DATA.map(function(bu) {
+    return {
+      businessUnit: bu.businessUnit, color: bu.color,
+      projects: bu.projects.map(function(p) {
+        return {
+          name: p.name, poc: p.poc,
+          talent: p.talent.filter(function(t) {
+            var matchStatus = activeFilters.size === 0 || activeFilters.has(t.status);
+            var q = searchQuery;
+            var matchSearch = q === '' ||
+              t.name.toLowerCase().includes(q) ||
+              t.role.toLowerCase().includes(q) ||
+              (t.location||'').toLowerCase().includes(q) ||
+              p.name.toLowerCase().includes(q) ||
+              bu.businessUnit.toLowerCase().includes(q);
+            return matchStatus && matchSearch;
+          })
+        };
+      }).filter(function(p) { return p.talent.length > 0; })
+    };
+  }).filter(function(bu) { return bu.projects.length > 0; });
+
+  var html = '<div class="search-bar"><input class="search-input" type="text" placeholder="Search talent, roles, projects, or locations\u2026" id="searchInput" value="' + escHTML(searchQuery) + '" />' +
+    '<button class="expand-all-btn" id="expandAllBtn">' + (allExpanded ? 'Collapse All' : 'Expand All') + '</button></div>';
+
+  // Wins section
+  if (HIRED_DATA.length > 0) {
+    var confettis = ['\uD83C\uDF89', '\uD83C\uDF8A', '\u2B50', '\uD83D\uDE80', '\uD83D\uDD25', '\uD83C\uDF1F'];
+    html += '<div class="wins-section ' + (winsOpen ? 'open' : '') + '">' +
+      '<div class="wins-header" id="winsToggle"><svg class="wins-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>' +
+      '<span class="trophy">\uD83C\uDFC6</span><h2>Recent Wins</h2><span class="wins-count">' + HIRED_DATA.length + ' Hired</span></div>' +
+      '<div class="wins-body"><div class="wins-subtitle">These candidates have been hired \u2014 congratulations to the team!</div><div class="wins-grid">';
+    HIRED_DATA.forEach(function(h, i) {
+      html += '<div class="win-card"><span class="confetti-emoji">' + confettis[i % confettis.length] + '</span>' +
+        '<div class="win-card-top"><div class="win-avatar" style="background:' + hashColor(h.candidate_name) + '"' + (h.profile_link ? ' data-profile="' + escHTML(h.profile_link) + '"' : '') + '>' + escHTML(initials(h.candidate_name)) + '</div>' +
+        '<div><div class="win-name">' + escHTML(h.candidate_name) + '</div><div class="win-role">' + escHTML(h.role_title) + '</div></div></div>' +
+        '<div class="win-details"><span class="win-tag bu-tag">' + escHTML(h.bu) + '</span><span class="win-tag project-tag">' + escHTML(h.project_name) + '</span>' +
+        (h.date_hired ? '<span class="win-tag date-tag">\u2714 Hired ' + fmtDate(h.date_hired) + '</span>' : '<span class="win-tag date-tag">\u2714 Hired</span>') +
+        (h.candidate_location ? '<span class="win-tag location-tag">\uD83D\uDCCD ' + escHTML(h.candidate_location) + '</span>' : '') +
+        '</div></div>';
+    });
+    html += '</div></div></div>';
+  }
+
+  // BU accordion
+  if (filtered.length === 0) {
+    html += '<div class="no-results">No talent found matching your filters.</div>';
+  } else {
+    filtered.forEach(function(bu) {
+      var buKey = bu.businessUnit;
+      var buTalentCount = bu.projects.reduce(function(s,p){return s+p.talent.length;},0);
+      var buOpen = openBUs.has(buKey);
+      html += '<div class="bu-section ' + (buOpen?'open':'') + '">' +
+        '<div class="bu-header" data-toggle-bu="' + escHTML(buKey) + '">' +
+        '<svg class="bu-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>' +
+        '<div class="bu-color-bar" style="background:'+bu.color+'"></div>' +
+        '<div class="bu-icon" style="background:'+bu.color+'11; color:'+bu.color+'">'+(BU_ICONS[bu.businessUnit]||DEFAULT_BU_ICON)+'</div>' +
+        '<div class="bu-title">'+escHTML(bu.businessUnit)+'</div>' +
+        '<div class="bu-meta"><div class="bu-stat"><strong>'+bu.projects.length+'</strong> project'+(bu.projects.length>1?'s':'')+'</div>' +
+        '<div class="bu-stat"><strong>'+buTalentCount+'</strong> candidate'+(buTalentCount>1?'s':'')+'</div></div></div>' +
+        '<div class="bu-body">';
+
+      bu.projects.forEach(function(proj) {
+        var projKey = buKey + '::' + proj.name;
+        var projOpen = openProjects.has(projKey);
+        var projStatuses = {};
+        proj.talent.forEach(function(t) { projStatuses[t.status] = (projStatuses[t.status]||0)+1; });
+
+        html += '<div class="project-section '+(projOpen?'open':'')+'">' +
+          '<div class="project-header" data-toggle-project="'+escHTML(projKey)+'">' +
+          '<svg class="project-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>' +
+          '<div class="project-name">'+escHTML(proj.name)+'</div>';
+        if (proj.poc) html += '<div class="poc-badge">Y! POC(s): <span>'+escHTML(proj.poc)+'</span></div>';
+        html += '<div class="project-statuses">';
+        Object.entries(projStatuses).forEach(function(se) {
+          var st = se[0], count = se[1];
+          var c = (STATUS_MAP[st]||{}).color||'#888';
+          for (var i=0;i<count;i++) html += '<span class="mini-pip" style="background:'+c+'" title="'+((STATUS_MAP[st]||{}).label||st)+'"></span>';
+        });
+        html += '</div><div class="project-count">'+proj.talent.length+' talent</div></div>';
+        html += '<div class="project-body"><table class="talent-table"><thead><tr><th>Candidate</th><th>Status</th><th>Introduced</th></tr></thead><tbody>';
+        proj.talent.forEach(function(t) {
+          var cfg = STATUS_MAP[t.status]||{};
+          var days = daysSince(t.updatedAt || t.date);
+          html += '<tr><td><div class="talent-name-cell">' + avatarHTML(t.name, t.profileLink, 32) +
+            '<div><div class="talent-label">'+escHTML(t.name)+'</div><div class="talent-role">'+escHTML(t.role)+'</div>' +
+            '<div class="talent-location">'+escHTML(t.location)+'</div></div></div></td>' +
+            '<td><span class="status-badge '+(cfg.cls||'')+'"><span class="pip"></span>'+escHTML(cfg.label||t.status)+'</span>'+stalenessHTML(days)+'</td>' +
+            '<td class="date-cell">'+fmtDate(t.date)+'</td></tr>';
+        });
+        html += '</tbody></table></div></div>';
+      });
+      html += '</div></div>';
+    });
+  }
+  return html;
+}
+
+function renderFulfillmentView() {
+  var html = '';
+  if (!FULFILLMENT_DATA || FULFILLMENT_DATA.length === 0) {
+    return '<div class="no-results">No fulfillment data available.</div>';
+  }
+  html += '<div class="fulfillment-grid">';
+  FULFILLMENT_DATA.forEach(function(job) {
+    var buColor = BU_COLORS[job.bu] || DEFAULT_BU_COLOR;
+    var total = (job.total_candidates || 0);
+    var active = (job.active_candidates || 0);
+    var hiredCount = (job.hired_count || 0);
+    var rejected = (job.rejected_count || 0);
+    var openings = (job.openings || 1);
+    var fillPct = openings > 0 ? Math.min(100, Math.round((hiredCount / openings) * 100)) : 0;
+    var barColor = fillPct >= 100 ? 'var(--green)' : fillPct >= 50 ? 'var(--amber)' : 'var(--toptal-blue)';
+    var needsAttention = (job.needs_attention || 0) > 0;
+    var daysSinceContact = job.days_since_contact ? Math.round(job.days_since_contact) : null;
+
+    html += '<div class="fulfillment-card">' +
+      '<div class="fulfillment-card-header">' +
+      '<div class="fulfillment-card-title">' + escHTML(job.project_name || '') + ' &mdash; ' + escHTML(job.role_title || '') +
+      '<span class="fulfillment-card-bu" style="background:'+buColor+'15;color:'+buColor+'">'+escHTML(job.bu||'')+'</span></div>';
+    if (needsAttention) {
+      html += '<span class="needs-attention-badge">\u26A0 Needs Attention</span>';
+    }
+    html += '</div><div class="fulfillment-metrics">' +
+      '<div class="fulfillment-metric"><div class="metric-value" style="color:var(--toptal-dark)">'+openings+'</div><div class="metric-label">Openings</div></div>' +
+      '<div class="fulfillment-metric"><div class="metric-value" style="color:var(--toptal-blue)">'+total+'</div><div class="metric-label">Total</div></div>' +
+      '<div class="fulfillment-metric"><div class="metric-value" style="color:var(--violet)">'+active+'</div><div class="metric-label">Active</div></div>' +
+      '<div class="fulfillment-metric"><div class="metric-value" style="color:var(--green)">'+hiredCount+'</div><div class="metric-label">Hired</div></div>' +
+      '<div class="fulfillment-metric"><div class="metric-value" style="color:var(--rose)">'+rejected+'</div><div class="metric-label">Rejected</div></div>';
+    if (daysSinceContact !== null) {
+      var contactColor = daysSinceContact >= 7 ? 'var(--rose)' : daysSinceContact >= 3 ? 'var(--amber)' : 'var(--green)';
+      html += '<div class="fulfillment-metric"><div class="metric-value" style="color:'+contactColor+'">'+daysSinceContact+'d</div><div class="metric-label">Since Contact</div></div>';
+    }
+    html += '</div><div class="fulfillment-bar"><div class="fulfillment-bar-fill" style="width:'+fillPct+'%;background:'+barColor+'"></div></div>';
+
+    // Links
+    html += '<div class="fulfillment-links">';
+    if (job.toptal_job_link) html += '<a class="fulfillment-link" href="'+escHTML(job.toptal_job_link)+'" target="_blank">Toptal Job</a>';
+    if (job.salesforce_link) html += '<a class="fulfillment-link" href="'+escHTML(job.salesforce_link)+'" target="_blank">Salesforce</a>';
+    if (job.slack_channel) html += '<a class="fulfillment-link" href="'+escHTML(job.slack_channel)+'" target="_blank">Slack</a>';
+    html += '</div></div>';
+  });
+  html += '</div>';
+  return html;
+}
+
+// ═══════════════════════════════════════════════════
+//  EVENTS
+// ═══════════════════════════════════════════════════
+function bindEvents() {
+  // Filter buttons
+  document.querySelectorAll('.filter-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var s = btn.dataset.status;
+      if (activeFilters.has(s)) activeFilters.delete(s); else activeFilters.add(s);
+      render();
+    });
+  });
+
+  // Search
+  var searchEl = document.getElementById('searchInput');
+  if (searchEl) {
+    searchEl.addEventListener('input', function(e) {
+      searchQuery = e.target.value.toLowerCase();
+      var pos = e.target.selectionStart;
+      render();
+      var inp = document.getElementById('searchInput');
+      if (inp) { inp.focus(); inp.setSelectionRange(pos, pos); }
+    });
+  }
+
+  // BU toggles
+  document.querySelectorAll('[data-toggle-bu]').forEach(function(el) {
+    el.addEventListener('click', function() {
+      var key = el.dataset.toggleBu;
+      if (openBUs.has(key)) openBUs.delete(key); else openBUs.add(key);
+      render();
+    });
+  });
+
+  // Project toggles
+  document.querySelectorAll('[data-toggle-project]').forEach(function(el) {
+    el.addEventListener('click', function() {
+      var key = el.dataset.toggleProject;
+      if (openProjects.has(key)) openProjects.delete(key); else openProjects.add(key);
+      render();
+    });
+  });
+
+  // Expand all
+  var expandBtn = document.getElementById('expandAllBtn');
+  if (expandBtn) {
+    expandBtn.addEventListener('click', function() {
+      if (allExpanded) {
+        openBUs.clear(); openProjects.clear(); allExpanded = false;
+      } else {
+        PIPELINE_DATA.forEach(function(bu) {
+          openBUs.add(bu.businessUnit);
+          bu.projects.forEach(function(p) { openProjects.add(bu.businessUnit + '::' + p.name); });
+        });
+        allExpanded = true;
+      }
+      render();
+    });
+  }
+
+  // Refresh
+  var refreshBtn = document.getElementById('refreshBtn');
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', function() {
+      refreshBtn.classList.add('spinning');
+      refreshData().then(function() { setTimeout(function() { var b = document.getElementById('refreshBtn'); if(b) b.classList.remove('spinning'); }, 600); });
+    });
+  }
+
+  // Wins toggle
+  var winsToggle = document.getElementById('winsToggle');
+  if (winsToggle) {
+    winsToggle.addEventListener('click', function() { winsOpen = !winsOpen; render(); });
+  }
+
+  // View tabs
+  document.querySelectorAll('.view-tab').forEach(function(tab) {
+    tab.addEventListener('click', async function() {
+      currentView = tab.dataset.view;
+      if (currentView === 'admin' && adminMembers.length === 0) {
+        await loadAdminData();
+      }
+      render();
+    });
+  });
+
+  // Chat FAB
+  var chatFab = document.getElementById('chatFab');
+  if (chatFab) {
+    chatFab.addEventListener('click', toggleChat);
+  }
+
+  // User menu dropdown toggle
+  var userMenuBtn = document.getElementById('userMenuBtn');
+  var userDropdown = document.getElementById('userDropdown');
+  if (userMenuBtn && userDropdown) {
+    userMenuBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      userDropdown.classList.toggle('open');
+    });
+    document.addEventListener('click', function() {
+      userDropdown.classList.remove('open');
+    });
+  }
+
+  // Sign out
+  var signOutBtn = document.getElementById('signOutBtn');
+  if (signOutBtn) {
+    signOutBtn.addEventListener('click', function() {
+      sb.auth.signOut();
+    });
+  }
+
+  // Admin: Invite
+  var inviteSendBtn = document.getElementById('inviteSendBtn');
+  if (inviteSendBtn) {
+    inviteSendBtn.addEventListener('click', async function() {
+      var email = document.getElementById('inviteEmail').value.trim();
+      var name = document.getElementById('inviteName').value.trim();
+      var msgEl = document.getElementById('inviteMsg');
+      if (!email) { msgEl.textContent = 'Email is required'; msgEl.style.color = 'var(--rose)'; return; }
+
+      inviteSendBtn.disabled = true;
+      inviteSendBtn.textContent = 'Sending...';
+      try {
+        var token = await getAccessToken();
+        var resp = await fetch('/api/invite', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          body: JSON.stringify({ email: email, full_name: name })
+        });
+        var result = await resp.json();
+        if (result.success) {
+          adminInviteMsg = '<span style="color:var(--green)">Invitation sent to ' + escHTML(email) + '</span>';
+          document.getElementById('inviteEmail').value = '';
+          document.getElementById('inviteName').value = '';
+        } else {
+          adminInviteMsg = '<span style="color:var(--rose)">' + escHTML(result.error || 'Failed') + '</span>';
+        }
+      } catch(e) {
+        adminInviteMsg = '<span style="color:var(--rose)">Network error</span>';
+      }
+      inviteSendBtn.disabled = false;
+      inviteSendBtn.textContent = 'Invite';
+      render();
+    });
+  }
+
+  // Admin: Role toggle
+  document.querySelectorAll('[data-toggle-role]').forEach(function(btn) {
+    btn.addEventListener('click', async function() {
+      var userId = btn.dataset.toggleRole;
+      var newRole = btn.dataset.newRole;
+      btn.disabled = true;
+      btn.textContent = 'Updating...';
+      try {
+        var token = await getAccessToken();
+        var resp = await fetch('/api/update-role', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          body: JSON.stringify({ user_id: userId, role: newRole })
+        });
+        var result = await resp.json();
+        if (result.success) {
+          await loadAdminData();
+          render();
+        } else {
+          alert(result.error || 'Failed to update role');
+          btn.disabled = false;
+          btn.textContent = 'Make ' + newRole;
+        }
+      } catch(e) {
+        alert('Network error');
+        btn.disabled = false;
+        btn.textContent = 'Make ' + newRole;
+      }
+    });
+  });
+
+  bindAvatarClicks();
+}
+
+// ═══════════════════════════════════════════════════
+//  ADMIN VIEW
+// ═══════════════════════════════════════════════════
+var adminMembers = [];
+var adminInviteMsg = '';
+
+async function loadAdminData() {
+  var { data } = await sb.from('profiles').select('*').order('created_at');
+  adminMembers = data || [];
+}
+
+function renderAdminView() {
+  var membersHTML = '';
+  adminMembers.forEach(function(m) {
+    var initials = getInitials(m.full_name || m.email);
+    var isMe = currentUser && m.id === currentUser.id;
+    membersHTML += '<div class="member-row">' +
+      '<div class="member-info">' +
+      '<span style="background:var(--toptal-blue);color:white;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;">' + initials + '</span>' +
+      '<div><div class="member-name">' + escHTML(m.full_name || 'No name') + (isMe ? ' (you)' : '') + '</div>' +
+      '<div class="member-email">' + escHTML(m.email) + '</div></div></div>' +
+      '<div style="display:flex;align-items:center;gap:8px;">' +
+      '<span class="role-badge ' + m.role + '">' + m.role + '</span>';
+
+    if (!isMe) {
+      var newRole = m.role === 'admin' ? 'member' : 'admin';
+      membersHTML += '<button class="filter-btn" data-toggle-role="' + m.id + '" data-new-role="' + newRole + '" style="font-size:11px;padding:4px 10px;">Make ' + newRole + '</button>';
+    }
+    membersHTML += '</div></div>';
+  });
+
+  return '<div class="admin-grid">' +
+    '<div class="admin-card"><h3>Team Members (' + adminMembers.length + ')</h3>' + membersHTML + '</div>' +
+    '<div class="admin-card"><h3>Invite New Member</h3>' +
+    '<p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px;">Send a magic link invitation to join the team.</p>' +
+    '<div class="invite-form">' +
+    '<input type="email" id="inviteEmail" placeholder="colleague@company.com" />' +
+    '<input type="text" id="inviteName" placeholder="Full Name (optional)" style="max-width:160px;" />' +
+    '<button id="inviteSendBtn">Invite</button></div>' +
+    '<div class="invite-msg" id="inviteMsg">' + adminInviteMsg + '</div></div></div>';
+}
+
+// ═══════════════════════════════════════════════════
+//  CHAT PANEL — Enriched Context + DB Write Tools
+// ═══════════════════════════════════════════════════
+
+// Valid DB statuses (uppercase as stored in Supabase)
+const VALID_DB_STATUSES = [
+  'TALENT INTRODUCED', 'INTERVIEW SCHEDULED', 'PENDING DECISION',
+  'PENDING 2ND INTERVIEW', 'HIRED-PENDING SOW', 'ACTIVE', 'REJECTED',
+  'ENGAGEMENT COMPLETED', 'ON-HOLD', 'CANCELLED', 'CONSIDER FOR OTHER ROLE',
+  'REMOVED DUE TO LOCATION', 'TALENT NO LONGER AVAILABLE', 'TALENT WITHDRAWN'
+];
+
+// Build rich context from live data for Claude
+function buildChatContext() {
+  var lines = [];
+  lines.push('=== TALENT PIPELINE DATABASE CONTEXT ===');
+  lines.push('Valid statuses: ' + VALID_DB_STATUSES.join(', '));
+  lines.push('');
+
+  // Jobs from fulfillment data
+  if (FULFILLMENT_DATA && FULFILLMENT_DATA.length > 0) {
+    lines.push('--- JOBS (' + FULFILLMENT_DATA.length + ' total) ---');
+    FULFILLMENT_DATA.forEach(function(j) {
+      lines.push('Job ID=' + j.id + ' | BU=' + j.bu + ' | Project=' + j.project_name +
+        ' | Role=' + j.role_title + ' | Openings=' + j.openings +
+        ' | Active=' + j.active_candidates + ' | Hired=' + j.hired_count +
+        ' | Rejected=' + j.rejected_count + ' | NeedsAttention=' + j.needs_attention);
+    });
+    lines.push('');
+  }
+
+  // Pipeline talent (active candidates)
+  lines.push('--- ACTIVE PIPELINE ---');
+  var totalActive = 0;
+  PIPELINE_DATA.forEach(function(bu) {
+    bu.projects.forEach(function(p) {
+      p.talent.forEach(function(t) {
+        totalActive++;
+        lines.push('BU=' + bu.name + ' | Project=' + p.name + ' | Candidate=' + t.name +
+          ' | Role=' + t.role + ' | Status=' + t.status + ' | Location=' + t.location +
+          ' | Introduced=' + (t.date || 'N/A') + ' | Interview=' + (t.interviewDate || 'N/A') +
+          ' | POC=' + p.poc);
+      });
+    });
+  });
+  lines.push('Total active candidates: ' + totalActive);
+  lines.push('');
+
+  // Hired
+  if (HIRED_DATA.length > 0) {
+    lines.push('--- HIRED (' + HIRED_DATA.length + ') ---');
+    HIRED_DATA.forEach(function(h) {
+      lines.push('Candidate=' + h.candidate_name + ' | Role=' + h.role_title +
+        ' | BU=' + h.bu + ' | Project=' + h.project_name +
+        ' | HiredDate=' + (h.date_hired || 'N/A'));
+    });
+    lines.push('');
+  }
+
+  // Summary
+  lines.push('--- SUMMARY ---');
+  lines.push('Business Units: ' + PIPELINE_DATA.map(function(b){return b.name;}).join(', '));
+  lines.push('Total active: ' + totalActive + ' | Total hired: ' + HIRED_DATA.length +
+    ' | Total jobs: ' + (FULFILLMENT_DATA ? FULFILLMENT_DATA.length : 0));
+
+  return lines.join('\n');
+}
+
+// Tool definitions for Claude
+const CHAT_TOOLS = [
+  {
+    name: 'insert_job',
+    description: 'Insert a new job/role into the jobs table. Returns the created job.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        bu: { type: 'string', description: 'Business unit (e.g. Mail, Sports, Home Eco, Paranoids, Search, Ads, Platform)' },
+        project_name: { type: 'string', description: 'Project name' },
+        role_title: { type: 'string', description: 'Role title being hired for' },
+        openings: { type: 'integer', description: 'Number of openings', default: 1 },
+        rate_max: { type: 'number', description: 'Maximum hourly rate in USD' },
+        duration: { type: 'string', description: 'Expected engagement duration (e.g. "6 months")' },
+        poc_names: { type: 'string', description: 'Point of contact names' },
+        poc_emails: { type: 'string', description: 'Point of contact emails' },
+        notes: { type: 'string', description: 'Additional notes' }
+      },
+      required: ['bu', 'project_name', 'role_title']
+    }
+  },
+  {
+    name: 'update_job',
+    description: 'Update fields on an existing job by job ID.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        job_id: { type: 'string', description: 'The job UUID to update' },
+        updates: {
+          type: 'object',
+          description: 'Fields to update. Can include: bu, project_name, role_title, openings, rate_max, duration, poc_names, poc_emails, status, notes',
+        }
+      },
+      required: ['job_id', 'updates']
+    }
+  },
+  {
+    name: 'insert_candidate',
+    description: 'Add a new candidate to the candidates table.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Full name' },
+        profile_link: { type: 'string', description: 'Toptal profile URL or LinkedIn' },
+        location: { type: 'string', description: 'City, Country' },
+        rate: { type: 'number', description: 'Hourly rate in USD' },
+        pst_overlap: { type: 'string', description: 'PST timezone overlap hours' },
+        availability: { type: 'string', description: 'When they can start' },
+        notes: { type: 'string', description: 'Notes about the candidate' }
+      },
+      required: ['name']
+    }
+  },
+  {
+    name: 'assign_candidate_to_job',
+    description: 'Create a job_candidates record linking a candidate to a job with an initial status.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        job_id: { type: 'string', description: 'Job UUID' },
+        candidate_id: { type: 'string', description: 'Candidate UUID' },
+        status: { type: 'string', description: 'Initial status, must be one of the valid DB statuses (e.g. TALENT INTRODUCED)', default: 'TALENT INTRODUCED' }
+      },
+      required: ['job_id', 'candidate_id']
+    }
+  },
+  {
+    name: 'update_candidate_status',
+    description: 'Change the status of a candidate on a specific job (job_candidates record). Use this to move candidates through the pipeline.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        job_id: { type: 'string', description: 'Job UUID' },
+        candidate_name: { type: 'string', description: 'Candidate name to find (will match partially)' },
+        new_status: { type: 'string', description: 'New status. Must be one of: ' + VALID_DB_STATUSES.join(', ') }
+      },
+      required: ['candidate_name', 'new_status']
+    }
+  },
+  {
+    name: 'update_job_candidate_fields',
+    description: 'Update fields on a job_candidates record (dates, feedback, SOW, PO, rate, etc).',
+    input_schema: {
+      type: 'object',
+      properties: {
+        job_candidates_id: { type: 'string', description: 'The job_candidates UUID. If unknown, use candidate_name + job_id instead.' },
+        candidate_name: { type: 'string', description: 'Candidate name (used to find record if job_candidates_id not given)' },
+        job_id: { type: 'string', description: 'Job UUID (used with candidate_name to find record)' },
+        updates: {
+          type: 'object',
+          description: 'Fields: date_introduced, date_interview, date_hired, date_rejected, client_feedback, rejection_reason, sow_number, po_number, rate_offered, last_client_contact'
+        }
+      },
+      required: ['updates']
+    }
+  },
+  {
+    name: 'delete_job',
+    description: 'Delete a job and all its candidate associations. Use with extreme caution.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        job_id: { type: 'string', description: 'Job UUID to delete' }
+      },
+      required: ['job_id']
+    }
+  },
+  {
+    name: 'query_database',
+    description: 'Run a read-only query against any table. Use for lookups the context does not cover.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        table: { type: 'string', description: 'Table name: jobs, candidates, job_candidates, activity_log' },
+        select: { type: 'string', description: 'Columns to select (Supabase select syntax)', default: '*' },
+        filters: {
+          type: 'array',
+          description: 'Array of filter objects: [{column, op, value}]. op can be: eq, neq, gt, lt, gte, lte, like, ilike',
+          items: { type: 'object' }
+        },
+        limit: { type: 'integer', description: 'Max rows to return', default: 50 }
+      },
+      required: ['table']
+    }
+  }
+];
+
+// Execute a tool call from Claude against Supabase
+async function logActivity(entityType, entityId, action, opts) {
+  opts = opts || {};
+  try {
+    await sb.from('activity_log').insert({
+      entity_type: entityType,
+      entity_id: entityId,
+      action: action,
+      old_value: opts.old_value || null,
+      new_value: opts.new_value || null,
+      note: opts.note || null,
+      source: 'chat',
+      created_by: currentUser ? currentUser.id : null
+    });
+  } catch(e) { /* non-blocking */ }
+}
+
+async function executeTool(toolName, toolInput) {
+  switch (toolName) {
+    case 'insert_job': {
+      var row = {
+        bu: toolInput.bu, project_name: toolInput.project_name,
+        role_title: toolInput.role_title, openings: toolInput.openings || 1,
+        created_by: currentUser ? currentUser.id : null,
+      };
+      if (toolInput.rate_max) row.rate_max = toolInput.rate_max;
+      if (toolInput.duration) row.duration = toolInput.duration;
+      if (toolInput.poc_names) row.poc_names = toolInput.poc_names;
+      if (toolInput.poc_emails) row.poc_emails = toolInput.poc_emails;
+      if (toolInput.notes) row.notes = toolInput.notes;
+      var { data, error } = await sb.from('jobs').insert(row).select();
+      if (error) return { error: error.message };
+      await logActivity('job', data[0].id, 'insert', { note: row.role_title + ' (' + row.bu + ')' });
+      return { success: true, job: data[0] };
+    }
+    case 'update_job': {
+      toolInput.updates.updated_by = currentUser ? currentUser.id : null;
+      var { data, error } = await sb.from('jobs')
+        .update(toolInput.updates).eq('id', toolInput.job_id).select();
+      if (error) return { error: error.message };
+      await logActivity('job', toolInput.job_id, 'update', { new_value: JSON.stringify(toolInput.updates) });
+      return { success: true, job: data[0] };
+    }
+    case 'insert_candidate': {
+      var row = { name: toolInput.name, created_by: currentUser ? currentUser.id : null };
+      if (toolInput.profile_link) row.profile_link = toolInput.profile_link;
+      if (toolInput.location) row.location = toolInput.location;
+      if (toolInput.rate) row.rate = toolInput.rate;
+      if (toolInput.pst_overlap) row.pst_overlap = toolInput.pst_overlap;
+      if (toolInput.availability) row.availability = toolInput.availability;
+      if (toolInput.notes) row.notes = toolInput.notes;
+      var { data, error } = await sb.from('candidates').insert(row).select();
+      if (error) return { error: error.message };
+      await logActivity('candidate', data[0].id, 'insert', { note: toolInput.name });
+      return { success: true, candidate: data[0] };
+    }
+    case 'assign_candidate_to_job': {
+      var row = {
+        job_id: toolInput.job_id,
+        candidate_id: toolInput.candidate_id,
+        status: toolInput.status || 'TALENT INTRODUCED',
+        date_introduced: new Date().toISOString().split('T')[0],
+        updated_by: currentUser ? currentUser.id : null
+      };
+      var { data, error } = await sb.from('job_candidates').insert(row).select();
+      if (error) return { error: error.message };
+      await logActivity('job_candidate', data[0].id, 'assign', { new_value: row.status });
+      return { success: true, record: data[0] };
+    }
+    case 'update_candidate_status': {
+      // Find the job_candidates record by candidate name
+      var query = sb.from('job_candidates').select('*, candidates(name)');
+      if (toolInput.job_id) query = query.eq('job_id', toolInput.job_id);
+      var { data: records, error: findErr } = await query;
+      if (findErr) return { error: findErr.message };
+      var match = records.find(function(r) {
+        return r.candidates && r.candidates.name &&
+          r.candidates.name.toLowerCase().includes(toolInput.candidate_name.toLowerCase());
+      });
+      if (!match) return { error: 'No candidate found matching "' + toolInput.candidate_name + '"' };
+      var oldStatus = match.status;
+      var { data, error } = await sb.from('job_candidates')
+        .update({ status: toolInput.new_status, updated_at: new Date().toISOString(), updated_by: currentUser ? currentUser.id : null })
+        .eq('id', match.id).select();
+      if (error) return { error: error.message };
+      await logActivity('job_candidate', match.id, 'status_change', { old_value: oldStatus, new_value: toolInput.new_status, note: match.candidates.name });
+      return { success: true, updated: data[0], candidate_name: match.candidates.name };
+    }
+    case 'update_job_candidate_fields': {
+      var jcId = toolInput.job_candidates_id;
+      if (!jcId && toolInput.candidate_name) {
+        var query = sb.from('job_candidates').select('id, candidates(name)');
+        if (toolInput.job_id) query = query.eq('job_id', toolInput.job_id);
+        var { data: recs } = await query;
+        var m = (recs || []).find(function(r) {
+          return r.candidates && r.candidates.name &&
+            r.candidates.name.toLowerCase().includes(toolInput.candidate_name.toLowerCase());
+        });
+        if (m) jcId = m.id;
+      }
+      if (!jcId) return { error: 'Could not find job_candidates record' };
+      toolInput.updates.updated_at = new Date().toISOString();
+      toolInput.updates.updated_by = currentUser ? currentUser.id : null;
+      var { data, error } = await sb.from('job_candidates')
+        .update(toolInput.updates).eq('id', jcId).select();
+      if (error) return { error: error.message };
+      await logActivity('job_candidate', jcId, 'update', { new_value: JSON.stringify(toolInput.updates) });
+      return { success: true, updated: data[0] };
+    }
+    case 'delete_job': {
+      // Delete associated job_candidates first
+      await sb.from('job_candidates').delete().eq('job_id', toolInput.job_id);
+      var { error } = await sb.from('jobs').delete().eq('id', toolInput.job_id);
+      if (error) return { error: error.message };
+      await logActivity('job', toolInput.job_id, 'delete');
+      return { success: true, deleted_job_id: toolInput.job_id };
+    }
+    case 'query_database': {
+      var query = sb.from(toolInput.table).select(toolInput.select || '*');
+      if (toolInput.filters) {
+        toolInput.filters.forEach(function(f) {
+          if (f.op === 'like' || f.op === 'ilike') query = query[f.op](f.column, f.value);
+          else query = query.filter(f.column, f.op, f.value);
+        });
+      }
+      query = query.limit(toolInput.limit || 50);
+      var { data, error } = await query;
+      if (error) return { error: error.message };
+      return { results: data, count: data.length };
+    }
+    default:
+      return { error: 'Unknown tool: ' + toolName };
+  }
+}
+
+// Pending tool calls awaiting user confirmation
+var pendingToolCalls = [];
+
+function toggleChat() {
+  chatOpen = !chatOpen;
+  document.getElementById('chatOverlay').classList.toggle('open', chatOpen);
+  document.getElementById('chatDrawer').classList.toggle('open', chatOpen);
+  if (chatOpen) {
+    document.getElementById('chatInput').focus();
+    if (chatMessages.length === 0) {
+      chatMessages.push({ role: 'system', content: 'Pipeline Assistant ready. I have full context on all jobs, candidates, and statuses. I can also modify the database \u2014 add jobs, update statuses, assign candidates, and more. Ask me anything!' });
+      renderChat();
+    }
+  }
+}
+
+document.getElementById('chatOverlay').addEventListener('click', toggleChat);
+document.getElementById('chatCloseBtn').addEventListener('click', toggleChat);
+
+document.getElementById('chatSendBtn').addEventListener('click', sendChat);
+document.getElementById('chatInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); }
+});
+
+// Keyboard shortcut: Ctrl+/
+document.addEventListener('keydown', function(e) {
+  if ((e.ctrlKey || e.metaKey) && e.key === '/') { e.preventDefault(); toggleChat(); }
+});
+
+function renderChat() {
+  var container = document.getElementById('chatMessages');
+  var html = '';
+  chatMessages.forEach(function(msg, idx) {
+    if (msg.role === 'action_card') {
+      html += msg.content; // Pre-built HTML
+    } else {
+      // Support basic markdown in assistant messages
+      var text = escHTML(msg.content);
+      if (msg.role === 'assistant') {
+        text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        text = text.replace(/\n/g, '<br>');
+      }
+      html += '<div class="chat-msg ' + msg.role + '">' + text + '</div>';
+    }
+  });
+  container.innerHTML = html;
+  container.scrollTop = container.scrollHeight;
+}
+
+function showTyping() {
+  var container = document.getElementById('chatMessages');
+  container.innerHTML += '<div class="chat-msg assistant" id="typingMsg"><div class="typing-indicator"><span></span><span></span><span></span></div></div>';
+  container.scrollTop = container.scrollHeight;
+}
+
+function removeTyping() {
+  var el = document.getElementById('typingMsg');
+  if (el) el.remove();
+}
+
+async function sendChat() {
+  var input = document.getElementById('chatInput');
+  var text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  chatMessages.push({ role: 'user', content: text });
+  renderChat();
+  showTyping();
+
+  await callClaude();
+}
+
+async function callClaude() {
+  var context = buildChatContext();
+
+  var systemPrompt = 'You are a talent pipeline assistant for Yahoo with FULL database access.\n\n' +
+    'LIVE DATA:\n' + context + '\n\n' +
+    'CAPABILITIES:\n' +
+    '- Answer any question about the pipeline using the data above\n' +
+    '- Use tools to modify the database: insert jobs, update statuses, add candidates, assign candidates to jobs, etc.\n' +
+    '- For write operations, ALWAYS use the appropriate tool. Do not just describe what you would do.\n' +
+    '- When updating candidate status, use the EXACT status strings from the valid statuses list (uppercase).\n' +
+    '- Be concise and helpful. Use markdown formatting for clarity.\n' +
+    '- After making changes, briefly confirm what was done.';
+
+  var apiMessages = chatMessages
+    .filter(function(m) { return m.role === 'user' || m.role === 'assistant' || m.role === 'tool_result'; })
+    .map(function(m) {
+      if (m.role === 'tool_result') {
+        return { role: 'user', content: [{ type: 'tool_result', tool_use_id: m.tool_use_id, content: m.content }] };
+      }
+      return { role: m.role, content: m.content };
+    });
+
+  try {
+    var token = await getAccessToken();
+    var response = await fetch('/api/claude', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + token
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 2048,
+        system: systemPrompt,
+        tools: CHAT_TOOLS,
+        messages: apiMessages
+      })
+    });
+
+    var data = await response.json();
+    removeTyping();
+
+    if (data.error) {
+      chatMessages.push({ role: 'assistant', content: 'Error: ' + (data.error.message || JSON.stringify(data.error)) });
+      renderChat();
+      return;
+    }
+
+    // Process response content blocks
+    var hasToolUse = false;
+    var textParts = [];
+    var toolCalls = [];
+
+    (data.content || []).forEach(function(block) {
+      if (block.type === 'text' && block.text) {
+        textParts.push(block.text);
+      } else if (block.type === 'tool_use') {
+        hasToolUse = true;
+        toolCalls.push(block);
+      }
+    });
+
+    // Show any text response
+    if (textParts.length > 0) {
+      chatMessages.push({ role: 'assistant', content: textParts.join('\n') });
+    }
+
+    // Handle tool calls — execute them and continue the conversation
+    if (hasToolUse) {
+      // Add assistant message with tool_use blocks for the API conversation
+      chatMessages.push({ role: 'assistant', content: textParts.join('\n') || 'Executing...', _raw: data.content });
+
+      for (var i = 0; i < toolCalls.length; i++) {
+        var tc = toolCalls[i];
+        var actionLabel = describeToolCall(tc.name, tc.input);
+        chatMessages.push({
+          role: 'action_card',
+          content: '<div class="chat-action-card"><h4>\u2699\uFE0F ' + escHTML(actionLabel) + '</h4><p>Executing...</p></div>'
+        });
+        renderChat();
+
+        // Execute the tool
+        var result = await executeTool(tc.name, tc.input);
+
+        // Update the action card with result
+        var statusMsg = result.error ? '\u274C Error: ' + escHTML(result.error) : '\u2705 Done';
+        chatMessages[chatMessages.length - 1].content =
+          '<div class="chat-action-card"><h4>\u2699\uFE0F ' + escHTML(actionLabel) + '</h4><p>' + statusMsg + '</p></div>';
+
+        // Add tool result for Claude's context
+        chatMessages.push({
+          role: 'tool_result',
+          tool_use_id: tc.id,
+          content: JSON.stringify(result)
+        });
+      }
+
+      // Refresh dashboard data after writes
+      await refreshData();
+
+      // Call Claude again with tool results so it can provide a summary
+      renderChat();
+      showTyping();
+
+      // Rebuild messages for followup — need to include tool_use and tool_result properly
+      var followupMessages = [];
+      var pendingToolResults = [];
+      chatMessages.forEach(function(m) {
+        if (m._raw) {
+          followupMessages.push({ role: 'assistant', content: m._raw });
+        } else if (m.role === 'tool_result') {
+          pendingToolResults.push({ type: 'tool_result', tool_use_id: m.tool_use_id, content: m.content });
+        } else if (m.role === 'user') {
+          // Flush any pending tool results before user message
+          if (pendingToolResults.length > 0) {
+            followupMessages.push({ role: 'user', content: pendingToolResults });
+            pendingToolResults = [];
+          }
+          followupMessages.push({ role: m.role, content: m.content });
+        } else if (m.role === 'assistant' && !m._raw) {
+          followupMessages.push({ role: 'assistant', content: m.content });
+        }
+      });
+      // Flush remaining tool results
+      if (pendingToolResults.length > 0) {
+        followupMessages.push({ role: 'user', content: pendingToolResults });
+      }
+
+      var followupToken = await getAccessToken();
+      var followupResp = await fetch('/api/claude', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + followupToken
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 1024,
+          system: systemPrompt,
+          tools: CHAT_TOOLS,
+          messages: followupMessages
+        })
+      });
+
+      var followupData = await followupResp.json();
+      removeTyping();
+
+      if (followupData.content) {
+        var followText = followupData.content
+          .filter(function(b) { return b.type === 'text'; })
+          .map(function(b) { return b.text; })
+          .join('\n');
+        if (followText) {
+          chatMessages.push({ role: 'assistant', content: followText });
+        }
+      }
+    }
+
+    renderChat();
+  } catch(err) {
+    removeTyping();
+    chatMessages.push({ role: 'assistant', content: 'Connection error: ' + err.message });
+    renderChat();
+  }
+}
+
+function describeToolCall(name, input) {
+  switch(name) {
+    case 'insert_job': return 'Adding job: ' + input.role_title + ' (' + input.bu + ' / ' + input.project_name + ')';
+    case 'update_job': return 'Updating job ' + (input.job_id || '').substring(0, 8) + '...';
+    case 'insert_candidate': return 'Adding candidate: ' + input.name;
+    case 'assign_candidate_to_job': return 'Assigning candidate to job';
+    case 'update_candidate_status': return 'Updating ' + input.candidate_name + ' \u2192 ' + input.new_status;
+    case 'update_job_candidate_fields': return 'Updating candidate record fields';
+    case 'delete_job': return 'Deleting job ' + (input.job_id || '').substring(0, 8) + '...';
+    case 'query_database': return 'Querying ' + input.table;
+    default: return name;
+  }
+}
+
+// ═══════════════════════════════════════════════════
+//  INIT — auth-gated
+// ═══════════════════════════════════════════════════
+(async function() {
+  var session = await getSession();
+  if (session && session.user) {
+    currentUser = session.user;
+    await loadProfile(session.user.id);
+    hideLogin();
+    fetchAllData();
+    setupRealtime();
+  } else {
+    showLogin();
+  }
+})();
+</script>
+</body>
+</html>
