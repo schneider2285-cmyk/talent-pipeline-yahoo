@@ -851,11 +851,14 @@ function hashColor(name) {
   for (let i = 0; i < (name||'').length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
   return 'hsl(' + (Math.abs(h) % 360) + ', 50%, 44%)';
 }
-function avatarHTML(name, profileLink, size) {
+function avatarHTML(name, profileLink, size, avatarUrl) {
   size = size || 32;
   const bg = hashColor(name);
   const ini = escHTML(initials(name));
   const profAttr = profileLink ? ' data-profile="' + escHTML(profileLink) + '"' : '';
+  if (avatarUrl) {
+    return '<div class="avatar" style="width:'+size+'px;height:'+size+'px;background:url('+escHTML(avatarUrl)+') center/cover;font-size:0"'+profAttr+'></div>';
+  }
   return '<div class="avatar" style="width:'+size+'px;height:'+size+'px;background:'+bg+';font-size:'+Math.round(size*0.34)+'px"'+profAttr+'>'+ini+'</div>';
 }
 function bindAvatarClicks() {
@@ -978,6 +981,7 @@ function transformPipeline(rows) {
       date: r.date_introduced,
       location: cand.location || '',
       profileLink: cand.profile_link || '',
+      avatarUrl: cand.avatar_url || '',
       interviewDate: r.date_interview || '',
       updatedAt: r.updated_at || r.date_introduced,
     });
@@ -994,6 +998,7 @@ function transformPipeline(rows) {
       candidate_location: cand.location || '',
       date_hired: r.date_hired,
       profile_link: cand.profile_link || '',
+      avatar_url: cand.avatar_url || '',
     };
   });
   var result = Object.entries(buMap).map(function(entry) {
@@ -1181,7 +1186,7 @@ function renderPipelineView() {
       '<div class="wins-body"><div class="wins-subtitle">These candidates have been hired \u2014 congratulations to the team!</div><div class="wins-grid">';
     HIRED_DATA.forEach(function(h, i) {
       html += '<div class="win-card"><span class="confetti-emoji">' + confettis[i % confettis.length] + '</span>' +
-        '<div class="win-card-top"><div class="win-avatar" style="background:' + hashColor(h.candidate_name) + '"' + (h.profile_link ? ' data-profile="' + escHTML(h.profile_link) + '"' : '') + '>' + escHTML(initials(h.candidate_name)) + '</div>' +
+        '<div class="win-card-top">' + (h.avatar_url ? '<div class="win-avatar" style="background:url('+escHTML(h.avatar_url)+') center/cover"' + (h.profile_link ? ' data-profile="'+escHTML(h.profile_link)+'"' : '') + '></div>' : '<div class="win-avatar" style="background:' + hashColor(h.candidate_name) + '"' + (h.profile_link ? ' data-profile="' + escHTML(h.profile_link) + '"' : '') + '>' + escHTML(initials(h.candidate_name)) + '</div>') +
         '<div><div class="win-name">' + escHTML(h.candidate_name) + '</div><div class="win-role">' + escHTML(h.role_title) + '</div></div></div>' +
         '<div class="win-details"><span class="win-tag bu-tag">' + escHTML(h.bu) + '</span><span class="win-tag project-tag">' + escHTML(h.project_name) + '</span>' +
         (h.date_hired ? '<span class="win-tag date-tag">\u2714 Hired ' + fmtDate(h.date_hired) + '</span>' : '<span class="win-tag date-tag">\u2714 Hired</span>') +
@@ -1231,7 +1236,7 @@ function renderPipelineView() {
         proj.talent.forEach(function(t) {
           var cfg = STATUS_MAP[t.status]||{};
           var days = daysSince(t.updatedAt || t.date);
-          html += '<tr><td><div class="talent-name-cell">' + avatarHTML(t.name, t.profileLink, 32) +
+          html += '<tr><td><div class="talent-name-cell">' + avatarHTML(t.name, t.profileLink, 32, t.avatarUrl) +
             '<div><div class="talent-label">'+escHTML(t.name)+'</div><div class="talent-role">'+escHTML(t.role)+'</div>' +
             '<div class="talent-location">'+escHTML(t.location)+'</div></div></div></td>' +
             '<td><span class="status-badge '+(cfg.cls||'')+'"><span class="pip"></span>'+escHTML(cfg.label||t.status)+'</span>'+stalenessHTML(days)+'</td>' +
@@ -1633,9 +1638,26 @@ const CHAT_TOOLS = [
         rate: { type: 'number', description: 'Hourly rate in USD' },
         pst_overlap: { type: 'string', description: 'PST timezone overlap hours' },
         availability: { type: 'string', description: 'When they can start' },
-        notes: { type: 'string', description: 'Notes about the candidate' }
+        notes: { type: 'string', description: 'Notes about the candidate' },
+        avatar_url: { type: 'string', description: 'URL to candidate headshot/photo (e.g. from Toptal profile or LinkedIn)' }
       },
       required: ['name']
+    }
+  },
+  {
+    name: 'update_candidate',
+    description: 'Update fields on a candidate record (name, location, rate, avatar_url, etc). Use this to set a candidate photo URL.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        candidate_id: { type: 'string', description: 'Candidate UUID. If not known, use candidate_name instead.' },
+        candidate_name: { type: 'string', description: 'Candidate name to find (partial match). Used if candidate_id not provided.' },
+        updates: {
+          type: 'object',
+          description: 'Fields to update: name, profile_link, location, rate, pst_overlap, availability, notes, avatar_url'
+        }
+      },
+      required: ['updates']
     }
   },
   {
@@ -1763,9 +1785,27 @@ async function executeTool(toolName, toolInput) {
       if (toolInput.pst_overlap) row.pst_overlap = toolInput.pst_overlap;
       if (toolInput.availability) row.availability = toolInput.availability;
       if (toolInput.notes) row.notes = toolInput.notes;
+      if (toolInput.avatar_url) row.avatar_url = toolInput.avatar_url;
       var { data, error } = await sb.from('candidates').insert(row).select();
       if (error) return { error: error.message };
       await logActivity('candidate', data[0].id, 'insert', { note: toolInput.name });
+      return { success: true, candidate: data[0] };
+    }
+    case 'update_candidate': {
+      var candId = toolInput.candidate_id;
+      if (!candId && toolInput.candidate_name) {
+        var { data: matches, error: findErr } = await sb.from('candidates').select('id, name')
+          .ilike('name', '%' + toolInput.candidate_name + '%').limit(1);
+        if (findErr) return { error: findErr.message };
+        if (!matches || matches.length === 0) return { error: 'No candidate found matching "' + toolInput.candidate_name + '"' };
+        candId = matches[0].id;
+      }
+      if (!candId) return { error: 'Provide candidate_id or candidate_name' };
+      var updates = toolInput.updates || {};
+      updates.updated_by = currentUser ? currentUser.id : null;
+      var { data, error } = await sb.from('candidates').update(updates).eq('id', candId).select();
+      if (error) return { error: error.message };
+      await logActivity('candidate', candId, 'update', { new_value: JSON.stringify(updates) });
       return { success: true, candidate: data[0] };
     }
     case 'assign_candidate_to_job': {
@@ -2090,6 +2130,7 @@ function describeToolCall(name, input) {
     case 'insert_job': return 'Adding job: ' + input.role_title + ' (' + input.bu + ' / ' + input.project_name + ')';
     case 'update_job': return 'Updating job ' + (input.job_id || '').substring(0, 8) + '...';
     case 'insert_candidate': return 'Adding candidate: ' + input.name;
+    case 'update_candidate': return 'Updating candidate: ' + (input.candidate_name || input.candidate_id || '');
     case 'assign_candidate_to_job': return 'Assigning candidate to job';
     case 'update_candidate_status': return 'Updating ' + input.candidate_name + ' \u2192 ' + input.new_status;
     case 'update_job_candidate_fields': return 'Updating candidate record fields';
