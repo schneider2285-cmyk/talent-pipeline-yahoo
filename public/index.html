@@ -1972,14 +1972,30 @@ async function callClaude() {
     '- Be concise and helpful. Use markdown formatting for clarity.\n' +
     '- After making changes, briefly confirm what was done.';
 
-  var apiMessages = chatMessages
-    .filter(function(m) { return m.role === 'user' || m.role === 'assistant' || m.role === 'tool_result'; })
-    .map(function(m) {
-      if (m.role === 'tool_result') {
-        return { role: 'user', content: [{ type: 'tool_result', tool_use_id: m.tool_use_id, content: m.content }] };
+  // Build API messages — must pair tool_use blocks in assistant messages with tool_result blocks
+  var apiMessages = [];
+  var pendingResults = [];
+  chatMessages.forEach(function(m) {
+    if (m.role === 'assistant') {
+      if (m._raw) {
+        // Assistant message with tool_use blocks — use raw content
+        apiMessages.push({ role: 'assistant', content: m._raw });
+      } else {
+        apiMessages.push({ role: 'assistant', content: m.content });
       }
-      return { role: m.role, content: m.content };
-    });
+    } else if (m.role === 'tool_result') {
+      pendingResults.push({ type: 'tool_result', tool_use_id: m.tool_use_id, content: m.content });
+    } else if (m.role === 'user') {
+      if (pendingResults.length > 0) {
+        apiMessages.push({ role: 'user', content: pendingResults });
+        pendingResults = [];
+      }
+      apiMessages.push({ role: 'user', content: m.content });
+    }
+  });
+  if (pendingResults.length > 0) {
+    apiMessages.push({ role: 'user', content: pendingResults });
+  }
 
   try {
     var token = await getAccessToken();
@@ -2021,8 +2037,8 @@ async function callClaude() {
       }
     });
 
-    // Show any text response
-    if (textParts.length > 0) {
+    // Show any text response (only if no tool calls — tool calls add their own assistant message with _raw)
+    if (textParts.length > 0 && !hasToolUse) {
       chatMessages.push({ role: 'assistant', content: textParts.join('\n') });
     }
 
