@@ -2014,25 +2014,29 @@ async function callClaude() {
     '- Keep responses concise. Don\'t over-explain unless asked.';
 
   // Build API messages — must pair tool_use blocks in assistant messages with tool_result blocks
+  // Claude API requires: assistant(tool_use) → user(tool_result) → ... strictly alternating
   var apiMessages = [];
   var pendingResults = [];
   chatMessages.forEach(function(m) {
-    if (m.role === 'assistant') {
-      if (m._raw) {
-        // Assistant message with tool_use blocks — use raw content
-        apiMessages.push({ role: 'assistant', content: m._raw });
-      } else {
-        apiMessages.push({ role: 'assistant', content: m.content });
-      }
-    } else if (m.role === 'tool_result') {
+    if (m.role === 'tool_result') {
       pendingResults.push({ type: 'tool_result', tool_use_id: m.tool_use_id, content: m.content });
-    } else if (m.role === 'user') {
+    } else if (m.role === 'user' || m.role === 'assistant') {
+      // Flush any pending tool results before the next real message
       if (pendingResults.length > 0) {
         apiMessages.push({ role: 'user', content: pendingResults });
         pendingResults = [];
       }
-      apiMessages.push({ role: 'user', content: m.content });
+      if (m.role === 'assistant') {
+        if (m._raw) {
+          apiMessages.push({ role: 'assistant', content: m._raw });
+        } else {
+          apiMessages.push({ role: 'assistant', content: m.content });
+        }
+      } else {
+        apiMessages.push({ role: 'user', content: m.content });
+      }
     }
+    // action_card and other roles are skipped
   });
   if (pendingResults.length > 0) {
     apiMessages.push({ role: 'user', content: pendingResults });
@@ -2120,26 +2124,25 @@ async function callClaude() {
       renderChat();
       showTyping();
 
-      // Rebuild messages for followup — need to include tool_use and tool_result properly
+      // Rebuild messages for followup — reuse the same builder logic
       var followupMessages = [];
       var pendingToolResults = [];
       chatMessages.forEach(function(m) {
-        if (m._raw) {
-          followupMessages.push({ role: 'assistant', content: m._raw });
-        } else if (m.role === 'tool_result') {
+        if (m.role === 'tool_result') {
           pendingToolResults.push({ type: 'tool_result', tool_use_id: m.tool_use_id, content: m.content });
-        } else if (m.role === 'user') {
-          // Flush any pending tool results before user message
+        } else if (m.role === 'user' || m.role === 'assistant') {
+          // Flush pending tool results before any real message
           if (pendingToolResults.length > 0) {
             followupMessages.push({ role: 'user', content: pendingToolResults });
             pendingToolResults = [];
           }
-          followupMessages.push({ role: m.role, content: m.content });
-        } else if (m.role === 'assistant' && !m._raw) {
-          followupMessages.push({ role: 'assistant', content: m.content });
+          if (m.role === 'assistant') {
+            followupMessages.push({ role: 'assistant', content: m._raw || m.content });
+          } else {
+            followupMessages.push({ role: 'user', content: m.content });
+          }
         }
       });
-      // Flush remaining tool results
       if (pendingToolResults.length > 0) {
         followupMessages.push({ role: 'user', content: pendingToolResults });
       }
