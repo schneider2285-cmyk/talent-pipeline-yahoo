@@ -714,11 +714,14 @@
 const SUPABASE_URL = 'https://jbbjofdkbkymiqmlylcy.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpiYmpvZmRrYmt5bWlxbWx5bGN5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyODk4NDgsImV4cCI6MjA4ODg2NTg0OH0.Oi2_WxqI4Xx7LmMJrqZe_DoG_HCS3kfCdVsnPifKb7A';
 
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+});
 
 // ── Auth State ──
 var currentUser = null;
 var currentProfile = null;
+var appInitialized = false;
 
 async function getSession() {
   var { data } = await sb.auth.getSession();
@@ -751,17 +754,31 @@ function getInitials(name) {
   return name.split(' ').map(function(w) { return w[0]; }).join('').toUpperCase().substring(0, 2);
 }
 
-// Auth state change listener
-sb.auth.onAuthStateChange(async function(event, session) {
-  if (session && session.user) {
-    currentUser = session.user;
-    await loadProfile(session.user.id);
-    hideLogin();
+async function initApp(session) {
+  if (!session || !session.user) { showLogin(); return; }
+  currentUser = session.user;
+  await loadProfile(session.user.id);
+  hideLogin();
+  if (!appInitialized) {
+    appInitialized = true;
     fetchAllData();
     setupRealtime();
-  } else {
+  }
+}
+
+// Auth state change listener — handles login, logout, and token refresh
+sb.auth.onAuthStateChange(async function(event, session) {
+  if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') {
+    if (session && session.user) {
+      await initApp(session);
+    } else if (event === 'INITIAL_SESSION') {
+      // Only show login on INITIAL_SESSION with no session — not on transient nulls
+      showLogin();
+    }
+  } else if (event === 'SIGNED_OUT') {
     currentUser = null;
     currentProfile = null;
+    appInitialized = false;
     showLogin();
   }
 });
@@ -777,17 +794,24 @@ document.getElementById('loginBtn').addEventListener('click', async function() {
   btn.disabled = true;
   btn.textContent = 'Sending...';
   msgEl.textContent = '';
+  msgEl.style.color = '';
 
   var { error } = await sb.auth.signInWithOtp({ email: email });
 
   if (error) {
-    msgEl.textContent = error.message;
+    if (error.message && error.message.toLowerCase().includes('rate limit')) {
+      msgEl.textContent = 'Too many attempts — please wait a few minutes and try again.';
+    } else {
+      msgEl.textContent = error.message;
+    }
     btn.disabled = false;
     btn.textContent = 'Send Magic Link';
   } else {
     msgEl.style.color = 'var(--green)';
     msgEl.textContent = 'Check your email for the magic link!';
     btn.textContent = 'Link Sent';
+    // Re-enable after 30s so they can retry
+    setTimeout(function() { btn.disabled = false; btn.textContent = 'Send Magic Link'; }, 30000);
   }
 });
 
@@ -1959,141 +1983,164 @@ async function sendChat() {
   await callClaude();
 }
 
-async function callClaude() {
+// Build the system prompt for Claude — called fresh each time to get latest context
+function buildSystemPrompt() {
   var context = buildChatContext();
+  return 'You are an expert AI recruiting coordinator embedded in a talent pipeline dashboard for Yahoo\'s Toptal staffing program. You have FULL read/write access to the live database via tools.\n\n' +
 
-  var systemPrompt = 'You are the AI assistant powering a talent pipeline dashboard for Yahoo. You have FULL read/write access to the Supabase database via tools. You are smart, proactive, and deeply knowledgeable about recruiting and talent management.\n\n' +
-
-    '## YOUR ROLE\n' +
-    'You manage the full lifecycle of contractor/talent placement at Yahoo through Toptal. This includes:\n' +
-    '- Tracking open roles across Yahoo business units (Mail, Sports, Home Eco, Paranoids, Search, Ads, Platform, etc.)\n' +
-    '- Managing candidate pipelines: submissions, interviews, hiring, rejections\n' +
-    '- Providing analytics and insights on pipeline health\n' +
-    '- Helping the team stay organized and move fast on fulfillment\n\n' +
+    '## YOUR EXPERTISE\n' +
+    'You deeply understand recruiting operations, talent pipelines, and staffing workflows. You manage:\n' +
+    '- Open roles across Yahoo BUs: Mail, Sports, Home Eco, Paranoids, Search, Ads, Platform, etc.\n' +
+    '- Candidate lifecycle: submission → introduction → interview → decision → hire/reject\n' +
+    '- Pipeline analytics, fulfillment tracking, and team coordination\n\n' +
 
     '## LIVE DATABASE STATE\n' + context + '\n\n' +
 
-    '## HOW TO HANDLE REQUESTS\n\n' +
+    '## INTELLIGENCE & REASONING\n\n' +
 
-    '### When the request is clear:\n' +
-    'Execute immediately using tools. Don\'t describe what you\'d do — just do it. Confirm briefly after.\n\n' +
+    '### You are smart. Act like it.\n' +
+    '- Infer intent from partial information. If someone says "add Narcis for the test engineer role", you know they want to insert a candidate AND assign them to that job.\n' +
+    '- Extract ALL data from the user\'s message. If they include a name, URL, rate, and role in one sentence, capture every field — don\'t ask for info they already gave you.\n' +
+    '- Parse natural language fluently: "$50/hour" → rate: 50. "Toptal profile: [URL]" → profile_link. "RTT" or "rate" = hourly rate.\n' +
+    '- Resolve references from context: "the Mail role", "that Sports project", "the React Dev position" → match against live data above.\n' +
+    '- If a candidate name partially matches someone already in the system, ask if it\'s the same person before creating a duplicate.\n\n' +
 
-    '### When the request is vague or missing info:\n' +
-    'Ask smart, specific clarifying questions. Examples:\n' +
-    '- "Add a candidate" → Ask: name, which job/project, their Toptal profile link, location, and rate\n' +
-    '- "Update status" → Ask: which candidate, which job (if they\'re on multiple), and what new status\n' +
-    '- "Add a new role" → Ask: business unit, project name, role title, number of openings, and max rate\n' +
-    '- "We submitted someone" → Ask: candidate name, which job/role, their profile link, and any details\n' +
-    'Always use context from the live data above to narrow down ambiguity. If there\'s only one obvious match, go with it and confirm.\n\n' +
+    '### When you have enough info → EXECUTE IMMEDIATELY\n' +
+    'Don\'t narrate what you\'d do. Just do it with tools, then confirm briefly what happened.\n' +
+    'Multi-step operations should be done in sequence. "Submit John for the Mail role" → insert_candidate, then query to get IDs, then assign_candidate_to_job.\n\n' +
 
-    '### Smart context resolution:\n' +
-    '- If a user mentions a name, fuzzy-match it against existing candidates and jobs in the context above\n' +
-    '- If a user says "the Mail project" or "that Sports role", resolve it from the live data\n' +
-    '- If a candidate is only on one job, don\'t ask which job — just use it\n' +
-    '- If a user says "move them to interview", figure out who "them" refers to from conversation context\n' +
-    '- Use query_database to look up anything not in the context snapshot above\n\n' +
+    '### When info is genuinely missing → ASK SPECIFIC QUESTIONS\n' +
+    'Only ask about what you truly cannot infer. Be specific:\n' +
+    '- DON\'T: "Can you provide more details?"\n' +
+    '- DO: "Which role should I assign them to? I see these open positions: [list specific matching roles]"\n' +
+    '- DON\'T: "What information do you have about the candidate?"\n' +
+    '- DO: "Got it — adding Narcis. Do you know their location and PST overlap hours?"\n\n' +
 
-    '### Multi-step operations:\n' +
-    'When a request requires multiple steps, do them all. For example:\n' +
-    '- "Submit John Doe for the Mail Senior React Dev role" → insert_candidate + assign_candidate_to_job in sequence\n' +
-    '- "We got 3 new candidates for the Ads project" → ask for their details, then insert all of them\n\n' +
+    '### Smart matching & resolution:\n' +
+    '- Fuzzy-match names: "Narcis" matches "Narcis Gabriel Gemene"\n' +
+    '- Resolve project references: "the test engineer role" → find jobs with role_title containing "test engineer"\n' +
+    '- If only ONE job matches a description, use it without asking\n' +
+    '- If multiple jobs match, show the options and ask which one\n' +
+    '- Use query_database to look up candidate IDs, job IDs, or any data not in the snapshot above\n\n' +
 
-    '## TOOL USAGE RULES\n' +
-    '- ALWAYS use tools for write operations. Never just describe what you would do.\n' +
-    '- Use EXACT status strings (uppercase): ' + VALID_DB_STATUSES.join(', ') + '\n' +
-    '- When inserting candidates with a Toptal profile, set it as profile_link\n' +
-    '- When the team provides a candidate photo/avatar URL, set it as avatar_url\n' +
-    '- After any write, briefly confirm what was done with the key details\n' +
-    '- Use query_database when you need data not in the context snapshot (e.g. specific candidate IDs, historical records)\n\n' +
+    '## TOOL EXECUTION RULES\n' +
+    '- ALWAYS use tools for database operations. Never describe what you would do — just do it.\n' +
+    '- For multi-step operations (e.g. add candidate + assign to job), execute ALL steps.\n' +
+    '- Use EXACT status strings: ' + VALID_DB_STATUSES.join(', ') + '\n' +
+    '- Toptal URLs go in profile_link. Photo/avatar URLs go in avatar_url.\n' +
+    '- After writes, confirm concisely: "✅ Added Narcis ($50/hr) to Test Engineer role and set status to TALENT INTRODUCED."\n' +
+    '- Use query_database when you need IDs or data not in the context snapshot\n\n' +
 
     '## PERSONALITY\n' +
-    '- Be conversational but efficient — like a sharp recruiting coordinator\n' +
-    '- Use markdown for structured responses (tables, bullet points) when showing data\n' +
-    '- Proactively surface useful info: "By the way, that project already has 4 candidates in interview stage"\n' +
-    '- If pipeline health looks concerning (stale candidates, unfilled roles), mention it when relevant\n' +
-    '- Keep responses concise. Don\'t over-explain unless asked.';
+    '- Sharp, efficient, proactive — like the best recruiting coordinator on the team\n' +
+    '- Concise responses. No fluff. Use bullet points and tables for data.\n' +
+    '- Proactively flag useful info: "FYI, that role already has 3 candidates in interview stage."\n' +
+    '- If something looks off (stale candidates, unfilled roles), mention it when relevant';
+}
 
-  // Build API messages — must pair tool_use blocks in assistant messages with tool_result blocks
-  // Claude API requires: assistant(tool_use) → user(tool_result) → ... strictly alternating
-  var apiMessages = [];
-  var pendingResults = [];
-  chatMessages.forEach(function(m) {
-    if (m.role === 'tool_result') {
-      pendingResults.push({ type: 'tool_result', tool_use_id: m.tool_use_id, content: m.content });
-    } else if (m.role === 'user' || m.role === 'assistant') {
-      // Flush any pending tool results before the next real message
-      if (pendingResults.length > 0) {
-        apiMessages.push({ role: 'user', content: pendingResults });
-        pendingResults = [];
-      }
-      if (m.role === 'assistant') {
-        if (m._raw) {
-          apiMessages.push({ role: 'assistant', content: m._raw });
-        } else {
-          apiMessages.push({ role: 'assistant', content: m.content });
+// Build API messages from chatMessages — handles tool_use/tool_result pairing correctly
+function buildApiMessages() {
+  var messages = [];
+  var i = 0;
+  while (i < chatMessages.length) {
+    var m = chatMessages[i];
+
+    if (m.role === 'user') {
+      messages.push({ role: 'user', content: m.content });
+      i++;
+    } else if (m.role === 'assistant') {
+      // Use raw content (with tool_use blocks) if available, otherwise plain text
+      var content = m._raw || m.content;
+      messages.push({ role: 'assistant', content: content });
+      i++;
+
+      // If this assistant message had tool_use blocks, collect ALL following tool_results
+      var hasToolUse = Array.isArray(content) && content.some(function(b) { return b.type === 'tool_use'; });
+      if (hasToolUse) {
+        var results = [];
+        // Scan forward, skipping action_cards and collecting tool_results
+        while (i < chatMessages.length) {
+          var next = chatMessages[i];
+          if (next.role === 'tool_result') {
+            results.push({ type: 'tool_result', tool_use_id: next.tool_use_id, content: next.content });
+            i++;
+          } else if (next.role === 'action_card' || next.role === 'system') {
+            i++; // skip display-only messages
+          } else {
+            break; // hit user or assistant — stop collecting
+          }
         }
-      } else {
-        apiMessages.push({ role: 'user', content: m.content });
+        if (results.length > 0) {
+          messages.push({ role: 'user', content: results });
+        }
       }
+    } else {
+      // Skip system, action_card, and any other non-API roles
+      i++;
     }
-    // action_card and other roles are skipped
-  });
-  if (pendingResults.length > 0) {
-    apiMessages.push({ role: 'user', content: pendingResults });
   }
+  return messages;
+}
 
-  try {
-    var token = await getAccessToken();
-    var response = await fetch('/api/claude', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + token
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 4096,
-        system: systemPrompt,
-        tools: CHAT_TOOLS,
-        messages: apiMessages
-      })
-    });
+// Main Claude API call — handles tool execution loops
+async function callClaude() {
+  var systemPrompt = buildSystemPrompt();
+  var maxToolRounds = 5; // Safety limit on consecutive tool-call rounds
 
-    var data = await response.json();
-    removeTyping();
+  for (var round = 0; round < maxToolRounds; round++) {
+    var apiMessages = buildApiMessages();
 
-    if (data.error) {
-      chatMessages.push({ role: 'assistant', content: 'Error: ' + (data.error.message || JSON.stringify(data.error)) });
-      renderChat();
-      return;
-    }
+    try {
+      var token = await getAccessToken();
+      var response = await fetch('/api/claude', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + token
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 4096,
+          system: systemPrompt,
+          tools: CHAT_TOOLS,
+          messages: apiMessages
+        })
+      });
 
-    // Process response content blocks
-    var hasToolUse = false;
-    var textParts = [];
-    var toolCalls = [];
+      var data = await response.json();
+      removeTyping();
 
-    (data.content || []).forEach(function(block) {
-      if (block.type === 'text' && block.text) {
-        textParts.push(block.text);
-      } else if (block.type === 'tool_use') {
-        hasToolUse = true;
-        toolCalls.push(block);
+      if (data.error) {
+        chatMessages.push({ role: 'assistant', content: 'Error: ' + (data.error.message || JSON.stringify(data.error)) });
+        renderChat();
+        return;
       }
-    });
 
-    // Show any text response (only if no tool calls — tool calls add their own assistant message with _raw)
-    if (textParts.length > 0 && !hasToolUse) {
-      chatMessages.push({ role: 'assistant', content: textParts.join('\n') });
-    }
+      // Parse response content blocks
+      var textParts = [];
+      var toolCalls = [];
+      (data.content || []).forEach(function(block) {
+        if (block.type === 'text' && block.text) textParts.push(block.text);
+        else if (block.type === 'tool_use') toolCalls.push(block);
+      });
 
-    // Handle tool calls — execute them and continue the conversation
-    if (hasToolUse) {
-      // Add assistant message with tool_use blocks for the API conversation
-      chatMessages.push({ role: 'assistant', content: textParts.join('\n') || 'Executing...', _raw: data.content });
+      var hasToolUse = toolCalls.length > 0;
 
-      for (var i = 0; i < toolCalls.length; i++) {
-        var tc = toolCalls[i];
+      if (!hasToolUse) {
+        // Pure text response — add and we're done
+        if (textParts.length > 0) {
+          chatMessages.push({ role: 'assistant', content: textParts.join('\n') });
+        }
+        renderChat();
+        return; // Exit the loop
+      }
+
+      // Has tool calls — store assistant message with raw content for proper API replay
+      chatMessages.push({ role: 'assistant', content: textParts.join('\n') || 'Working on it...', _raw: data.content });
+
+      // Execute each tool call
+      for (var ti = 0; ti < toolCalls.length; ti++) {
+        var tc = toolCalls[ti];
         var actionLabel = describeToolCall(tc.name, tc.input);
         chatMessages.push({
           role: 'action_card',
@@ -2101,15 +2148,14 @@ async function callClaude() {
         });
         renderChat();
 
-        // Execute the tool
         var result = await executeTool(tc.name, tc.input);
 
-        // Update the action card with result
+        // Update action card with result
         var statusMsg = result.error ? '\u274C Error: ' + escHTML(result.error) : '\u2705 Done';
         chatMessages[chatMessages.length - 1].content =
           '<div class="chat-action-card"><h4>\u2699\uFE0F ' + escHTML(actionLabel) + '</h4><p>' + statusMsg + '</p></div>';
 
-        // Add tool result for Claude's context
+        // Store tool result for API conversation
         chatMessages.push({
           role: 'tool_result',
           tool_use_id: tc.id,
@@ -2117,72 +2163,24 @@ async function callClaude() {
         });
       }
 
-      // Refresh dashboard data after writes
+      // Refresh dashboard after writes
       await refreshData();
-
-      // Call Claude again with tool results so it can provide a summary
       renderChat();
       showTyping();
+      // Loop continues — next iteration calls Claude with tool results so it can summarize or make more calls
 
-      // Rebuild messages for followup — reuse the same builder logic
-      var followupMessages = [];
-      var pendingToolResults = [];
-      chatMessages.forEach(function(m) {
-        if (m.role === 'tool_result') {
-          pendingToolResults.push({ type: 'tool_result', tool_use_id: m.tool_use_id, content: m.content });
-        } else if (m.role === 'user' || m.role === 'assistant') {
-          // Flush pending tool results before any real message
-          if (pendingToolResults.length > 0) {
-            followupMessages.push({ role: 'user', content: pendingToolResults });
-            pendingToolResults = [];
-          }
-          if (m.role === 'assistant') {
-            followupMessages.push({ role: 'assistant', content: m._raw || m.content });
-          } else {
-            followupMessages.push({ role: 'user', content: m.content });
-          }
-        }
-      });
-      if (pendingToolResults.length > 0) {
-        followupMessages.push({ role: 'user', content: pendingToolResults });
-      }
-
-      var followupToken = await getAccessToken();
-      var followupResp = await fetch('/api/claude', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + followupToken
-        },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 2048,
-          system: systemPrompt,
-          tools: CHAT_TOOLS,
-          messages: followupMessages
-        })
-      });
-
-      var followupData = await followupResp.json();
+    } catch(err) {
       removeTyping();
-
-      if (followupData.content) {
-        var followText = followupData.content
-          .filter(function(b) { return b.type === 'text'; })
-          .map(function(b) { return b.text; })
-          .join('\n');
-        if (followText) {
-          chatMessages.push({ role: 'assistant', content: followText });
-        }
-      }
+      chatMessages.push({ role: 'assistant', content: 'Connection error: ' + err.message });
+      renderChat();
+      return;
     }
-
-    renderChat();
-  } catch(err) {
-    removeTyping();
-    chatMessages.push({ role: 'assistant', content: 'Connection error: ' + err.message });
-    renderChat();
   }
+
+  // Hit max rounds — force stop
+  removeTyping();
+  chatMessages.push({ role: 'assistant', content: 'Completed all operations.' });
+  renderChat();
 }
 
 function describeToolCall(name, input) {
@@ -2201,20 +2199,9 @@ function describeToolCall(name, input) {
 }
 
 // ═══════════════════════════════════════════════════
-//  INIT — auth-gated
+//  INIT — auth handled by onAuthStateChange above
+//  (no manual getSession race — INITIAL_SESSION event fires automatically)
 // ═══════════════════════════════════════════════════
-(async function() {
-  var session = await getSession();
-  if (session && session.user) {
-    currentUser = session.user;
-    await loadProfile(session.user.id);
-    hideLogin();
-    fetchAllData();
-    setupRealtime();
-  } else {
-    showLogin();
-  }
-})();
 </script>
 </body>
 </html>
