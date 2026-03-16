@@ -1,0 +1,143 @@
+<h2>Add Job Form — In-Chat Experience</h2>
+<p class="subtitle">This form renders inline in the chat window when a user asks to add a job or clicks the ➕ button</p>
+
+<div class="cards">
+  <div class="card" data-choice="approach-a" onclick="toggleSelect(this)" style="max-width: 520px; margin: 0 auto;">
+    <div class="card-image" style="padding: 0;">
+      <!-- Simulated chat window -->
+      <div style="background: #F8FAFC; border-radius: 12px; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 13px;">
+        <!-- Chat header -->
+        <div style="background: linear-gradient(135deg, #1E3A8A, #1D4ED8); color: white; padding: 12px 16px; display: flex; align-items: center; gap: 8px;">
+          <div style="width: 28px; height: 28px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px;">🤖</div>
+          <span style="font-weight: 600; font-size: 14px;">Pipeline Assistant</span>
+        </div>
+
+        <div style="padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; max-height: 600px;">
+          <!-- User message -->
+          <div style="align-self: flex-end; background: #1D4ED8; color: white; padding: 8px 14px; border-radius: 14px 14px 4px 14px; max-width: 75%; font-size: 13px;">
+            I need to add a new job
+          </div>
+
+          <!-- Bot response -->
+          <div style="align-self: flex-start; background: white; padding: 8px 14px; border-radius: 14px 14px 14px 4px; max-width: 85%; border: 1px solid #E2E8F0; font-size: 13px; color: #334155;">
+            I'll set that up for you. Fill out the details below: 👇
+          </div>
+
+          <!-- THE FORM -->
+          <div style="background: white; border: 2px solid #3B82F6; border-radius: 12px; padding: 16px; margin: 4px 0;">
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid #E2E8F0;">
+              <span style="font-size: 18px;">📋</span>
+              <span style="font-weight: 700; color: #1E3A8A; font-size: 15px;">New Job</span>
+            </div>
+
+            <!-- BU Field -->
+            <div style="margin-bottom: 12px;">
+              <label style="display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #64748B; margin-bottom: 4px;">Business Unit *</label>
+              <div style="background: #F8FAFC; border: 1px solid #CBD5E1; border-radius: 8px; padding: 8px 12px; color: #94A3B8; font-size: 13px; display: flex; justify-content: space-between; align-items: center;">
+                Select BU...
+                <span style="font-size: 10px;">▼</span>
+              </div>
+            </div>
+
+            <!-- Hiring Manager -->
+            <div style="margin-bottom: 12px;">
+              <label style="display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #64748B; margin-bottom: 4px;">Hiring Manager / POC *</label>
+              <div style="background: #F8FAFC; border: 1px solid #CBD5E1; border-radius: 8px; padding: 8px 12px; color: #94A3B8; font-size: 13px;">
+                e.g. John Smith / Jane Doe
+              </div>
+            </div>
+
+            <!-- Project Name -->
+            <div style="margin-bottom: 12px;">
+              <label style="display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #64748B; margin-bottom: 4px;">Project Name *</label>
+              <div style="background: #F8FAFC; border: 1px solid #CBD5E1; border-radius: 8px; padding: 8px 12px; color: #94A3B8; font-size: 13px; display: flex; justify-content: space-between; align-items: center;">
+                Select existing or type new...
+                <span style="font-size: 10px;">▼</span>
+              </div>
+              <div style="font-size: 10px; color: #94A3B8; margin-top: 3px;">Choose from existing projects or enter a new one</div>
+            </div>
+
+            <!-- Role Title -->
+            <div style="margin-bottom: 12px;">
+              <label style="display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #64748B; margin-bottom: 4px;">Role Title *</label>
+              <div style="background: #F8FAFC; border: 1px solid #CBD5E1; border-radius: 8px; padding: 8px 12px; color: #94A3B8; font-size: 13px;">
+                e.g. Senior React Developer
+              </div>
+            </div>
+
+            <!-- SFDC Link -->
+            <div style="margin-bottom: 12px;">
+              <label style="display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #64748B; margin-bottom: 4px;">SFDC Job Link</label>
+              <div style="background: #F8FAFC; border: 1px solid #CBD5E1; border-radius: 8px; padding: 8px 12px; color: #94A3B8; font-size: 13px;">
+                https://salesforce.com/...
+              </div>
+            </div>
+
+            <!-- Platform Link -->
+            <div style="margin-bottom: 12px;">
+              <label style="display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #64748B; margin-bottom: 4px;">Platform Link</label>
+              <div style="background: #F8FAFC; border: 1px solid #CBD5E1; border-radius: 8px; padding: 8px 12px; color: #94A3B8; font-size: 13px;">
+                https://toptal.com/...
+              </div>
+            </div>
+
+            <!-- Submit / Cancel -->
+            <div style="display: flex; gap: 8px; margin-top: 16px;">
+              <button style="flex: 1; background: #1D4ED8; color: white; border: none; border-radius: 8px; padding: 10px; font-weight: 600; font-size: 13px; cursor: pointer;">✅ Add Job</button>
+              <button style="background: #F1F5F9; color: #64748B; border: 1px solid #CBD5E1; border-radius: 8px; padding: 10px 18px; font-size: 13px; cursor: pointer;">Cancel</button>
+            </div>
+          </div>
+
+          <!-- After submit confirmation (preview) -->
+          <div style="align-self: flex-start; background: white; padding: 8px 14px; border-radius: 14px 14px 14px 4px; max-width: 85%; border: 1px solid #D1FAE5; font-size: 13px; color: #166534;">
+            ✅ <strong>Job created!</strong> Senior React Developer added to Mail / AOL Project. Showing in Open Jobs now.
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>Inline Chat Form</h3>
+      <p>Form appears directly in the chat flow. BU is a dropdown, Project is a searchable combo (existing + new). Links are optional. On submit, job is created instantly and confirmation appears.</p>
+    </div>
+  </div>
+</div>
+
+<div style="margin-top: 28px;">
+  <h3>Quick-Action Button Placement</h3>
+  <p class="subtitle">The ➕ Add Job button appears at the bottom of the chat input area</p>
+</div>
+
+<div class="cards" style="margin-top: 12px;">
+  <div class="card" data-choice="button-placement" onclick="toggleSelect(this)" style="max-width: 520px; margin: 0 auto;">
+    <div class="card-image" style="padding: 0;">
+      <div style="background: #F8FAFC; border-radius: 12px; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
+        <!-- Simulated chat input area -->
+        <div style="padding: 12px; border-top: 1px solid #E2E8F0; background: white;">
+          <!-- Quick actions row -->
+          <div style="display: flex; gap: 6px; margin-bottom: 8px;">
+            <div style="background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 100px; padding: 4px 12px; font-size: 11px; font-weight: 600; color: #1D4ED8; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+              ➕ Add Job
+            </div>
+            <div style="background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 100px; padding: 4px 12px; font-size: 11px; font-weight: 600; color: #166534; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+              👤 Add Candidate
+            </div>
+            <div style="background: #FFF7ED; border: 1px solid #FED7AA; border-radius: 100px; padding: 4px 12px; font-size: 11px; font-weight: 600; color: #9A3412; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+              🔍 Search
+            </div>
+          </div>
+          <!-- Input bar -->
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <div style="flex: 1; background: #F8FAFC; border: 1px solid #CBD5E1; border-radius: 10px; padding: 10px 14px; color: #94A3B8; font-size: 13px;">
+              Ask me anything about the pipeline...
+            </div>
+            <div style="width: 36px; height: 36px; background: #1D4ED8; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: white; font-size: 16px;">↑</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>Quick Action Chips</h3>
+      <p>Pill-shaped shortcut buttons sit above the chat input. "➕ Add Job" opens the form instantly. Could expand later with "Add Candidate", "Search", etc.</p>
+    </div>
+  </div>
+</div>

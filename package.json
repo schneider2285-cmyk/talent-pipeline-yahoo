@@ -1,5 +1,8 @@
 {
   "name": "talent-pipeline-yahoo",
   "version": "1.0.0",
-  "private": true
+  "private": true,
+  "dependencies": {
+    "pg": "^8.20.0"
+  }
 }
