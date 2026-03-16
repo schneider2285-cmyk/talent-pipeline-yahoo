@@ -780,40 +780,49 @@ async function initApp(session) {
   }
 }
 
-// Auth state change listener — handles login, logout, and token refresh
-sb.auth.onAuthStateChange(async function(event, session) {
-  authResolved = true;
-  if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') {
-    if (session && session.user) {
-      await initApp(session);
-    } else if (event === 'INITIAL_SESSION') {
+// Primary auth: check session directly on page load (avoids lock/listener race conditions)
+(async function() {
+  try {
+    var { data } = await sb.auth.getSession();
+    if (data.session && data.session.user) {
+      authResolved = true;
+      await initApp(data.session);
+    } else {
+      authResolved = true;
       showLogin();
     }
+  } catch(e) {
+    console.warn('Initial getSession failed:', e);
+    authResolved = true;
+    showLogin();
+  }
+})();
+
+// Secondary: listen for auth changes AFTER initial load (handles sign-in, sign-out, token refresh)
+sb.auth.onAuthStateChange(async function(event, session) {
+  // Skip INITIAL_SESSION — we already handled it above
+  if (event === 'INITIAL_SESSION') return;
+
+  if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+    if (session && session.user) {
+      await initApp(session);
+    }
   } else if (event === 'SIGNED_OUT') {
+    // Only sign out if we don't actually have a valid session
+    // (Supabase lock recovery can fire spurious SIGNED_OUT events)
+    try {
+      var { data: check } = await sb.auth.getSession();
+      if (check.session && check.session.user) {
+        console.warn('Ignoring spurious SIGNED_OUT — session still valid');
+        return;
+      }
+    } catch(e) { /* proceed with sign out */ }
     currentUser = null;
     currentProfile = null;
     appInitialized = false;
     showLogin();
   }
 });
-
-// Fallback: if onAuthStateChange doesn't fire within 6s (lock timeout), check session manually
-setTimeout(async function() {
-  if (!authResolved) {
-    console.warn('Auth listener timed out — checking session manually');
-    try {
-      var session = await getSession();
-      if (session && session.user) {
-        await initApp(session);
-      } else {
-        showLogin();
-      }
-    } catch(e) {
-      console.error('Fallback session check failed:', e);
-      showLogin();
-    }
-  }
-}, 6000);
 
 // Login button handler
 document.getElementById('loginBtn').addEventListener('click', async function() {
