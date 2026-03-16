@@ -2270,6 +2270,7 @@ const CHAT_TOOLS = [
         poc_names: { type: 'string', description: 'Point of contact names' },
         poc_emails: { type: 'string', description: 'Point of contact emails' },
         notes: { type: 'string', description: 'Additional notes' },
+        sow_number: { type: 'string', description: 'SOW (Statement of Work) number' },
         salesforce_link: { type: 'string', description: 'Salesforce/SFDC job link URL' },
         toptal_job_link: { type: 'string', description: 'Platform (Toptal) job link URL' }
       },
@@ -2429,6 +2430,7 @@ async function executeTool(toolName, toolInput) {
       if (toolInput.poc_names) row.poc_names = toolInput.poc_names;
       if (toolInput.poc_emails) row.poc_emails = toolInput.poc_emails;
       if (toolInput.notes) row.notes = toolInput.notes;
+      if (toolInput.sow_number) row.sow_number = toolInput.sow_number;
       if (toolInput.salesforce_link) row.salesforce_link = toolInput.salesforce_link;
       if (toolInput.toptal_job_link) row.toptal_job_link = toolInput.toptal_job_link;
       var { data, error } = await sb.from('jobs').insert(row).select();
@@ -2650,6 +2652,14 @@ function renderJobForm() {
   html += '<div class="form-group"><label>Role Title <span class="req">*</span></label>';
   html += '<input type="text" id="jf-role" placeholder="e.g. Senior React Developer" /></div>';
 
+  // Number of Openings
+  html += '<div class="form-group"><label>Number of Open Roles <span class="req">*</span></label>';
+  html += '<input type="number" id="jf-openings" min="1" value="1" style="width:100px;" /></div>';
+
+  // SOW
+  html += '<div class="form-group"><label>SOW Number</label>';
+  html += '<input type="text" id="jf-sow" placeholder="e.g. SOW-2026-001" /></div>';
+
   // SFDC Link
   html += '<div class="form-group"><label>SFDC Job Link</label>';
   html += '<input type="url" id="jf-sfdc" placeholder="https://salesforce.com/..." /></div>';
@@ -2689,6 +2699,8 @@ async function submitJobForm() {
   var projectSelect = (document.getElementById('jf-project') || {}).value || '';
   var projectNew = (document.getElementById('jf-project-new') || {}).value || '';
   var role = (document.getElementById('jf-role') || {}).value || '';
+  var openingsVal = parseInt((document.getElementById('jf-openings') || {}).value, 10) || 1;
+  var sow = (document.getElementById('jf-sow') || {}).value || '';
   var sfdc = (document.getElementById('jf-sfdc') || {}).value || '';
   var platform = (document.getElementById('jf-platform') || {}).value || '';
 
@@ -2731,17 +2743,27 @@ async function submitJobForm() {
     project_name: projectName,
     role_title: role.trim(),
     poc_names: poc.trim(),
-    openings: 1,
+    openings: openingsVal,
     created_by: currentUser ? currentUser.id : null
   };
+  if (sow.trim()) row.sow_number = sow.trim();
   if (sfdc.trim()) row.salesforce_link = sfdc.trim();
   if (platform.trim()) row.toptal_job_link = platform.trim();
 
   // Insert
   try {
     var { data, error } = await sb.from('jobs').insert(row).select();
+    // If sow_number column doesn't exist yet, retry without it
+    if (error && error.message && error.message.indexOf('sow_number') !== -1) {
+      var savedSow = row.sow_number;
+      delete row.sow_number;
+      var retry = await sb.from('jobs').insert(row).select();
+      data = retry.data; error = retry.error;
+      if (!error) {
+        chatMessages.push({ role: 'system', content: '\u26A0\uFE0F SOW field was not saved — the sow_number column needs to be added to the jobs table in Supabase.' });
+      }
+    }
     if (error) {
-      // Show error in form area
       chatMessages.push({ role: 'assistant', content: '\u274C Error creating job: ' + error.message });
       renderChat();
       return;
@@ -2754,7 +2776,7 @@ async function submitJobForm() {
       if (chatMessages[i]._isForm) {
         chatMessages[i] = {
           role: 'action_card',
-          content: '<div class="chat-action-card"><h4>\u2705 Job Created</h4><p><strong>' + escHTML(row.role_title) + '</strong> added to ' + escHTML(row.bu) + ' / ' + escHTML(row.project_name) + '</p></div>'
+          content: '<div class="chat-action-card"><h4>\u2705 Job Created</h4><p><strong>' + escHTML(row.role_title) + '</strong> (' + openingsVal + ' opening' + (openingsVal > 1 ? 's' : '') + ') added to ' + escHTML(row.bu) + ' / ' + escHTML(row.project_name) + (sow.trim() ? ' — SOW: ' + escHTML(sow.trim()) : '') + '</p></div>'
         };
         break;
       }
