@@ -459,6 +459,45 @@
   .open-job-tag.empty-tag { background: #FEE2E2; color: #991B1B; border: 1px solid #FECACA; }
   .open-job-tag.rate-tag { background: #F0FDF4; color: #166534; border: 1px solid #BBF7D0; }
   .open-job-tag.status-tag { background: #EDE9FE; color: #5B21B6; border: 1px solid #C4B5FD; }
+  .open-job-card { cursor: pointer; }
+  .open-job-card.expanded { grid-column: 1 / -1; }
+  .open-job-card .expand-hint {
+    font-size: 11px; color: #93C5FD; margin-top: 8px; transition: color 0.15s;
+  }
+  .open-job-card:hover .expand-hint { color: #1D4ED8; }
+  .oj-detail { margin-top: 16px; border-top: 1px solid #DBEAFE; padding-top: 16px; }
+  .oj-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 24px; margin-bottom: 16px; }
+  .oj-detail-item { font-size: 13px; }
+  .oj-detail-label { font-weight: 600; color: #1E3A8A; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px; }
+  .oj-detail-value { color: var(--text-primary); }
+  .oj-cand-section { margin-top: 12px; }
+  .oj-cand-section-title {
+    font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+    padding: 6px 0; margin-bottom: 6px; border-bottom: 1px solid #E2E8F0; display: flex; align-items: center; gap: 6px;
+  }
+  .oj-cand-section-title .cand-count {
+    background: #F1F5F9; color: #64748B; font-size: 11px; padding: 1px 8px;
+    border-radius: 100px; font-weight: 600;
+  }
+  .oj-cand-row {
+    display: flex; align-items: center; gap: 10px; padding: 8px 0;
+    border-bottom: 1px solid #F1F5F9; font-size: 13px;
+  }
+  .oj-cand-row:last-child { border-bottom: none; }
+  .oj-cand-name { font-weight: 600; color: var(--toptal-dark); min-width: 140px; }
+  .oj-cand-name a { color: inherit; text-decoration: none; }
+  .oj-cand-name a:hover { color: var(--toptal-blue); text-decoration: underline; }
+  .oj-cand-detail { color: var(--text-secondary); font-size: 12px; }
+  .oj-cand-status-badge {
+    font-size: 11px; padding: 2px 8px; border-radius: 100px; font-weight: 500;
+  }
+  .oj-cand-status-badge.introduced { background: #DBEAFE; color: #1D4ED8; }
+  .oj-cand-status-badge.interview { background: #FEF3C7; color: #92400E; }
+  .oj-cand-status-badge.pending { background: #FED7AA; color: #9A3412; }
+  .oj-cand-status-badge.hired { background: #D1FAE5; color: #065F46; }
+  .oj-cand-status-badge.rejected { background: #FEE2E2; color: #991B1B; }
+  .oj-cand-status-badge.other { background: #F1F5F9; color: #64748B; }
+  .oj-no-candidates { color: #94A3B8; font-size: 13px; font-style: italic; padding: 8px 0; }
   .open-jobs-filters {
     display: flex; flex-wrap: wrap; gap: 10px; padding: 0 24px 16px; align-items: center;
   }
@@ -1017,6 +1056,7 @@ let ojFilterBU = '';
 let ojFilterProject = '';
 let ojFilterRole = '';
 let ojFilterStatus = '';
+let expandedJobIds = new Set();
 let currentView = 'pipeline'; // pipeline | fulfillment
 
 // All possible job statuses
@@ -1046,7 +1086,7 @@ async function loadPipelineData() {
 async function loadFulfillmentData() {
   const { data: jobs, error: jobsErr } = await sb.from('jobs').select('*');
   if (jobsErr) throw new Error('Jobs fetch failed: ' + jobsErr.message);
-  const { data: jcData, error: jcErr } = await sb.from('job_candidates').select('*');
+  const { data: jcData, error: jcErr } = await sb.from('job_candidates').select('*, candidates(id, name, profile_link, location, rate, avatar_url)');
   if (jcErr) throw new Error('JC fetch failed: ' + jcErr.message);
   // Aggregate client-side
   var jobMap = {};
@@ -1055,10 +1095,13 @@ async function loadFulfillmentData() {
       id: j.id, bu: j.bu, project_name: j.project_name, role_title: j.role_title,
       openings: j.openings || 1, rate_max: j.rate_max || null,
       status: j.status || 'ACTIVE',
+      duration: j.duration || '', poc_names: j.poc_names || '', poc_emails: j.poc_emails || '',
+      notes: j.notes || '', interview_context: j.interview_context || '',
       toptal_job_link: j.toptal_job_link,
       salesforce_link: j.salesforce_link, slack_channel: j.slack_channel,
       total_candidates: 0, active_candidates: 0, hired_count: 0, rejected_count: 0,
-      needs_attention: 0, latest_contact: null
+      needs_attention: 0, latest_contact: null,
+      candidates: [] // Store per-job candidate details
     };
   });
   var activeSt = new Set(['introduced','interview_scheduled','pending_decision','pending_2nd_interview']);
@@ -1082,6 +1125,23 @@ async function loadFulfillmentData() {
         j.latest_contact = contactDate;
       }
     }
+    // Store candidate record with details
+    var cand = jc.candidates || {};
+    j.candidates.push({
+      name: cand.name || 'Unknown',
+      profile_link: cand.profile_link || '',
+      location: cand.location || '',
+      rate: cand.rate || null,
+      avatar_url: cand.avatar_url || '',
+      status: jc.status || '',
+      _status: ns,
+      date_introduced: jc.date_introduced || '',
+      date_interview: jc.date_interview || '',
+      date_hired: jc.date_hired || '',
+      date_rejected: jc.date_rejected || '',
+      client_feedback: jc.client_feedback || '',
+      rejection_reason: jc.rejection_reason || ''
+    });
   });
   return Object.values(jobMap).map(function(j) {
     j.days_since_contact = j.latest_contact ? daysSince(j.latest_contact) : null;
@@ -1403,7 +1463,8 @@ function renderPipelineView() {
         html += '<div class="open-jobs-grid">';
         openJobs.forEach(function(j) {
           var unfilled = (j.openings || 1) - (j.hired_count || 0);
-          html += '<div class="open-job-card">' +
+          var isExpanded = expandedJobIds.has(j.id);
+          html += '<div class="open-job-card' + (isExpanded ? ' expanded' : '') + '" data-expand-job="' + escHTML(j.id) + '">' +
             '<div class="open-job-title">' + escHTML(j.role_title) + '</div>' +
             '<div class="open-job-project">' + escHTML(j.project_name) + '</div>' +
             '<div class="open-job-meta">' +
@@ -1420,7 +1481,90 @@ function renderPipelineView() {
           if (j.rate_max) {
             html += '<span class="open-job-tag rate-tag">\uD83D\uDCB0 $' + j.rate_max + '/hr max</span>';
           }
-          html += '</div></div>';
+          html += '</div>';
+          if (!isExpanded) {
+            html += '<div class="expand-hint">' + (j.total_candidates > 0 ? 'Click to see ' + j.total_candidates + ' candidate' + (j.total_candidates > 1 ? 's' : '') : 'Click for details') + ' \u203A</div>';
+          }
+
+          // Expanded detail panel
+          if (isExpanded) {
+            html += '<div class="oj-detail">';
+
+            // Job info grid
+            html += '<div class="oj-detail-grid">';
+            if (j.poc_names) html += '<div class="oj-detail-item"><div class="oj-detail-label">Point of Contact</div><div class="oj-detail-value">' + escHTML(j.poc_names) + '</div></div>';
+            if (j.duration) html += '<div class="oj-detail-item"><div class="oj-detail-label">Duration</div><div class="oj-detail-value">' + escHTML(j.duration) + '</div></div>';
+            if (j.rate_max) html += '<div class="oj-detail-item"><div class="oj-detail-label">Max Rate</div><div class="oj-detail-value">$' + j.rate_max + '/hr</div></div>';
+            html += '<div class="oj-detail-item"><div class="oj-detail-label">Openings</div><div class="oj-detail-value">' + j.openings + ' total, ' + unfilled + ' unfilled</div></div>';
+            if (j.notes) html += '<div class="oj-detail-item" style="grid-column:1/-1"><div class="oj-detail-label">Notes</div><div class="oj-detail-value">' + escHTML(j.notes) + '</div></div>';
+            if (j.interview_context) html += '<div class="oj-detail-item" style="grid-column:1/-1"><div class="oj-detail-label">Interview Context</div><div class="oj-detail-value">' + escHTML(j.interview_context) + '</div></div>';
+            html += '</div>';
+
+            // Links
+            var linksHtml = '';
+            if (j.toptal_job_link) linksHtml += '<a href="' + escHTML(j.toptal_job_link) + '" target="_blank" style="font-size:12px; color:var(--toptal-blue); margin-right:14px;">Toptal Job \u2197</a>';
+            if (j.salesforce_link) linksHtml += '<a href="' + escHTML(j.salesforce_link) + '" target="_blank" style="font-size:12px; color:var(--toptal-blue); margin-right:14px;">Salesforce \u2197</a>';
+            if (j.slack_channel) linksHtml += '<span style="font-size:12px; color:var(--text-secondary);">Slack: ' + escHTML(j.slack_channel) + '</span>';
+            if (linksHtml) html += '<div style="margin-bottom:14px;">' + linksHtml + '</div>';
+
+            // Candidates grouped by status
+            if (j.candidates && j.candidates.length > 0) {
+              var candGroups = {};
+              var groupOrder = ['introduced','interview_scheduled','pending_interview','pending_decision','pending_2nd_interview','hired','rejected','withdrawn','unavailable','consider_other','removed_location','on_hold'];
+              j.candidates.forEach(function(c) {
+                var g = c._status || 'other';
+                if (!candGroups[g]) candGroups[g] = [];
+                candGroups[g].push(c);
+              });
+
+              // Render each group
+              var orderedGroups = groupOrder.filter(function(g) { return candGroups[g]; });
+              // Add any remaining groups not in the order
+              Object.keys(candGroups).forEach(function(g) { if (orderedGroups.indexOf(g) === -1) orderedGroups.push(g); });
+
+              orderedGroups.forEach(function(groupKey) {
+                var cands = candGroups[groupKey];
+                var groupLabel = (STATUS_MAP[groupKey] || {}).label || groupKey.replace(/_/g, ' ').replace(/\b\w/g, function(l) { return l.toUpperCase(); });
+                var groupColor = (STATUS_MAP[groupKey] || {}).color || '#64748B';
+                var badgeClass = 'other';
+                if (groupKey === 'introduced') badgeClass = 'introduced';
+                else if (groupKey.includes('interview') || groupKey === 'pending_interview') badgeClass = 'interview';
+                else if (groupKey.includes('pending') || groupKey.includes('decision')) badgeClass = 'pending';
+                else if (groupKey === 'hired') badgeClass = 'hired';
+                else if (groupKey === 'rejected' || groupKey === 'client_rejected') badgeClass = 'rejected';
+
+                html += '<div class="oj-cand-section">';
+                html += '<div class="oj-cand-section-title"><span style="color:' + groupColor + '">\u25CF</span> ' + escHTML(groupLabel) + ' <span class="cand-count">' + cands.length + '</span></div>';
+
+                cands.forEach(function(c) {
+                  html += '<div class="oj-cand-row">';
+                  html += avatarHTML(c.name, c.profile_link, 28, c.avatar_url);
+                  if (c.profile_link) {
+                    html += '<span class="oj-cand-name"><a href="' + escHTML(c.profile_link) + '" target="_blank">' + escHTML(c.name) + '</a></span>';
+                  } else {
+                    html += '<span class="oj-cand-name">' + escHTML(c.name) + '</span>';
+                  }
+                  var details = [];
+                  if (c.location) details.push('\uD83D\uDCCD ' + c.location);
+                  if (c.rate) details.push('$' + c.rate + '/hr');
+                  if (c.date_introduced) details.push('Intro: ' + fmtDate(c.date_introduced));
+                  if (c.date_interview) details.push('Interview: ' + fmtDate(c.date_interview));
+                  if (details.length) html += '<span class="oj-cand-detail">' + escHTML(details.join(' \u00B7 ')) + '</span>';
+                  if (c.client_feedback) html += '<span class="oj-cand-detail" style="color:#92400E;" title="Client feedback">\uD83D\uDCAC ' + escHTML(c.client_feedback.substring(0, 60)) + (c.client_feedback.length > 60 ? '...' : '') + '</span>';
+                  if (c.rejection_reason && badgeClass === 'rejected') html += '<span class="oj-cand-detail" style="color:#991B1B;">\u2715 ' + escHTML(c.rejection_reason.substring(0, 60)) + '</span>';
+                  html += '</div>';
+                });
+
+                html += '</div>';
+              });
+            } else {
+              html += '<div class="oj-no-candidates">No candidates have been submitted yet. Use the chat to add candidates to this role.</div>';
+            }
+
+            html += '</div>'; // close oj-detail
+          }
+
+          html += '</div>'; // close open-job-card
         });
         html += '</div>';
       }
@@ -1625,6 +1769,16 @@ function bindEvents() {
     e.stopPropagation();
     ojFilterBU = ''; ojFilterProject = ''; ojFilterRole = ''; ojFilterStatus = '';
     render();
+  });
+
+  // Expand/collapse Open Job cards
+  document.querySelectorAll('[data-expand-job]').forEach(function(el) {
+    el.addEventListener('click', function(e) {
+      if (e.target.closest('a') || e.target.closest('select') || e.target.closest('button')) return;
+      var jobId = el.dataset.expandJob;
+      if (expandedJobIds.has(jobId)) expandedJobIds.delete(jobId); else expandedJobIds.add(jobId);
+      render();
+    });
   });
 
   // View tabs
