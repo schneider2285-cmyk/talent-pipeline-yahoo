@@ -780,43 +780,71 @@ async function initApp(session) {
   }
 }
 
-// Primary auth: check session directly on page load (avoids lock/listener race conditions)
-(async function() {
+// Read session directly from localStorage to bypass Supabase lock issues
+function getStoredSession() {
   try {
-    var { data } = await sb.auth.getSession();
-    if (data.session && data.session.user) {
-      authResolved = true;
-      await initApp(data.session);
-    } else {
-      authResolved = true;
-      showLogin();
-    }
-  } catch(e) {
-    console.warn('Initial getSession failed:', e);
+    var key = 'sb-' + SUPABASE_URL.split('//')[1].split('.')[0] + '-auth-token';
+    var raw = localStorage.getItem(key);
+    if (!raw) return null;
+    var parsed = JSON.parse(raw);
+    // Check if token is expired
+    if (parsed.expires_at && parsed.expires_at * 1000 < Date.now()) return null;
+    return parsed;
+  } catch(e) { return null; }
+}
+
+// Primary auth: read localStorage immediately (no locks, no async)
+(function() {
+  var stored = getStoredSession();
+  if (stored && stored.user) {
+    // We have a valid session in storage — show the app immediately
+    currentUser = stored.user;
+    authResolved = true;
+    hideLogin();
+    // Load profile and data async (non-blocking)
+    (async function() {
+      try { await loadProfile(stored.user.id); } catch(e) { console.warn('Profile load skipped:', e); }
+      if (!appInitialized) {
+        appInitialized = true;
+        fetchAllData();
+        setupRealtime();
+      }
+      // Now let Supabase properly initialize in the background (refreshes token if needed)
+      try {
+        var { data } = await sb.auth.getSession();
+        if (data.session) { currentUser = data.session.user; }
+      } catch(e) { console.warn('Background session refresh:', e); }
+    })();
+  } else {
     authResolved = true;
     showLogin();
   }
 })();
 
-// Secondary: listen for auth changes AFTER initial load (handles sign-in, sign-out, token refresh)
+// Secondary: listen for auth changes (handles new sign-in, sign-out, token refresh)
 sb.auth.onAuthStateChange(async function(event, session) {
-  // Skip INITIAL_SESSION — we already handled it above
-  if (event === 'INITIAL_SESSION') return;
+  if (event === 'INITIAL_SESSION') {
+    // If we already resolved from localStorage, skip
+    if (authResolved) return;
+    if (session && session.user) {
+      await initApp(session);
+    } else {
+      showLogin();
+    }
+    return;
+  }
 
   if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
     if (session && session.user) {
       await initApp(session);
     }
   } else if (event === 'SIGNED_OUT') {
-    // Only sign out if we don't actually have a valid session
-    // (Supabase lock recovery can fire spurious SIGNED_OUT events)
-    try {
-      var { data: check } = await sb.auth.getSession();
-      if (check.session && check.session.user) {
-        console.warn('Ignoring spurious SIGNED_OUT — session still valid');
-        return;
-      }
-    } catch(e) { /* proceed with sign out */ }
+    // Verify this is a real sign-out by checking localStorage
+    var stored = getStoredSession();
+    if (stored && stored.user) {
+      console.warn('Ignoring spurious SIGNED_OUT — stored session still valid');
+      return;
+    }
     currentUser = null;
     currentProfile = null;
     appInitialized = false;
