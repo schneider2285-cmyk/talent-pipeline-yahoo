@@ -247,6 +247,31 @@
   }
   .bu-action-btn:hover { background: var(--toptal-blue); color: white; border-color: var(--toptal-blue); }
   .bu-action-btn svg { width: 12px; height: 12px; }
+  .bu-filter-bar {
+    display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+    padding: 8px 16px 8px 40px; background: #F8FAFC;
+    border-bottom: 1px solid var(--border);
+  }
+  .bu-filter-bar .bu-filter-label {
+    font-size: 11px; font-weight: 600; color: #94A3B8;
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .bu-filter-select {
+    padding: 4px 24px 4px 8px; border-radius: 6px; border: 1px solid var(--border);
+    font-size: 12px; background: white; color: var(--text-primary);
+    cursor: pointer; outline: none; min-width: 140px;
+    -webkit-appearance: none; appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%2394A3B8' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 6px center;
+  }
+  .bu-filter-select:focus { border-color: var(--toptal-blue); box-shadow: 0 0 0 2px rgba(32,78,207,0.1); }
+  .bu-filter-select.active-filter { border-color: var(--toptal-blue); background-color: #EFF6FF; color: var(--toptal-blue); font-weight: 600; }
+  .bu-filter-clear {
+    font-size: 11px; color: var(--toptal-blue); cursor: pointer;
+    border: none; background: none; font-weight: 600; padding: 4px 8px;
+  }
+  .bu-filter-clear:hover { text-decoration: underline; }
+  .bu-filter-count { font-size: 11px; color: #94A3B8; margin-left: auto; }
 
   /* ── Project ── */
   .project-section { border-top: 1px solid var(--border); }
@@ -1632,6 +1657,8 @@ let ffHideCancelled = true;
 let ffExpandedCards = new Set();
 let ffOpenBUs = new Set(); // Collapsible BU groups in fulfillment view
 let sectionFilters = {}; // Per-project-section active status filters: { 'BU::Project': Set(['introduced', ...]) }
+let buFilterProject = {}; // Per-BU project filter: { 'Mail': 'Webmail Modernization FE' }
+let buFilterRole = {}; // Per-BU role filter: { 'Mail': 'React Developer' }
 
 // All possible job statuses
 const JOB_STATUSES = [
@@ -2534,11 +2561,73 @@ function renderPipelineView() {
         '</div></div>' +
         '<div class="bu-body">';
 
+      // Collect unique projects and roles for this BU's filter dropdowns
+      var buProjects = [];
+      var buRoles = [];
+      var _bpSet = {};
+      var _brSet = {};
+      bu.projects.forEach(function(p) {
+        if (!_bpSet[p.name]) { _bpSet[p.name] = 1; buProjects.push(p.name); }
+        p.talent.forEach(function(t) {
+          if (t.role && !_brSet[t.role]) { _brSet[t.role] = 1; buRoles.push(t.role); }
+        });
+      });
+      buProjects.sort();
+      buRoles.sort();
+
+      var curProjFilter = buFilterProject[buKey] || '';
+      var curRoleFilter = buFilterRole[buKey] || '';
+      var hasActiveBUFilter = curProjFilter || curRoleFilter;
+
+      // Filter bar
+      html += '<div class="bu-filter-bar">' +
+        '<span class="bu-filter-label">Filter:</span>' +
+        '<select class="bu-filter-select' + (curProjFilter ? ' active-filter' : '') + '" data-bu-filter-project="' + escHTML(buKey) + '">' +
+        '<option value="">All Projects (' + buProjects.length + ')</option>';
+      buProjects.forEach(function(p) {
+        html += '<option value="' + escHTML(p) + '"' + (curProjFilter === p ? ' selected' : '') + '>' + escHTML(p) + '</option>';
+      });
+      html += '</select>' +
+        '<select class="bu-filter-select' + (curRoleFilter ? ' active-filter' : '') + '" data-bu-filter-role="' + escHTML(buKey) + '">' +
+        '<option value="">All Roles (' + buRoles.length + ')</option>';
+      buRoles.forEach(function(r) {
+        html += '<option value="' + escHTML(r) + '"' + (curRoleFilter === r ? ' selected' : '') + '>' + escHTML(r) + '</option>';
+      });
+      html += '</select>';
+      if (hasActiveBUFilter) {
+        html += '<button class="bu-filter-clear" data-bu-filter-clear="' + escHTML(buKey) + '">\u2715 Clear</button>';
+      }
+
+      // Count filtered results
+      var filteredTalentCount = 0;
+      var totalTalentCount = bu.projects.reduce(function(s,p){return s+p.talent.length;},0);
+      bu.projects.forEach(function(p) {
+        if (curProjFilter && p.name !== curProjFilter) return;
+        p.talent.forEach(function(t) {
+          if (curRoleFilter && t.role !== curRoleFilter) return;
+          filteredTalentCount++;
+        });
+      });
+      if (hasActiveBUFilter) {
+        html += '<span class="bu-filter-count">Showing ' + filteredTalentCount + ' of ' + totalTalentCount + '</span>';
+      }
+      html += '</div>';
+
+      // Render projects (filtered)
       bu.projects.forEach(function(proj) {
+        // Skip project if project filter is active and doesn't match
+        if (curProjFilter && proj.name !== curProjFilter) return;
         var projKey = buKey + '::' + proj.name;
         var projOpen = openProjects.has(projKey);
         var projStatuses = {};
-        proj.talent.forEach(function(t) { projStatuses[t.status] = (projStatuses[t.status]||0)+1; });
+        var projFilteredCount = 0;
+        proj.talent.forEach(function(t) {
+          if (curRoleFilter && t.role !== curRoleFilter) return;
+          projStatuses[t.status] = (projStatuses[t.status]||0)+1;
+          projFilteredCount++;
+        });
+        // Skip project entirely if role filter eliminates all talent
+        if (curRoleFilter && projFilteredCount === 0) return;
 
         html += '<div class="project-section '+(projOpen?'open':'')+'">' +
           '<div class="project-header" data-toggle-project="'+escHTML(projKey)+'">' +
@@ -2551,13 +2640,16 @@ function renderPipelineView() {
           var c = (STATUS_MAP[st]||{}).color||'#888';
           for (var i=0;i<count;i++) html += '<span class="mini-pip" style="background:'+c+'" title="'+((STATUS_MAP[st]||{}).label||st)+'"></span>';
         });
-        html += '</div><div class="project-count">'+proj.talent.length+' talent</div></div>';
+        html += '</div><div class="project-count">'+projFilteredCount+' talent</div></div>';
         html += '<div class="project-body">';
 
         // Per-section filter bar
         var secFilters = sectionFilters[projKey] || new Set();
         var secStatusCounts = {};
-        proj.talent.forEach(function(t) { secStatusCounts[t.status] = (secStatusCounts[t.status]||0)+1; });
+        proj.talent.forEach(function(t) {
+          if (curRoleFilter && t.role !== curRoleFilter) return;
+          secStatusCounts[t.status] = (secStatusCounts[t.status]||0)+1;
+        });
         html += '<div class="section-filter-bar" data-section-key="'+escHTML(projKey)+'">' +
           '<span class="filter-label-txt">Filter:</span>';
         var filterableStatuses = Object.keys(secStatusCounts);
@@ -2576,6 +2668,8 @@ function renderPipelineView() {
 
         html += '<table class="talent-table"><thead><tr><th>Candidate</th><th>Status</th><th>Introduced</th></tr></thead><tbody>';
         proj.talent.forEach(function(t) {
+          // Role filter: hide talent that don't match the selected role
+          if (curRoleFilter && t.role !== curRoleFilter) return;
           var cfg = STATUS_MAP[t.status]||{};
           var days = daysSince(t.updatedAt || t.date);
           var isHidden = secFilters.size > 0 && !secFilters.has(t.status);
@@ -2606,7 +2700,10 @@ function renderPipelineView() {
           html += stalenessHTML(days) + '</div></td>' +
             '<td class="date-cell">'+fmtDate(t.date)+'</td></tr>';
         });
-        var visibleCount = proj.talent.filter(function(t) { return secFilters.size === 0 || secFilters.has(t.status); }).length;
+        var visibleCount = proj.talent.filter(function(t) {
+          if (curRoleFilter && t.role !== curRoleFilter) return false;
+          return secFilters.size === 0 || secFilters.has(t.status);
+        }).length;
         html += '</tbody></table>';
         html += '<div class="section-summary-bar"><span style="font-weight:600;">Showing ' + visibleCount + ' of ' + proj.talent.length + ' candidates</span></div>';
         html += '</div></div>';
@@ -2857,6 +2954,39 @@ function bindEvents() {
     btn.addEventListener('click', function(e) {
       e.stopPropagation();
       showCandidateForm(btn.dataset.buAddCand);
+    });
+  });
+
+  // BU filter: Project dropdown
+  document.querySelectorAll('[data-bu-filter-project]').forEach(function(sel) {
+    sel.addEventListener('click', function(e) { e.stopPropagation(); });
+    sel.addEventListener('change', function() {
+      var buKey = sel.dataset.buFilterProject;
+      if (sel.value) buFilterProject[buKey] = sel.value;
+      else delete buFilterProject[buKey];
+      render();
+    });
+  });
+
+  // BU filter: Role dropdown
+  document.querySelectorAll('[data-bu-filter-role]').forEach(function(sel) {
+    sel.addEventListener('click', function(e) { e.stopPropagation(); });
+    sel.addEventListener('change', function() {
+      var buKey = sel.dataset.buFilterRole;
+      if (sel.value) buFilterRole[buKey] = sel.value;
+      else delete buFilterRole[buKey];
+      render();
+    });
+  });
+
+  // BU filter: Clear button
+  document.querySelectorAll('[data-bu-filter-clear]').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var buKey = btn.dataset.buFilterClear;
+      delete buFilterProject[buKey];
+      delete buFilterRole[buKey];
+      render();
     });
   });
 
