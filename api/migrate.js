@@ -15,13 +15,21 @@ export default async function handler(req, res) {
     return res.status(403).json({ error: 'Forbidden' });
   }
 
-  // Try DATABASE_URL first, then POSTGRES_URL (Vercel Postgres integration)
-  const dbUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.POSTGRES_URL_NON_POOLING;
+  // Build DATABASE_URL from Supabase URL or use explicit env var
+  let dbUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL;
+  if (!dbUrl && supabaseUrl) {
+    // Extract project ref from Supabase URL: https://<ref>.supabase.co
+    const ref = supabaseUrl.replace('https://', '').split('.')[0];
+    // Use the DB password from request body if provided, or from env
+    const dbPassword = (req.body && req.body.db_password) || process.env.SUPABASE_DB_PASSWORD;
+    if (dbPassword) {
+      dbUrl = `postgresql://postgres.${ref}:${encodeURIComponent(dbPassword)}@aws-0-us-west-2.pooler.supabase.com:5432/postgres`;
+    }
+  }
 
   if (!dbUrl) {
     return res.status(500).json({
-      error: 'No DATABASE_URL found',
-      available_env: Object.keys(process.env).filter(k => k.includes('PG') || k.includes('POSTGRES') || k.includes('DATABASE') || k.includes('SUPABASE')).sort()
+      error: 'No DATABASE_URL. Send db_password in POST body or set DATABASE_URL env var.'
     });
   }
 
