@@ -442,25 +442,87 @@
   tr.filtered-out { display: none !important; }
 
   /* Role sub-sections within a project */
-  .role-subsection { margin-bottom: 14px; border: 1px solid #E2E8F0; border-radius: 8px; overflow: hidden; background: #fff; }
-  .role-subsection-header {
-    display: flex; align-items: center; gap: 10px; padding: 10px 14px;
-    background: linear-gradient(135deg, #F8FAFC, #F1F5F9);
-    border-bottom: 1px solid #E2E8F0; cursor: default; flex-wrap: wrap;
+  .role-subsection {
+    margin: 0 16px 18px; border-radius: 12px; overflow: hidden;
+    background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04);
+    transition: box-shadow 0.2s;
   }
-  .role-subsection-title { font-weight: 700; font-size: 14px; color: var(--toptal-dark); }
+  .role-subsection:hover { box-shadow: 0 2px 10px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.06); }
+  .role-subsection:last-child { margin-bottom: 10px; }
+  .role-subsection-header {
+    display: flex; align-items: stretch; gap: 0; padding: 0;
+    border-bottom: 1px solid #E2E8F0; cursor: default;
+  }
+  .role-header-main {
+    flex: 1; padding: 14px 18px; display: flex; flex-direction: column; gap: 8px;
+  }
+  .role-header-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .role-subsection-title {
+    font-weight: 700; font-size: 15px; color: var(--toptal-dark);
+    letter-spacing: -0.2px;
+  }
   .role-subsection-tag {
     display: inline-flex; align-items: center; gap: 4px;
-    font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 10px;
+    font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 12px;
   }
-  .role-subsection-tag.openings { background: #DBEAFE; color: #1D4ED8; }
-  .role-subsection-tag.filled { background: #D1FAE5; color: #059669; }
-  .role-subsection-tag.active { background: #FEF3C7; color: #92400E; }
-  .role-subsection-tag.needs { background: #FEE2E2; color: #991B1B; }
-  .role-progress { display: flex; align-items: center; gap: 6px; margin-left: auto; }
-  .role-progress-bar { width: 80px; height: 6px; background: #E2E8F0; border-radius: 3px; overflow: hidden; }
-  .role-progress-fill { height: 100%; border-radius: 3px; transition: width 0.3s ease; }
-  .role-progress-text { font-size: 11px; color: #64748B; font-weight: 600; white-space: nowrap; }
+  .role-subsection-tag.openings { background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE; }
+  .role-subsection-tag.filled { background: #ECFDF5; color: #059669; border: 1px solid #A7F3D0; }
+  .role-subsection-tag.active { background: #FFFBEB; color: #B45309; border: 1px solid #FDE68A; }
+  .role-subsection-tag.needs { background: #FEF2F2; color: #DC2626; border: 1px solid #FECACA; }
+  .role-header-stats {
+    display: flex; gap: 16px; align-items: center; flex-wrap: wrap;
+  }
+  .role-stat-item {
+    display: flex; flex-direction: column; align-items: center; gap: 1px;
+  }
+  .role-stat-number {
+    font-size: 20px; font-weight: 800; line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+  .role-stat-label {
+    font-size: 9px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.8px; color: #94A3B8;
+  }
+  .role-header-gauge {
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; gap: 4px; padding: 12px 20px;
+    min-width: 100px; border-left: 1px solid #E2E8F0;
+    background: linear-gradient(135deg, #F8FAFC, #FFFFFF);
+  }
+  .role-gauge-ring {
+    width: 48px; height: 48px; border-radius: 50%; position: relative;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .role-gauge-ring svg { transform: rotate(-90deg); }
+  .role-gauge-ring .gauge-bg { fill: none; stroke: #E2E8F0; stroke-width: 5; }
+  .role-gauge-ring .gauge-fill { fill: none; stroke-width: 5; stroke-linecap: round; transition: stroke-dashoffset 0.6s ease; }
+  .role-gauge-pct {
+    position: absolute; font-size: 11px; font-weight: 800; color: var(--toptal-dark);
+  }
+  .role-gauge-label { font-size: 9px; font-weight: 600; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.5px; }
+
+  /* Candidate cards within role */
+  .role-candidates { padding: 6px 8px 8px; }
+  .cand-card {
+    display: flex; align-items: center; gap: 12px; padding: 10px 12px;
+    border-radius: 10px; transition: background 0.12s; margin: 2px 0;
+  }
+  .cand-card:hover { background: #F8FAFC; }
+  .cand-card.filtered-out { display: none; }
+  .cand-card-info { flex: 1; min-width: 0; }
+  .cand-card-name { font-weight: 600; font-size: 13px; color: var(--toptal-dark); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cand-card-meta { font-size: 11px; color: #94A3B8; margin-top: 1px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .cand-card-meta .meta-loc::before { content: '\uD83D\uDCCD '; }
+  .cand-card-status { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; flex-shrink: 0; }
+  .cand-card-dates { display: flex; gap: 16px; flex-shrink: 0; }
+  .cand-card-date {
+    display: flex; flex-direction: column; align-items: center; gap: 0;
+    min-width: 70px; text-align: center;
+  }
+  .cand-card-date .date-label { font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #CBD5E1; }
+  .cand-card-date .date-value { font-size: 12px; color: #64748B; font-weight: 500; white-space: nowrap; }
+  .cand-card-date .date-value.interview-active { color: #6941C6; font-weight: 700; }
+  .cand-card-divider { height: 1px; background: #F1F5F9; margin: 0 12px; }
 
   .date-cell { color: var(--text-secondary); font-size: 12px; white-space: nowrap; }
   .no-results { text-align: center; padding: 60px 20px; color: var(--text-muted); font-size: 14px; }
@@ -2789,45 +2851,71 @@ function renderPipelineView() {
           roleGroups[rk].talent.push(t);
         });
 
-        // Render each role sub-section
+        // Render each role sub-section with visual card layout
         roleOrder.forEach(function(roleName) {
           var rg = roleGroups[roleName];
           var hiredInRole = rg.talent.filter(function(t) { return t.status === 'hired' || t.status === 'active'; }).length;
           var activeInRole = rg.talent.filter(function(t) {
             return t.status === 'introduced' || t.status === 'interview_scheduled' || t.status === 'pending_interview' || t.status === 'pending_decision' || t.status === 'pending_2nd_interview';
           }).length;
+          var rejectedInRole = rg.talent.filter(function(t) { return t.status === 'rejected' || t.status === 'withdrawn' || t.status === 'unavailable'; }).length;
           var openings = rg.openings || 1;
           var unfilled = Math.max(0, openings - hiredInRole);
           var fillPct = openings > 0 ? Math.round((hiredInRole / openings) * 100) : 0;
-          var progressColor = fillPct >= 100 ? '#059669' : fillPct >= 50 ? '#D97B00' : '#DC2626';
+          var gaugeColor = fillPct >= 100 ? '#059669' : fillPct >= 50 ? '#D97B00' : '#DC2626';
+          // SVG gauge math (radius 19, circumference ~119.4)
+          var gaugeCirc = 2 * Math.PI * 19;
+          var gaugeOffset = gaugeCirc - (gaugeCirc * Math.min(fillPct, 100) / 100);
 
           html += '<div class="role-subsection">';
+          // Header with gauge
           html += '<div class="role-subsection-header">';
+          html += '<div class="role-header-main">';
+          html += '<div class="role-header-top">';
           html += '<span class="role-subsection-title">' + escHTML(roleName) + '</span>';
-          html += '<span class="role-subsection-tag openings">' + openings + ' opening' + (openings > 1 ? 's' : '') + '</span>';
+          html += '<span class="role-subsection-tag openings">\uD83D\uDC65 ' + openings + ' opening' + (openings > 1 ? 's' : '') + '</span>';
+          if (unfilled > 0) html += '<span class="role-subsection-tag needs">\u26A0 ' + unfilled + ' to fill</span>';
           if (hiredInRole > 0) html += '<span class="role-subsection-tag filled">\u2705 ' + hiredInRole + ' filled</span>';
-          if (unfilled > 0) html += '<span class="role-subsection-tag needs">' + unfilled + ' to fill</span>';
-          if (activeInRole > 0) html += '<span class="role-subsection-tag active">' + activeInRole + ' in pipeline</span>';
-          html += '<div class="role-progress">';
-          html += '<div class="role-progress-bar"><div class="role-progress-fill" style="width:' + Math.min(fillPct, 100) + '%; background:' + progressColor + ';"></div></div>';
-          html += '<span class="role-progress-text">' + fillPct + '% filled</span>';
           html += '</div>';
+          // Stats row
+          html += '<div class="role-header-stats">';
+          html += '<div class="role-stat-item"><span class="role-stat-number" style="color:#1D4ED8;">' + rg.talent.length + '</span><span class="role-stat-label">Total</span></div>';
+          html += '<div class="role-stat-item"><span class="role-stat-number" style="color:#B45309;">' + activeInRole + '</span><span class="role-stat-label">Active</span></div>';
+          html += '<div class="role-stat-item"><span class="role-stat-number" style="color:#059669;">' + hiredInRole + '</span><span class="role-stat-label">Hired</span></div>';
+          if (rejectedInRole > 0) html += '<div class="role-stat-item"><span class="role-stat-number" style="color:#DC2626;">' + rejectedInRole + '</span><span class="role-stat-label">Rejected</span></div>';
           html += '</div>';
+          html += '</div>'; // close role-header-main
+          // Circular gauge
+          html += '<div class="role-header-gauge">';
+          html += '<div class="role-gauge-ring">' +
+            '<svg width="48" height="48" viewBox="0 0 48 48">' +
+            '<circle class="gauge-bg" cx="24" cy="24" r="19"/>' +
+            '<circle class="gauge-fill" cx="24" cy="24" r="19" stroke="' + gaugeColor + '" stroke-dasharray="' + gaugeCirc.toFixed(1) + '" stroke-dashoffset="' + gaugeOffset.toFixed(1) + '"/>' +
+            '</svg>' +
+            '<span class="role-gauge-pct">' + fillPct + '%</span></div>';
+          html += '<span class="role-gauge-label">Filled</span>';
+          html += '</div>'; // close role-header-gauge
+          html += '</div>'; // close role-subsection-header
 
-          // Talent table for this role
-          html += '<table class="talent-table"><thead><tr><th>Candidate</th><th>Status</th><th>Introduced</th><th>Interview</th></tr></thead><tbody>';
-          rg.talent.forEach(function(t) {
+          // Candidate cards
+          html += '<div class="role-candidates">';
+          rg.talent.forEach(function(t, idx) {
             var cfg = STATUS_MAP[t.status]||{};
             var days = daysSince(t.updatedAt || t.date);
             var isHidden = secFilters.size > 0 && !secFilters.has(t.status);
             var isInterviewStatus = t.status === 'interview_scheduled' || t.status === 'pending_interview' || t.status === 'pending_2nd_interview';
-            html += '<tr' + (isHidden ? ' class="filtered-out"' : '') + ' data-talent-status="'+escHTML(t.status)+'"' +
-              (t.jcId ? ' data-jc-id="'+escHTML(t.jcId)+'"' : '') + '>' +
-              '<td><div class="talent-name-cell">' + avatarHTML(t.name, t.profileLink, 32, t.avatarUrl) +
-              '<div><div class="talent-label">'+escHTML(t.name)+'</div>' +
-              '<div class="talent-location">'+escHTML(t.location)+'</div></div></div></td>' +
-              '<td><div class="status-dropdown-wrap">' +
-              '<select class="status-dropdown" data-talent-name="'+escHTML(t.name)+'"' +
+            html += '<div class="cand-card' + (isHidden ? ' filtered-out' : '') + '" data-talent-status="'+escHTML(t.status)+'"' +
+              (t.jcId ? ' data-jc-id="'+escHTML(t.jcId)+'"' : '') + '>';
+            // Avatar
+            html += avatarHTML(t.name, t.profileLink, 36, t.avatarUrl);
+            // Info
+            html += '<div class="cand-card-info"><div class="cand-card-name">' + escHTML(t.name) + '</div>';
+            html += '<div class="cand-card-meta">';
+            if (t.location) html += '<span class="meta-loc">' + escHTML(t.location) + '</span>';
+            html += '</div></div>';
+            // Status dropdown + save
+            html += '<div class="cand-card-status">';
+            html += '<select class="status-dropdown" data-talent-name="'+escHTML(t.name)+'"' +
               ' data-original-status="'+escHTML(t.status)+'"' +
               (t.jcId ? ' data-jc-id="'+escHTML(t.jcId)+'"' : '') +
               ' style="border-color:' + (cfg.color||'#E5E7EB') + ';color:' + (cfg.color||'#374151') + '">';
@@ -2841,14 +2929,20 @@ function renderPipelineView() {
             html += '</select>';
             html += '<button class="status-save-btn" data-save-for="'+escHTML(t.jcId || '')+'">' +
               '<span class="save-text">Save</span><span class="save-check">\u2713 Saved</span></button>';
-            if (cfg.actionLabel) {
-              html += '<span class="action-badge '+cfg.actionClass+'">'+cfg.actionLabel+'</span>';
-            }
-            html += stalenessHTML(days) + '</div></td>' +
-              '<td class="date-cell">'+fmtDate(t.date)+'</td>' +
-              '<td class="date-cell">' + (t.interviewDate ? '<span style="color:' + (isInterviewStatus ? '#6941C6' : '#64748B') + '; font-weight:' + (isInterviewStatus ? '600' : '400') + ';">' + (isInterviewStatus ? '\uD83D\uDCC5 ' : '') + fmtDate(t.interviewDate) + '</span>' : '\u2014') + '</td></tr>';
+            if (cfg.actionLabel) html += '<span class="action-badge '+cfg.actionClass+'">'+cfg.actionLabel+'</span>';
+            html += stalenessHTML(days);
+            html += '</div>';
+            // Dates
+            html += '<div class="cand-card-dates">';
+            html += '<div class="cand-card-date"><span class="date-label">Intro</span><span class="date-value">' + (t.date ? fmtDate(t.date) : '\u2014') + '</span></div>';
+            html += '<div class="cand-card-date"><span class="date-label">Interview</span><span class="date-value' + (isInterviewStatus && t.interviewDate ? ' interview-active' : '') + '">' +
+              (t.interviewDate ? (isInterviewStatus ? '\uD83D\uDCC5 ' : '') + fmtDate(t.interviewDate) : '\u2014') + '</span></div>';
+            html += '</div>';
+            html += '</div>'; // close cand-card
+            // Divider between cards
+            if (idx < rg.talent.length - 1) html += '<div class="cand-card-divider"></div>';
           });
-          html += '</tbody></table>';
+          html += '</div>'; // close role-candidates
           html += '</div>'; // close role-subsection
         });
 
