@@ -2046,6 +2046,12 @@ function bindEvents() {
       showJobForm();
     });
   }
+  var quickAddCandBtn = document.getElementById('quickAddCandidate');
+  if (quickAddCandBtn) {
+    quickAddCandBtn.addEventListener('click', function() {
+      showCandidateForm();
+    });
+  }
 
   // User menu dropdown toggle
   var userMenuBtn = document.getElementById('userMenuBtn');
@@ -2779,6 +2785,272 @@ function cancelJobForm() {
   renderChat();
 }
 
+// ── Candidate Form (inline in chat) ──
+function renderCandidateForm() {
+  // Build job list from FULFILLMENT_DATA grouped by BU
+  var jobsByBU = {};
+  if (FULFILLMENT_DATA) {
+    FULFILLMENT_DATA.forEach(function(j) {
+      var bu = j.bu || 'Other';
+      if (!jobsByBU[bu]) jobsByBU[bu] = [];
+      jobsByBU[bu].push({ id: j.id, label: j.role_title + ' \u2014 ' + j.project_name, role: j.role_title, project: j.project_name });
+    });
+  }
+  var buList = Object.keys(BU_COLORS).sort();
+  if (FULFILLMENT_DATA) {
+    FULFILLMENT_DATA.forEach(function(j) { if (j.bu && buList.indexOf(j.bu) === -1) buList.push(j.bu); });
+  }
+  var projectsByBU = {};
+  if (FULFILLMENT_DATA) {
+    FULFILLMENT_DATA.forEach(function(j) {
+      if (j.project_name) {
+        var bu = j.bu || 'Other';
+        if (!projectsByBU[bu]) projectsByBU[bu] = [];
+        if (projectsByBU[bu].indexOf(j.project_name) === -1) projectsByBU[bu].push(j.project_name);
+      }
+    });
+  }
+
+  var html = '<div class="chat-form">';
+  html += '<div class="chat-form-title"><span>\uD83D\uDC64</span> New Candidate</div>';
+
+  // Candidate Name
+  html += '<div class="form-group"><label>Candidate Name <span class="req">*</span></label>';
+  html += '<input type="text" id="cf-name" placeholder="e.g. Jane Smith" /></div>';
+
+  // Assign to Job
+  html += '<div class="form-group"><label>Assign to Job <span class="req">*</span></label>';
+  html += '<select id="cf-job" onchange="var nj=document.getElementById(\'cf-newjob-fields\'); nj.style.display = this.value===\'__new__\' ? \'block\' : \'none\';">';
+  html += '<option value="">Select job...</option>';
+  Object.keys(jobsByBU).sort().forEach(function(bu) {
+    html += '<optgroup label="' + escHTML(bu) + '">';
+    jobsByBU[bu].forEach(function(j) {
+      html += '<option value="' + escHTML(j.id) + '">' + escHTML(j.label) + '</option>';
+    });
+    html += '</optgroup>';
+  });
+  html += '<option value="__new__">\u2795 New Job...</option>';
+  html += '</select>';
+
+  // New job inline fields (hidden by default)
+  html += '<div id="cf-newjob-fields" style="display:none; margin-top:8px; padding:12px; background:#EFF6FF; border:1px solid #BFDBFE; border-radius:8px;">';
+  html += '<div style="font-size:11px; font-weight:600; color:#1E3A8A; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">\uD83D\uDCCB New Job Details</div>';
+  // BU for new job
+  html += '<div class="form-group"><label>Business Unit <span class="req">*</span></label>';
+  html += '<select id="cf-job-bu" onchange="var ni=document.getElementById(\'cf-job-bu-new\'); ni.style.display = this.value===\'__new__\' ? \'block\' : \'none\';">';
+  html += '<option value="">Select BU...</option>';
+  buList.forEach(function(bu) {
+    html += '<option value="' + escHTML(bu) + '">' + escHTML(bu) + '</option>';
+  });
+  html += '<option value="__new__">\u2795 New BU...</option>';
+  html += '</select>';
+  html += '<input type="text" id="cf-job-bu-new" placeholder="Enter new BU name" style="display:none; margin-top:6px;" /></div>';
+  // Project for new job
+  html += '<div class="form-group"><label>Project Name <span class="req">*</span></label>';
+  html += '<select id="cf-job-project" onchange="var ni=document.getElementById(\'cf-job-project-new\'); ni.style.display = this.value===\'__new__\' ? \'block\' : \'none\';">';
+  html += '<option value="">Select project...</option>';
+  buList.forEach(function(bu) {
+    if (projectsByBU[bu] && projectsByBU[bu].length > 0) {
+      html += '<optgroup label="' + escHTML(bu) + '">';
+      projectsByBU[bu].sort().forEach(function(p) {
+        html += '<option value="' + escHTML(p) + '">' + escHTML(p) + '</option>';
+      });
+      html += '</optgroup>';
+    }
+  });
+  html += '<option value="__new__">\u2795 New project...</option>';
+  html += '</select>';
+  html += '<input type="text" id="cf-job-project-new" placeholder="Enter new project name" style="display:none; margin-top:6px;" /></div>';
+  // Role title for new job
+  html += '<div class="form-group"><label>Role Title <span class="req">*</span></label>';
+  html += '<input type="text" id="cf-job-role" placeholder="e.g. Senior React Developer" /></div>';
+  html += '</div>'; // close cf-newjob-fields
+  html += '</div>'; // close form-group for job
+
+  // Profile Link
+  html += '<div class="form-group"><label>Profile Link</label>';
+  html += '<input type="url" id="cf-profile" placeholder="https://toptal.com/resume/... or LinkedIn URL" /></div>';
+
+  // Location
+  html += '<div class="form-group"><label>Location</label>';
+  html += '<input type="text" id="cf-location" placeholder="e.g. Toronto, Canada" /></div>';
+
+  // Rate
+  html += '<div class="form-group"><label>Rate ($/hr)</label>';
+  html += '<input type="number" id="cf-rate" placeholder="e.g. 80" min="0" step="1" /></div>';
+
+  // Availability
+  html += '<div class="form-group"><label>Availability</label>';
+  html += '<input type="text" id="cf-availability" placeholder="e.g. Immediately, 2 weeks notice" /></div>';
+
+  // Notes
+  html += '<div class="form-group"><label>Notes</label>';
+  html += '<input type="text" id="cf-notes" placeholder="Any additional notes..." /></div>';
+
+  // Actions
+  html += '<div class="chat-form-actions">';
+  html += '<button class="submit-btn" onclick="submitCandidateForm()">\u2705 Add Candidate</button>';
+  html += '<button class="cancel-form-btn" onclick="cancelCandidateForm()">Cancel</button>';
+  html += '</div>';
+
+  html += '</div>';
+  return html;
+}
+
+function showCandidateForm() {
+  if (!chatOpen) toggleChat();
+  var hasForm = chatMessages.some(function(m) { return m.role === 'action_card' && m._isForm; });
+  if (hasForm) return;
+  chatMessages.push({ role: 'action_card', content: renderCandidateForm(), _isForm: true });
+  renderChat();
+}
+
+async function submitCandidateForm() {
+  // Read values
+  var name = (document.getElementById('cf-name') || {}).value || '';
+  var jobSelect = (document.getElementById('cf-job') || {}).value || '';
+  var profileLink = (document.getElementById('cf-profile') || {}).value || '';
+  var location = (document.getElementById('cf-location') || {}).value || '';
+  var rateStr = (document.getElementById('cf-rate') || {}).value || '';
+  var availability = (document.getElementById('cf-availability') || {}).value || '';
+  var notes = (document.getElementById('cf-notes') || {}).value || '';
+
+  // New job fields
+  var jobBUSelect = (document.getElementById('cf-job-bu') || {}).value || '';
+  var jobBUNew = (document.getElementById('cf-job-bu-new') || {}).value || '';
+  var jobBU = jobBUSelect === '__new__' ? jobBUNew.trim() : jobBUSelect;
+  var jobProjSelect = (document.getElementById('cf-job-project') || {}).value || '';
+  var jobProjNew = (document.getElementById('cf-job-project-new') || {}).value || '';
+  var jobProject = jobProjSelect === '__new__' ? jobProjNew.trim() : jobProjSelect;
+  var jobRole = (document.getElementById('cf-job-role') || {}).value || '';
+
+  var isNewJob = jobSelect === '__new__';
+
+  // Validate
+  var valid = true;
+  // Name required
+  var nameEl = document.getElementById('cf-name');
+  if (!name.trim()) { if (nameEl) nameEl.classList.add('error'); valid = false; } else { if (nameEl) nameEl.classList.remove('error'); }
+
+  // Job required
+  var jobEl = document.getElementById('cf-job');
+  if (!jobSelect) { if (jobEl) jobEl.classList.add('error'); valid = false; } else { if (jobEl) jobEl.classList.remove('error'); }
+
+  // If new job, validate BU, project, role
+  if (isNewJob) {
+    var buEl = document.getElementById('cf-job-bu');
+    var buNewEl = document.getElementById('cf-job-bu-new');
+    if (!jobBU) { if (buEl) buEl.classList.add('error'); if (jobBUSelect === '__new__' && buNewEl) buNewEl.classList.add('error'); valid = false; }
+    else { if (buEl) buEl.classList.remove('error'); if (buNewEl) buNewEl.classList.remove('error'); }
+
+    var projEl = document.getElementById('cf-job-project');
+    var projNewEl = document.getElementById('cf-job-project-new');
+    if (!jobProject) { if (projEl) projEl.classList.add('error'); if (jobProjSelect === '__new__' && projNewEl) projNewEl.classList.add('error'); valid = false; }
+    else { if (projEl) projEl.classList.remove('error'); if (projNewEl) projNewEl.classList.remove('error'); }
+
+    var roleEl = document.getElementById('cf-job-role');
+    if (!jobRole.trim()) { if (roleEl) roleEl.classList.add('error'); valid = false; } else { if (roleEl) roleEl.classList.remove('error'); }
+  }
+
+  if (!valid) return;
+
+  try {
+    var jobId = jobSelect;
+    var jobLabel = '';
+
+    // Step 1: Create new job if needed
+    if (isNewJob) {
+      var jobRow = {
+        bu: jobBU, project_name: jobProject, role_title: jobRole.trim(),
+        openings: 1, created_by: currentUser ? currentUser.id : null
+      };
+      var { data: jobData, error: jobErr } = await sb.from('jobs').insert(jobRow).select();
+      if (jobErr) {
+        chatMessages.push({ role: 'assistant', content: '\u274C Error creating job: ' + jobErr.message });
+        renderChat();
+        return;
+      }
+      jobId = jobData[0].id;
+      jobLabel = jobRole.trim() + ' \u2014 ' + jobProject + ' (' + jobBU + ')';
+      await logActivity('job', jobId, 'insert', { note: jobRow.role_title + ' (' + jobRow.bu + ')' });
+    } else {
+      // Find label for existing job
+      if (FULFILLMENT_DATA) {
+        var match = FULFILLMENT_DATA.find(function(j) { return j.id === jobId; });
+        if (match) jobLabel = match.role_title + ' \u2014 ' + match.project_name + ' (' + match.bu + ')';
+      }
+    }
+
+    // Step 2: Insert candidate
+    var candRow = { name: name.trim(), created_by: currentUser ? currentUser.id : null };
+    if (profileLink.trim()) candRow.profile_link = profileLink.trim();
+    if (location.trim()) candRow.location = location.trim();
+    if (rateStr) candRow.rate = parseFloat(rateStr);
+    if (availability.trim()) candRow.availability = availability.trim();
+    if (notes.trim()) candRow.notes = notes.trim();
+
+    var { data: candData, error: candErr } = await sb.from('candidates').insert(candRow).select();
+    if (candErr) {
+      chatMessages.push({ role: 'assistant', content: '\u274C Error adding candidate: ' + candErr.message });
+      renderChat();
+      return;
+    }
+    var candidateId = candData[0].id;
+    await logActivity('candidate', candidateId, 'insert', { note: name.trim() });
+
+    // Step 3: Assign candidate to job
+    var assignRow = {
+      job_id: jobId,
+      candidate_id: candidateId,
+      status: 'TALENT INTRODUCED',
+      date_introduced: new Date().toISOString().split('T')[0],
+      updated_by: currentUser ? currentUser.id : null
+    };
+    var { data: assignData, error: assignErr } = await sb.from('job_candidates').insert(assignRow).select();
+    if (assignErr) {
+      chatMessages.push({ role: 'assistant', content: '\u274C Candidate created but assignment failed: ' + assignErr.message });
+      renderChat();
+      return;
+    }
+    await logActivity('job_candidate', assignData[0].id, 'assign', { new_value: 'TALENT INTRODUCED' });
+
+    // Replace form with confirmation
+    for (var i = chatMessages.length - 1; i >= 0; i--) {
+      if (chatMessages[i]._isForm) {
+        chatMessages[i] = {
+          role: 'action_card',
+          content: '<div class="chat-action-card"><h4>\u2705 Candidate Added</h4><p><strong>' + escHTML(name.trim()) + '</strong> assigned to ' + escHTML(jobLabel) + ' as Talent Introduced</p></div>'
+        };
+        break;
+      }
+    }
+
+    var msg = '\u2705 **' + escHTML(name.trim()) + '** has been added';
+    if (isNewJob) msg += ' and a new job **' + escHTML(jobRole.trim()) + '** was created';
+    msg += '. Assigned to **' + escHTML(jobLabel) + '** with status Talent Introduced.';
+    chatMessages.push({ role: 'assistant', content: msg });
+
+    await refreshData();
+    renderChat();
+  } catch(e) {
+    chatMessages.push({ role: 'assistant', content: '\u274C Error: ' + e.message });
+    renderChat();
+  }
+}
+
+function cancelCandidateForm() {
+  for (var i = chatMessages.length - 1; i >= 0; i--) {
+    if (chatMessages[i]._isForm) {
+      chatMessages[i] = {
+        role: 'action_card',
+        content: '<div class="chat-action-card" style="opacity:0.6;"><p>Candidate creation cancelled.</p></div>'
+      };
+      break;
+    }
+  }
+  renderChat();
+}
+
 function renderChat() {
   var container = document.getElementById('chatMessages');
   var html = '';
@@ -2816,8 +3088,14 @@ async function sendChat() {
   if (!text) return;
   input.value = '';
 
-  // Intent detection: show job form instead of calling Claude
+  // Intent detection: show forms instead of calling Claude
   var lowerText = text.toLowerCase();
+  if (/\b(add|create|new)\b.*\b(candidate|person|talent|developer|engineer)\b/.test(lowerText) && !/\b(to|for|status)\b.*\b(job|role)\b/.test(lowerText)) {
+    chatMessages.push({ role: 'user', content: text });
+    renderChat();
+    showCandidateForm();
+    return;
+  }
   if (/\b(add|create|new|open)\b.*\b(job|role|req|position)\b/.test(lowerText) && !/\b(candidate|person|developer|engineer)\b.*\b(to|for)\b/.test(lowerText)) {
     chatMessages.push({ role: 'user', content: text });
     renderChat();
