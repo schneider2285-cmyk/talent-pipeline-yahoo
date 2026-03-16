@@ -3981,55 +3981,43 @@ const VALID_DB_STATUSES = [
 // Build rich context from live data for Claude
 function buildChatContext() {
   var lines = [];
-  lines.push('=== TALENT PIPELINE DATABASE CONTEXT ===');
-  lines.push('Valid statuses: ' + VALID_DB_STATUSES.join(', '));
-  lines.push('');
 
-  // Jobs from fulfillment data
-  if (FULFILLMENT_DATA && FULFILLMENT_DATA.length > 0) {
-    lines.push('--- JOBS (' + FULFILLMENT_DATA.length + ' total) ---');
-    FULFILLMENT_DATA.forEach(function(j) {
-      lines.push('Job ID=' + j.id + ' | BU=' + j.bu + ' | Project=' + j.project_name +
-        ' | Role=' + j.role_title + ' | Openings=' + j.openings +
-        ' | Active=' + j.active_candidates + ' | Hired=' + j.hired_count +
-        ' | Rejected=' + j.rejected_count + ' | NeedsAttention=' + j.needs_attention);
-    });
-    lines.push('');
-  }
+  // Compact: only open roles (what Claude needs to assign candidates)
+  var cancelSt = new Set(['ROLE CANCELLED/FILED', 'REQ COMPLETE', 'ENGAGEMENT COMPLETED']);
+  var openJobs = (FULFILLMENT_DATA || []).filter(function(j) { return !cancelSt.has(j.status); });
 
-  // Pipeline talent (active candidates)
-  lines.push('--- ACTIVE PIPELINE ---');
-  var totalActive = 0;
+  // Group by BU → compact role list
+  var byBU = {};
+  openJobs.forEach(function(j) {
+    var bu = j.bu || 'Unknown';
+    if (!byBU[bu]) byBU[bu] = [];
+    var unfilled = (j.openings || 1) - (j.hired_count || 0);
+    byBU[bu].push(j.role_title + ' (id:' + j.id + ', ' + unfilled + ' needed, ' + (j.active_candidates || 0) + ' active)');
+  });
+
+  lines.push('OPEN ROLES:');
+  Object.keys(byBU).sort().forEach(function(bu) {
+    lines.push(bu + ': ' + byBU[bu].join('; '));
+  });
+
+  // Compact candidate list — only names + role + status (no dates/locations to save tokens)
+  var candCount = 0;
+  var candLines = [];
   PIPELINE_DATA.forEach(function(bu) {
     bu.projects.forEach(function(p) {
       p.talent.forEach(function(t) {
-        totalActive++;
-        lines.push('BU=' + bu.name + ' | Project=' + p.name + ' | Candidate=' + t.name +
-          ' | Role=' + t.role + ' | Status=' + t.status + ' | Location=' + t.location +
-          ' | Introduced=' + (t.date || 'N/A') + ' | Interview=' + (t.interviewDate || 'N/A') +
-          ' | POC=' + p.poc);
+        candCount++;
+        candLines.push(t.name + ' → ' + t.role + ' [' + t.status + ']');
       });
     });
   });
-  lines.push('Total active candidates: ' + totalActive);
-  lines.push('');
-
-  // Hired
-  if (HIRED_DATA.length > 0) {
-    lines.push('--- HIRED (' + HIRED_DATA.length + ') ---');
-    HIRED_DATA.forEach(function(h) {
-      lines.push('Candidate=' + h.candidate_name + ' | Role=' + h.role_title +
-        ' | BU=' + h.bu + ' | Project=' + h.project_name +
-        ' | HiredDate=' + (h.date_hired || 'N/A'));
-    });
-    lines.push('');
+  if (candLines.length > 0) {
+    lines.push('\nACTIVE CANDIDATES (' + candCount + '): ' + candLines.join('; '));
   }
 
-  // Summary
-  lines.push('--- SUMMARY ---');
-  lines.push('Business Units: ' + PIPELINE_DATA.map(function(b){return b.name;}).join(', '));
-  lines.push('Total active: ' + totalActive + ' | Total hired: ' + HIRED_DATA.length +
-    ' | Total jobs: ' + (FULFILLMENT_DATA ? FULFILLMENT_DATA.length : 0));
+  lines.push('\nBUs: ' + PIPELINE_DATA.map(function(b){return b.name;}).join(', '));
+  lines.push('Jobs: ' + openJobs.length + ' | Active candidates: ' + candCount + ' | Hired: ' + HIRED_DATA.length);
+  lines.push('Use query_database for details (dates, locations, IDs) not shown here.');
 
   return lines.join('\n');
 }
@@ -5251,19 +5239,20 @@ function buildSystemPrompt() {
 }
 
 // Build API messages from chatMessages — handles tool_use/tool_result pairing correctly
+// Uses a sliding window to keep token usage low on follow-up messages
 function buildApiMessages() {
-  var messages = [];
+  var allMessages = [];
   var i = 0;
   while (i < chatMessages.length) {
     var m = chatMessages[i];
 
     if (m.role === 'user') {
-      messages.push({ role: 'user', content: m.content });
+      allMessages.push({ role: 'user', content: m.content });
       i++;
     } else if (m.role === 'assistant') {
       // Use raw content (with tool_use blocks) if available, otherwise plain text
       var content = m._raw || m.content;
-      messages.push({ role: 'assistant', content: content });
+      allMessages.push({ role: 'assistant', content: content });
       i++;
 
       // If this assistant message had tool_use blocks, collect ALL following tool_results
@@ -5283,7 +5272,7 @@ function buildApiMessages() {
           }
         }
         if (results.length > 0) {
-          messages.push({ role: 'user', content: results });
+          allMessages.push({ role: 'user', content: results });
         }
       }
     } else {
@@ -5291,7 +5280,18 @@ function buildApiMessages() {
       i++;
     }
   }
-  return messages;
+
+  // Sliding window: keep last 20 API messages to stay under token limits
+  // Always ensure the first message is a user message (API requirement)
+  var MAX_MESSAGES = 20;
+  if (allMessages.length > MAX_MESSAGES) {
+    allMessages = allMessages.slice(-MAX_MESSAGES);
+    // Ensure first message is user role
+    while (allMessages.length > 0 && allMessages[0].role !== 'user') {
+      allMessages.shift();
+    }
+  }
+  return allMessages;
 }
 
 // Main Claude API call — handles tool execution loops
@@ -5312,7 +5312,7 @@ async function callClaude() {
         },
         body: JSON.stringify({
           model: 'claude-sonnet-4-20250514',
-          max_tokens: 4096,
+          max_tokens: 1500,
           system: systemPrompt,
           tools: CHAT_TOOLS,
           messages: apiMessages
