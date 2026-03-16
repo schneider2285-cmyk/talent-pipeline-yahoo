@@ -441,6 +441,27 @@
   }
   tr.filtered-out { display: none !important; }
 
+  /* Role sub-sections within a project */
+  .role-subsection { margin-bottom: 14px; border: 1px solid #E2E8F0; border-radius: 8px; overflow: hidden; background: #fff; }
+  .role-subsection-header {
+    display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+    background: linear-gradient(135deg, #F8FAFC, #F1F5F9);
+    border-bottom: 1px solid #E2E8F0; cursor: default; flex-wrap: wrap;
+  }
+  .role-subsection-title { font-weight: 700; font-size: 14px; color: var(--toptal-dark); }
+  .role-subsection-tag {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 10px;
+  }
+  .role-subsection-tag.openings { background: #DBEAFE; color: #1D4ED8; }
+  .role-subsection-tag.filled { background: #D1FAE5; color: #059669; }
+  .role-subsection-tag.active { background: #FEF3C7; color: #92400E; }
+  .role-subsection-tag.needs { background: #FEE2E2; color: #991B1B; }
+  .role-progress { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+  .role-progress-bar { width: 80px; height: 6px; background: #E2E8F0; border-radius: 3px; overflow: hidden; }
+  .role-progress-fill { height: 100%; border-radius: 3px; transition: width 0.3s ease; }
+  .role-progress-text { font-size: 11px; color: #64748B; font-weight: 600; white-space: nowrap; }
+
   .date-cell { color: var(--text-secondary); font-size: 12px; white-space: nowrap; }
   .no-results { text-align: center; padding: 60px 20px; color: var(--text-muted); font-size: 14px; }
 
@@ -1649,6 +1670,8 @@ let ojFilterStatus = '';
 let ojFilterPOC = '';
 let analyticsSubView = 'funnel'; // funnel | velocity | stakeholders
 let expandedJobIds = new Set();
+let ojOpenBUs = new Set();
+let ojOpenProjects = new Set();
 let currentView = 'pipeline'; // pipeline | fulfillment
 let ffSortMode = 'urgent'; // urgent | stale | openings | alpha
 let ffFilterBU = '';
@@ -1994,6 +2017,8 @@ function transformPipeline(rows) {
     buMap[bu][proj].talent.push({
       name: cand.name || '',
       role: job.role_title || '',
+      jobId: job.id || '',
+      openings: job.openings || 1,
       status: r._status,
       date: r.date_introduced,
       location: cand.location || '',
@@ -2458,97 +2483,166 @@ function renderPipelineView() {
       html += '<span class="oj-filter-count">Showing ' + openJobs.length + ' of ' + openJobsAll.length + '</span>';
       html += '</div>';
 
-      // Job cards / list
+      // Group open jobs by BU → Project (matching BU accordion structure)
       if (openJobs.length === 0) {
         html += '<div style="padding: 20px 24px; text-align: center; color: #64748B; font-size: 14px;">No jobs match the selected filters.</div>';
-      } else if (openJobsViewMode === 'list') {
-        // List view
-        html += '<div class="open-jobs-list"><table class="oj-list-table"><thead><tr>' +
-          '<th>Role</th><th>BU</th><th>Openings</th><th>Candidates</th><th>Status</th><th>Max Rate</th><th>POC</th>' +
-          '</tr></thead><tbody>';
-        openJobs.forEach(function(j) {
-          var unfilled = (j.openings || 1) - (j.hired_count || 0);
-          html += '<tr data-expand-job="' + escHTML(j.id) + '">' +
-            '<td><div class="role-cell">' + escHTML(j.role_title) + '<div class="sub">' + escHTML(j.project_name) + '</div></div></td>' +
-            '<td><span class="open-job-tag bu-tag">' + escHTML(j.bu) + '</span></td>' +
-            '<td>' + unfilled + ' of ' + (j.openings || 1) + '</td>' +
-            '<td>';
-          if (j.total_candidates === 0) {
-            html += '<span style="color:#991B1B; font-size:12px;">\u26A0 None</span>';
-          } else {
-            html += '<span style="font-weight:600;">' + j.active_candidates + '</span> active / ' + j.total_candidates + ' total';
-          }
-          html += '</td>' +
-            '<td>' + (j.status && j.status !== 'ACTIVE' ? '<span class="open-job-tag status-tag">' + escHTML(j.status) + '</span>' : '<span style="color:#166534;">Active</span>') + '</td>' +
-            '<td>' + (j.rate_max ? '$' + j.rate_max + '/hr' : '\u2014') + '</td>' +
-            '<td style="font-size:12px; color:var(--text-secondary);">' + escHTML(j.poc_names || '\u2014') + '</td>' +
-            '</tr>';
-          // If expanded, show detail row with interactive candidate table
-          if (expandedJobIds.has(j.id)) {
-            html += '<tr class="oj-list-detail-row"><td colspan="7"><div class="oj-detail" style="margin-top:0;">';
-            html += renderOJCandidates(j);
-            html += '</div></td></tr>';
-          }
-        });
-        html += '</tbody></table></div>';
       } else {
-        // Card view (existing)
-        html += '<div class="open-jobs-grid">';
+        // Build BU → Project → Jobs hierarchy
+        var ojByBU = {};
         openJobs.forEach(function(j) {
+          var bu = j.bu || 'Unknown';
+          if (!ojByBU[bu]) ojByBU[bu] = {};
+          var proj = j.project_name || 'Unknown';
+          if (!ojByBU[bu][proj]) ojByBU[bu][proj] = { jobs: [], poc: j.poc_names || '', totalCandidates: 0, activeCandidates: 0, totalOpenings: 0 };
+          ojByBU[bu][proj].jobs.push(j);
+          ojByBU[bu][proj].totalCandidates += (j.total_candidates || 0);
+          ojByBU[bu][proj].activeCandidates += (j.active_candidates || 0);
           var unfilled = (j.openings || 1) - (j.hired_count || 0);
-          var isExpanded = expandedJobIds.has(j.id);
-          html += '<div class="open-job-card' + (isExpanded ? ' expanded' : '') + '" data-expand-job="' + escHTML(j.id) + '">' +
-            '<div class="open-job-title">' + escHTML(j.role_title) + '</div>' +
-            '<div class="open-job-project">' + escHTML(j.project_name) + '</div>' +
-            '<div class="open-job-meta">' +
-            '<span class="open-job-tag bu-tag">' + escHTML(j.bu) + '</span>' +
-            '<span class="open-job-tag openings-tag">\uD83D\uDC65 ' + unfilled + ' opening' + (unfilled > 1 ? 's' : '') + '</span>';
-          if (j.total_candidates === 0) {
-            html += '<span class="open-job-tag empty-tag">\u26A0\uFE0F No candidates yet</span>';
-          } else {
-            html += '<span class="open-job-tag candidates-tag">' + j.active_candidates + ' active / ' + j.total_candidates + ' total</span>';
-          }
-          if (j.status && j.status !== 'ACTIVE') {
-            html += '<span class="open-job-tag status-tag">' + escHTML(j.status) + '</span>';
-          }
-          if (j.rate_max) {
-            html += '<span class="open-job-tag rate-tag">\uD83D\uDCB0 $' + j.rate_max + '/hr max</span>';
+          ojByBU[bu][proj].totalOpenings += unfilled;
+          if (j.poc_names && !ojByBU[bu][proj].poc) ojByBU[bu][proj].poc = j.poc_names;
+        });
+
+        // Sort BUs by total jobs descending
+        var ojBUSorted = Object.keys(ojByBU).sort(function(a, b) {
+          var aCount = Object.values(ojByBU[a]).reduce(function(s, p) { return s + p.jobs.length; }, 0);
+          var bCount = Object.values(ojByBU[b]).reduce(function(s, p) { return s + p.jobs.length; }, 0);
+          return bCount - aCount;
+        });
+
+        ojBUSorted.forEach(function(buName) {
+          var buProjects = ojByBU[buName];
+          var buJobCount = Object.values(buProjects).reduce(function(s, p) { return s + p.jobs.length; }, 0);
+          var buCandCount = Object.values(buProjects).reduce(function(s, p) { return s + p.totalCandidates; }, 0);
+          var buProjCount = Object.keys(buProjects).length;
+          var buColor = BU_COLORS[buName] || DEFAULT_BU_COLOR;
+          var ojBuOpen = ojOpenBUs.has(buName);
+
+          html += '<div class="bu-section ' + (ojBuOpen ? 'open' : '') + '">' +
+            '<div class="bu-header" data-toggle-oj-bu="' + escHTML(buName) + '">' +
+            '<svg class="bu-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>' +
+            '<div class="bu-color-bar" style="background:' + buColor + '"></div>' +
+            '<div class="bu-icon" style="background:' + buColor + '11; color:' + buColor + '">' + (BU_ICONS[buName] || DEFAULT_BU_ICON) + '</div>' +
+            '<div class="bu-title">' + escHTML(buName) + '</div>' +
+            '<div class="bu-meta"><div class="bu-stat"><strong>' + buProjCount + '</strong> project' + (buProjCount > 1 ? 's' : '') + '</div>' +
+            '<div class="bu-stat"><strong>' + buJobCount + '</strong> open role' + (buJobCount > 1 ? 's' : '') + '</div>' +
+            '<div class="bu-stat"><strong>' + buCandCount + '</strong> candidate' + (buCandCount > 1 ? 's' : '') + '</div></div>' +
+            '</div>' +
+            '<div class="bu-body">';
+
+          // Per-BU project filter bar
+          var ojBuProjNames = Object.keys(buProjects).sort();
+          var ojBuRoles = [];
+          var _ojBrSet = {};
+          ojBuProjNames.forEach(function(pn) {
+            buProjects[pn].jobs.forEach(function(j) {
+              if (j.role_title && !_ojBrSet[j.role_title]) { _ojBrSet[j.role_title] = 1; ojBuRoles.push(j.role_title); }
+            });
+          });
+          ojBuRoles.sort();
+
+          var ojCurProjFilter = buFilterProject['oj::' + buName] || '';
+          var ojCurRoleFilter = buFilterRole['oj::' + buName] || '';
+          var ojHasBUFilter = ojCurProjFilter || ojCurRoleFilter;
+
+          html += '<div class="bu-filter-bar">' +
+            '<span class="bu-filter-label">Filter:</span>' +
+            '<select class="bu-filter-select' + (ojCurProjFilter ? ' active-filter' : '') + '" data-bu-filter-project="oj::' + escHTML(buName) + '">' +
+            '<option value="">All Projects (' + ojBuProjNames.length + ')</option>';
+          ojBuProjNames.forEach(function(p) {
+            html += '<option value="' + escHTML(p) + '"' + (ojCurProjFilter === p ? ' selected' : '') + '>' + escHTML(p) + '</option>';
+          });
+          html += '</select>' +
+            '<select class="bu-filter-select' + (ojCurRoleFilter ? ' active-filter' : '') + '" data-bu-filter-role="oj::' + escHTML(buName) + '">' +
+            '<option value="">All Roles (' + ojBuRoles.length + ')</option>';
+          ojBuRoles.forEach(function(r) {
+            html += '<option value="' + escHTML(r) + '"' + (ojCurRoleFilter === r ? ' selected' : '') + '>' + escHTML(r) + '</option>';
+          });
+          html += '</select>';
+          if (ojHasBUFilter) {
+            html += '<button class="bu-filter-clear" data-bu-filter-clear="oj::' + escHTML(buName) + '">\u2715 Clear</button>';
           }
           html += '</div>';
-          if (!isExpanded) {
-            html += '<div class="expand-hint">' + (j.total_candidates > 0 ? 'Click to see ' + j.total_candidates + ' candidate' + (j.total_candidates > 1 ? 's' : '') : 'Click for details') + ' \u203A</div>';
-          }
 
-          // Expanded detail panel
-          if (isExpanded) {
-            html += '<div class="oj-detail">';
+          // Render projects within this BU
+          ojBuProjNames.forEach(function(projName) {
+            if (ojCurProjFilter && projName !== ojCurProjFilter) return;
+            var projData = buProjects[projName];
 
-            // Job info grid
-            html += '<div class="oj-detail-grid">';
-            if (j.poc_names) html += '<div class="oj-detail-item"><div class="oj-detail-label">Point of Contact</div><div class="oj-detail-value">' + escHTML(j.poc_names) + '</div></div>';
-            if (j.duration) html += '<div class="oj-detail-item"><div class="oj-detail-label">Duration</div><div class="oj-detail-value">' + escHTML(j.duration) + '</div></div>';
-            if (j.rate_max) html += '<div class="oj-detail-item"><div class="oj-detail-label">Max Rate</div><div class="oj-detail-value">$' + j.rate_max + '/hr</div></div>';
-            html += '<div class="oj-detail-item"><div class="oj-detail-label">Openings</div><div class="oj-detail-value">' + j.openings + ' total, ' + unfilled + ' unfilled</div></div>';
-            if (j.notes) html += '<div class="oj-detail-item" style="grid-column:1/-1"><div class="oj-detail-label">Notes</div><div class="oj-detail-value">' + escHTML(j.notes) + '</div></div>';
-            if (j.interview_context) html += '<div class="oj-detail-item" style="grid-column:1/-1"><div class="oj-detail-label">Interview Context</div><div class="oj-detail-value">' + escHTML(j.interview_context) + '</div></div>';
-            html += '</div>';
+            // Role filter: skip project if no jobs match
+            var filteredJobs = projData.jobs;
+            if (ojCurRoleFilter) {
+              filteredJobs = projData.jobs.filter(function(j) { return j.role_title === ojCurRoleFilter; });
+              if (filteredJobs.length === 0) return;
+            }
 
-            // Links
-            var linksHtml = '';
-            if (j.toptal_job_link) linksHtml += '<a href="' + escHTML(j.toptal_job_link) + '" target="_blank" style="font-size:12px; color:var(--toptal-blue); margin-right:14px;">Toptal Job \u2197</a>';
-            if (j.salesforce_link) linksHtml += '<a href="' + escHTML(j.salesforce_link) + '" target="_blank" style="font-size:12px; color:var(--toptal-blue); margin-right:14px;">Salesforce \u2197</a>';
-            if (j.slack_channel) linksHtml += '<span style="font-size:12px; color:var(--text-secondary);">Slack: ' + escHTML(j.slack_channel) + '</span>';
-            if (linksHtml) html += '<div style="margin-bottom:14px;">' + linksHtml + '</div>';
+            var ojProjKey = 'oj::' + buName + '::' + projName;
+            var ojProjOpen = ojOpenProjects.has(ojProjKey);
 
-            // Interactive candidate table (matches BU accordion style)
-            html += renderOJCandidates(j);
+            // Collect candidate statuses across all jobs in this project
+            var projCandStatuses = {};
+            var projTotalCands = 0;
+            filteredJobs.forEach(function(j) {
+              if (j.candidates) {
+                j.candidates.forEach(function(c) {
+                  var st = c._status || 'other';
+                  projCandStatuses[st] = (projCandStatuses[st] || 0) + 1;
+                  projTotalCands++;
+                });
+              }
+            });
 
-            html += '</div>'; // close oj-detail
-          }
+            var projOpenings = filteredJobs.reduce(function(s, j) { return s + (j.openings || 1) - (j.hired_count || 0); }, 0);
 
-          html += '</div>'; // close open-job-card
+            html += '<div class="project-section ' + (ojProjOpen ? 'open' : '') + '">' +
+              '<div class="project-header" data-toggle-oj-project="' + escHTML(ojProjKey) + '">' +
+              '<svg class="project-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>' +
+              '<div class="project-name">' + escHTML(projName) + '</div>';
+            if (projData.poc) html += '<div class="poc-badge">POC: <span>' + escHTML(projData.poc) + '</span></div>';
+            html += '<div class="project-statuses">';
+            Object.entries(projCandStatuses).forEach(function(se) {
+              var st = se[0], count = se[1];
+              var c = (STATUS_MAP[st] || {}).color || '#888';
+              for (var i = 0; i < count; i++) html += '<span class="mini-pip" style="background:' + c + '" title="' + ((STATUS_MAP[st] || {}).label || st) + '"></span>';
+            });
+            html += '</div>' +
+              '<div class="project-count">' + filteredJobs.length + ' role' + (filteredJobs.length > 1 ? 's' : '') + ' \u00B7 ' + projOpenings + ' opening' + (projOpenings > 1 ? 's' : '') + ' \u00B7 ' + projTotalCands + ' candidate' + (projTotalCands > 1 ? 's' : '') + '</div>' +
+              '<div class="bu-actions" style="margin-left:auto;">' +
+              '<button class="bu-action-btn" data-proj-add-job="' + escHTML(buName) + '||' + escHTML(projName) + '" title="Add a new job to ' + escHTML(projName) + '">' +
+                '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M12 5v14M5 12h14"/></svg> Add Job</button>' +
+              '<button class="bu-action-btn" data-proj-add-cand="' + escHTML(buName) + '||' + escHTML(projName) + '" title="Add a candidate to ' + escHTML(projName) + '">' +
+                '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg> Add Candidate</button>' +
+              '</div></div>';
+            html += '<div class="project-body">';
+
+            // Render each job/role within this project
+            filteredJobs.forEach(function(j) {
+              var unfilled = (j.openings || 1) - (j.hired_count || 0);
+              html += '<div style="margin-bottom:16px; padding:12px; background:#F8FAFC; border:1px solid #E2E8F0; border-radius:8px;">';
+              html += '<div style="display:flex; align-items:center; gap:10px; margin-bottom:8px; flex-wrap:wrap;">' +
+                '<span style="font-weight:700; font-size:14px; color:var(--toptal-dark);">' + escHTML(j.role_title) + '</span>' +
+                '<span class="open-job-tag openings-tag">\uD83D\uDC65 ' + unfilled + ' opening' + (unfilled > 1 ? 's' : '') + '</span>';
+              if (j.total_candidates === 0) {
+                html += '<span class="open-job-tag empty-tag">\u26A0\uFE0F No candidates</span>';
+              } else {
+                html += '<span class="open-job-tag candidates-tag">' + j.active_candidates + ' active / ' + j.total_candidates + ' total</span>';
+              }
+              if (j.rate_max) html += '<span class="open-job-tag rate-tag">\uD83D\uDCB0 $' + j.rate_max + '/hr</span>';
+              if (j.status && j.status !== 'ACTIVE') html += '<span class="open-job-tag status-tag">' + escHTML(j.status) + '</span>';
+              // Links
+              if (j.toptal_job_link) html += '<a href="' + escHTML(j.toptal_job_link) + '" target="_blank" style="font-size:11px; color:var(--toptal-blue);">Platform \u2197</a>';
+              if (j.salesforce_link) html += '<a href="' + escHTML(j.salesforce_link) + '" target="_blank" style="font-size:11px; color:var(--toptal-blue);">SFDC \u2197</a>';
+              html += '</div>';
+
+              // Render candidates using the shared helper
+              html += renderOJCandidates(j);
+              html += '</div>';
+            });
+
+            html += '</div></div>'; // close project-body, project-section
+          });
+
+          html += '</div></div>'; // close bu-body, bu-section
         });
-        html += '</div>';
       }
 
       html += '</div></div>';
@@ -2662,7 +2756,7 @@ function renderPipelineView() {
         '</div></div>';
         html += '<div class="project-body">';
 
-        // Per-section filter bar
+        // Per-section filter bar (project level)
         var secFilters = sectionFilters[projKey] || new Set();
         var secStatusCounts = {};
         proj.talent.forEach(function(t) {
@@ -2685,48 +2779,84 @@ function renderPipelineView() {
         html += '<button class="section-filter-pill clear-pill" data-section-clear="'+escHTML(projKey)+'">Clear</button>';
         html += '</div>';
 
-        html += '<table class="talent-table"><thead><tr><th>Candidate</th><th>Status</th><th>Introduced</th><th>Interview</th></tr></thead><tbody>';
+        // Group talent by role
+        var roleGroups = {};
+        var roleOrder = [];
         proj.talent.forEach(function(t) {
-          // Role filter: hide talent that don't match the selected role
           if (curRoleFilter && t.role !== curRoleFilter) return;
-          var cfg = STATUS_MAP[t.status]||{};
-          var days = daysSince(t.updatedAt || t.date);
-          var isHidden = secFilters.size > 0 && !secFilters.has(t.status);
-          var isInterviewStatus = t.status === 'interview_scheduled' || t.status === 'pending_interview' || t.status === 'pending_2nd_interview';
-          html += '<tr' + (isHidden ? ' class="filtered-out"' : '') + ' data-talent-status="'+escHTML(t.status)+'"' +
-            (t.jcId ? ' data-jc-id="'+escHTML(t.jcId)+'"' : '') + '>' +
-            '<td><div class="talent-name-cell">' + avatarHTML(t.name, t.profileLink, 32, t.avatarUrl) +
-            '<div><div class="talent-label">'+escHTML(t.name)+'</div><div class="talent-role">'+escHTML(t.role)+'</div>' +
-            '<div class="talent-location">'+escHTML(t.location)+'</div></div></div></td>' +
-            '<td><div class="status-dropdown-wrap">' +
-            '<select class="status-dropdown" data-talent-name="'+escHTML(t.name)+'"' +
-            ' data-original-status="'+escHTML(t.status)+'"' +
-            (t.jcId ? ' data-jc-id="'+escHTML(t.jcId)+'"' : '') +
-            ' style="border-color:' + (cfg.color||'#E5E7EB') + ';color:' + (cfg.color||'#374151') + '">';
-          DROPDOWN_STATUSES.forEach(function(sk) {
-            var skCfg = STATUS_MAP[sk] || {};
-            html += '<option value="'+sk+'"' + (sk === t.status ? ' selected' : '') + '>' + escHTML(skCfg.label||sk) + '</option>';
-          });
-          // If current status not in dropdown list, add it
-          if (DROPDOWN_STATUSES.indexOf(t.status) === -1) {
-            html += '<option value="'+escHTML(t.status)+'" selected>' + escHTML(cfg.label||t.status) + '</option>';
-          }
-          html += '</select>';
-          html += '<button class="status-save-btn" data-save-for="'+escHTML(t.jcId || '')+'">' +
-            '<span class="save-text">Save</span><span class="save-check">✓ Saved</span></button>';
-          if (cfg.actionLabel) {
-            html += '<span class="action-badge '+cfg.actionClass+'">'+cfg.actionLabel+'</span>';
-          }
-          html += stalenessHTML(days) + '</div></td>' +
-            '<td class="date-cell">'+fmtDate(t.date)+'</td>' +
-            '<td class="date-cell">' + (t.interviewDate ? '<span style="color:' + (isInterviewStatus ? '#6941C6' : '#64748B') + '; font-weight:' + (isInterviewStatus ? '600' : '400') + ';">' + (isInterviewStatus ? '\uD83D\uDCC5 ' : '') + fmtDate(t.interviewDate) + '</span>' : '\u2014') + '</td></tr>';
+          var rk = t.role || 'Unknown Role';
+          if (!roleGroups[rk]) { roleGroups[rk] = { talent: [], openings: t.openings || 1, jobId: t.jobId }; roleOrder.push(rk); }
+          roleGroups[rk].talent.push(t);
         });
+
+        // Render each role sub-section
+        roleOrder.forEach(function(roleName) {
+          var rg = roleGroups[roleName];
+          var hiredInRole = rg.talent.filter(function(t) { return t.status === 'hired' || t.status === 'active'; }).length;
+          var activeInRole = rg.talent.filter(function(t) {
+            return t.status === 'introduced' || t.status === 'interview_scheduled' || t.status === 'pending_interview' || t.status === 'pending_decision' || t.status === 'pending_2nd_interview';
+          }).length;
+          var openings = rg.openings || 1;
+          var unfilled = Math.max(0, openings - hiredInRole);
+          var fillPct = openings > 0 ? Math.round((hiredInRole / openings) * 100) : 0;
+          var progressColor = fillPct >= 100 ? '#059669' : fillPct >= 50 ? '#D97B00' : '#DC2626';
+
+          html += '<div class="role-subsection">';
+          html += '<div class="role-subsection-header">';
+          html += '<span class="role-subsection-title">' + escHTML(roleName) + '</span>';
+          html += '<span class="role-subsection-tag openings">' + openings + ' opening' + (openings > 1 ? 's' : '') + '</span>';
+          if (hiredInRole > 0) html += '<span class="role-subsection-tag filled">\u2705 ' + hiredInRole + ' filled</span>';
+          if (unfilled > 0) html += '<span class="role-subsection-tag needs">' + unfilled + ' to fill</span>';
+          if (activeInRole > 0) html += '<span class="role-subsection-tag active">' + activeInRole + ' in pipeline</span>';
+          html += '<div class="role-progress">';
+          html += '<div class="role-progress-bar"><div class="role-progress-fill" style="width:' + Math.min(fillPct, 100) + '%; background:' + progressColor + ';"></div></div>';
+          html += '<span class="role-progress-text">' + fillPct + '% filled</span>';
+          html += '</div>';
+          html += '</div>';
+
+          // Talent table for this role
+          html += '<table class="talent-table"><thead><tr><th>Candidate</th><th>Status</th><th>Introduced</th><th>Interview</th></tr></thead><tbody>';
+          rg.talent.forEach(function(t) {
+            var cfg = STATUS_MAP[t.status]||{};
+            var days = daysSince(t.updatedAt || t.date);
+            var isHidden = secFilters.size > 0 && !secFilters.has(t.status);
+            var isInterviewStatus = t.status === 'interview_scheduled' || t.status === 'pending_interview' || t.status === 'pending_2nd_interview';
+            html += '<tr' + (isHidden ? ' class="filtered-out"' : '') + ' data-talent-status="'+escHTML(t.status)+'"' +
+              (t.jcId ? ' data-jc-id="'+escHTML(t.jcId)+'"' : '') + '>' +
+              '<td><div class="talent-name-cell">' + avatarHTML(t.name, t.profileLink, 32, t.avatarUrl) +
+              '<div><div class="talent-label">'+escHTML(t.name)+'</div>' +
+              '<div class="talent-location">'+escHTML(t.location)+'</div></div></div></td>' +
+              '<td><div class="status-dropdown-wrap">' +
+              '<select class="status-dropdown" data-talent-name="'+escHTML(t.name)+'"' +
+              ' data-original-status="'+escHTML(t.status)+'"' +
+              (t.jcId ? ' data-jc-id="'+escHTML(t.jcId)+'"' : '') +
+              ' style="border-color:' + (cfg.color||'#E5E7EB') + ';color:' + (cfg.color||'#374151') + '">';
+            DROPDOWN_STATUSES.forEach(function(sk) {
+              var skCfg = STATUS_MAP[sk] || {};
+              html += '<option value="'+sk+'"' + (sk === t.status ? ' selected' : '') + '>' + escHTML(skCfg.label||sk) + '</option>';
+            });
+            if (DROPDOWN_STATUSES.indexOf(t.status) === -1) {
+              html += '<option value="'+escHTML(t.status)+'" selected>' + escHTML(cfg.label||t.status) + '</option>';
+            }
+            html += '</select>';
+            html += '<button class="status-save-btn" data-save-for="'+escHTML(t.jcId || '')+'">' +
+              '<span class="save-text">Save</span><span class="save-check">\u2713 Saved</span></button>';
+            if (cfg.actionLabel) {
+              html += '<span class="action-badge '+cfg.actionClass+'">'+cfg.actionLabel+'</span>';
+            }
+            html += stalenessHTML(days) + '</div></td>' +
+              '<td class="date-cell">'+fmtDate(t.date)+'</td>' +
+              '<td class="date-cell">' + (t.interviewDate ? '<span style="color:' + (isInterviewStatus ? '#6941C6' : '#64748B') + '; font-weight:' + (isInterviewStatus ? '600' : '400') + ';">' + (isInterviewStatus ? '\uD83D\uDCC5 ' : '') + fmtDate(t.interviewDate) + '</span>' : '\u2014') + '</td></tr>';
+          });
+          html += '</tbody></table>';
+          html += '</div>'; // close role-subsection
+        });
+
         var visibleCount = proj.talent.filter(function(t) {
           if (curRoleFilter && t.role !== curRoleFilter) return false;
           return secFilters.size === 0 || secFilters.has(t.status);
         }).length;
-        html += '</tbody></table>';
-        html += '<div class="section-summary-bar"><span style="font-weight:600;">Showing ' + visibleCount + ' of ' + proj.talent.length + ' candidates</span></div>';
+        html += '<div class="section-summary-bar"><span style="font-weight:600;">Showing ' + visibleCount + ' of ' + proj.talent.length + ' candidates across ' + roleOrder.length + ' role' + (roleOrder.length > 1 ? 's' : '') + '</span></div>';
         html += '</div></div>';
       });
       html += '</div></div>';
@@ -3203,10 +3333,30 @@ function bindEvents() {
   var openJobsToggle = document.getElementById('openJobsToggle');
   if (openJobsToggle) {
     openJobsToggle.addEventListener('click', function(e) {
-      if (e.target.closest('.view-toggle')) return;
+      if (e.target.closest('.bu-actions')) return;
       openJobsOpen = !openJobsOpen; render();
     });
   }
+
+  // Open Jobs: BU toggles
+  document.querySelectorAll('[data-toggle-oj-bu]').forEach(function(el) {
+    el.addEventListener('click', function(e) {
+      if (e.target.closest('.bu-actions')) return;
+      var key = el.dataset.toggleOjBu;
+      if (ojOpenBUs.has(key)) ojOpenBUs.delete(key); else ojOpenBUs.add(key);
+      render();
+    });
+  });
+
+  // Open Jobs: Project toggles
+  document.querySelectorAll('[data-toggle-oj-project]').forEach(function(el) {
+    el.addEventListener('click', function(e) {
+      if (e.target.closest('.bu-actions')) return;
+      var key = el.dataset.toggleOjProject;
+      if (ojOpenProjects.has(key)) ojOpenProjects.delete(key); else ojOpenProjects.add(key);
+      render();
+    });
+  });
 
   // View toggle buttons (card/list)
   document.querySelectorAll('[data-view-toggle]').forEach(function(btn) {
