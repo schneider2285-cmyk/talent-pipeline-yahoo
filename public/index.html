@@ -2269,11 +2269,12 @@ function renderPipelineView() {
   // Helper: render interactive candidate table for an Open Job (matches BU accordion style)
   function renderOJCandidates(j) {
     var out = '';
-    // Add Job / Add Candidate buttons for this role
+    // Add Job / Add Candidate buttons for this role's BU + project
+    var ojBuProj = escHTML((j.bu || '') + '||' + (j.project_name || ''));
     out += '<div style="display:flex; gap:8px; margin-bottom:12px;">' +
-      '<button class="bu-action-btn" data-bu-add-job="' + escHTML(j.bu || '') + '" style="font-size:12px; padding:4px 10px;">' +
+      '<button class="bu-action-btn" data-proj-add-job="' + ojBuProj + '" style="font-size:12px; padding:4px 10px;">' +
         '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M12 5v14M5 12h14"/></svg> Add Job</button>' +
-      '<button class="bu-action-btn" data-bu-add-cand="' + escHTML(j.bu || '') + '" style="font-size:12px; padding:4px 10px;">' +
+      '<button class="bu-action-btn" data-proj-add-cand="' + ojBuProj + '" style="font-size:12px; padding:4px 10px;">' +
         '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg> Add Candidate</button>' +
       '</div>';
 
@@ -2567,12 +2568,7 @@ function renderPipelineView() {
         '<div class="bu-title">'+escHTML(bu.businessUnit)+'</div>' +
         '<div class="bu-meta"><div class="bu-stat"><strong>'+bu.projects.length+'</strong> project'+(bu.projects.length>1?'s':'')+'</div>' +
         '<div class="bu-stat"><strong>'+buTalentCount+'</strong> candidate'+(buTalentCount>1?'s':'')+'</div></div>' +
-        '<div class="bu-actions">' +
-        '<button class="bu-action-btn" data-bu-add-job="'+escHTML(buKey)+'" title="Add a new job to '+escHTML(buKey)+'">' +
-          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg> Add Job</button>' +
-        '<button class="bu-action-btn" data-bu-add-cand="'+escHTML(buKey)+'" title="Add a candidate to '+escHTML(buKey)+'">' +
-          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg> Add Candidate</button>' +
-        '</div></div>' +
+        '</div>' +
         '<div class="bu-body">';
 
       // Collect unique projects and roles for this BU's filter dropdowns
@@ -2654,7 +2650,13 @@ function renderPipelineView() {
           var c = (STATUS_MAP[st]||{}).color||'#888';
           for (var i=0;i<count;i++) html += '<span class="mini-pip" style="background:'+c+'" title="'+((STATUS_MAP[st]||{}).label||st)+'"></span>';
         });
-        html += '</div><div class="project-count">'+projFilteredCount+' talent</div></div>';
+        html += '</div><div class="project-count">'+projFilteredCount+' talent</div>' +
+        '<div class="bu-actions" style="margin-left:auto;">' +
+        '<button class="bu-action-btn" data-proj-add-job="'+escHTML(buKey)+'||'+escHTML(proj.name)+'" title="Add a new job to '+escHTML(proj.name)+'">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M12 5v14M5 12h14"/></svg> Add Job</button>' +
+        '<button class="bu-action-btn" data-proj-add-cand="'+escHTML(buKey)+'||'+escHTML(proj.name)+'" title="Add a candidate to '+escHTML(proj.name)+'">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg> Add Candidate</button>' +
+        '</div></div>';
         html += '<div class="project-body">';
 
         // Per-section filter bar
@@ -2955,19 +2957,21 @@ function bindEvents() {
     });
   });
 
-  // BU "Add Job" buttons
-  document.querySelectorAll('[data-bu-add-job]').forEach(function(btn) {
+  // Project-level "Add Job" buttons (BU + project encoded as "BU||Project")
+  document.querySelectorAll('[data-proj-add-job]').forEach(function(btn) {
     btn.addEventListener('click', function(e) {
       e.stopPropagation();
-      showJobForm(btn.dataset.buAddJob);
+      var parts = (btn.dataset.projAddJob || '').split('||');
+      showJobForm(parts[0], parts[1]);
     });
   });
 
-  // BU "Add Candidate" buttons
-  document.querySelectorAll('[data-bu-add-cand]').forEach(function(btn) {
+  // Project-level "Add Candidate" buttons
+  document.querySelectorAll('[data-proj-add-cand]').forEach(function(btn) {
     btn.addEventListener('click', function(e) {
       e.stopPropagation();
-      showCandidateForm(btn.dataset.buAddCand);
+      var parts = (btn.dataset.projAddCand || '').split('||');
+      showCandidateForm(parts[0], parts[1]);
     });
   });
 
@@ -3006,7 +3010,9 @@ function bindEvents() {
 
   // Project toggles
   document.querySelectorAll('[data-toggle-project]').forEach(function(el) {
-    el.addEventListener('click', function() {
+    el.addEventListener('click', function(e) {
+      // Don't toggle if clicking action buttons
+      if (e.target.closest('.bu-actions')) return;
       var key = el.dataset.toggleProject;
       if (openProjects.has(key)) openProjects.delete(key); else openProjects.add(key);
       render();
@@ -3209,17 +3215,17 @@ function bindEvents() {
     });
   });
 
-  // Open Jobs header: Add Job / Add Candidate buttons
+  // Open Jobs header: Add Job / Add Candidate buttons (no project context)
   document.querySelectorAll('[data-oj-add-job]').forEach(function(btn) {
     btn.addEventListener('click', function(e) {
       e.stopPropagation();
-      showJobForm();
+      showJobForm('', '');
     });
   });
   document.querySelectorAll('[data-oj-add-cand]').forEach(function(btn) {
     btn.addEventListener('click', function(e) {
       e.stopPropagation();
-      showCandidateForm();
+      showCandidateForm('', '');
     });
   });
 
@@ -4156,7 +4162,7 @@ document.addEventListener('keydown', function(e) {
 });
 
 // ── Job Form (inline in chat) ──
-function renderJobForm(prefilledBU) {
+function renderJobForm(prefilledBU, prefilledProject) {
   // Collect BUs
   var buList = Object.keys(BU_COLORS).sort();
   // Also add any BUs from data not in BU_COLORS
@@ -4208,7 +4214,7 @@ function renderJobForm(prefilledBU) {
     if (projectsByBU[bu] && projectsByBU[bu].length > 0) {
       html += '<optgroup label="' + escHTML(bu) + '">';
       projectsByBU[bu].sort().forEach(function(p) {
-        html += '<option value="' + escHTML(p) + '">' + escHTML(p) + '</option>';
+        html += '<option value="' + escHTML(p) + '"' + (prefilledProject && p === prefilledProject ? ' selected' : '') + '>' + escHTML(p) + '</option>';
       });
       html += '</optgroup>';
     }
@@ -4248,7 +4254,7 @@ function renderJobForm(prefilledBU) {
   return html;
 }
 
-function showJobForm(prefilledBU) {
+function showJobForm(prefilledBU, prefilledProject) {
   // If chat isn't open, open it
   if (!chatOpen) toggleChat();
 
@@ -4256,10 +4262,12 @@ function showJobForm(prefilledBU) {
   var hasForm = chatMessages.some(function(m) { return m.role === 'action_card' && m._isForm; });
   if (hasForm) return;
 
-  if (prefilledBU) {
+  if (prefilledBU && prefilledProject) {
+    chatMessages.push({ role: 'system', content: 'Adding a new job to ' + prefilledProject + ' (' + prefilledBU + '):' });
+  } else if (prefilledBU) {
     chatMessages.push({ role: 'system', content: 'Adding a new job to ' + prefilledBU + ':' });
   }
-  chatMessages.push({ role: 'action_card', content: renderJobForm(prefilledBU), _isForm: true });
+  chatMessages.push({ role: 'action_card', content: renderJobForm(prefilledBU, prefilledProject), _isForm: true });
   renderChat();
 }
 
@@ -4381,7 +4389,7 @@ function cancelJobForm() {
 }
 
 // ── Candidate Form (inline in chat) ──
-function renderCandidateForm(prefilledBU) {
+function renderCandidateForm(prefilledBU, prefilledProject) {
   // Build job list from FULFILLMENT_DATA grouped by BU
   var jobsByBU = {};
   if (FULFILLMENT_DATA) {
@@ -4423,10 +4431,21 @@ function renderCandidateForm(prefilledBU) {
     sortedBUs = sortedBUs.filter(function(b) { return b !== prefilledBU; });
     if (jobsByBU[prefilledBU]) sortedBUs.unshift(prefilledBU);
   }
+  // Find first matching job ID for pre-selection (BU + project match)
+  var preselectedJobId = '';
+  if (prefilledBU && prefilledProject) {
+    sortedBUs.forEach(function(bu) {
+      if (bu === prefilledBU && jobsByBU[bu]) {
+        jobsByBU[bu].forEach(function(j) {
+          if (!preselectedJobId && j.project === prefilledProject) preselectedJobId = j.id;
+        });
+      }
+    });
+  }
   sortedBUs.forEach(function(bu) {
     html += '<optgroup label="' + escHTML(bu) + '">';
     jobsByBU[bu].forEach(function(j) {
-      html += '<option value="' + escHTML(j.id) + '">' + escHTML(j.label) + '</option>';
+      html += '<option value="' + escHTML(j.id) + '"' + (preselectedJobId === j.id ? ' selected' : '') + '>' + escHTML(j.label) + '</option>';
     });
     html += '</optgroup>';
   });
@@ -4498,14 +4517,16 @@ function renderCandidateForm(prefilledBU) {
   return html;
 }
 
-function showCandidateForm(prefilledBU) {
+function showCandidateForm(prefilledBU, prefilledProject) {
   if (!chatOpen) toggleChat();
   var hasForm = chatMessages.some(function(m) { return m.role === 'action_card' && m._isForm; });
   if (hasForm) return;
-  if (prefilledBU) {
+  if (prefilledBU && prefilledProject) {
+    chatMessages.push({ role: 'system', content: 'Adding a new candidate to ' + prefilledProject + ' (' + prefilledBU + '):' });
+  } else if (prefilledBU) {
     chatMessages.push({ role: 'system', content: 'Adding a new candidate to ' + prefilledBU + ':' });
   }
-  chatMessages.push({ role: 'action_card', content: renderCandidateForm(prefilledBU), _isForm: true });
+  chatMessages.push({ role: 'action_card', content: renderCandidateForm(prefilledBU, prefilledProject), _isForm: true });
   renderChat();
 }
 
