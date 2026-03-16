@@ -783,10 +783,12 @@ async function initApp(session) {
   }
 }
 
-// Auth state listener — no more lock issues since we bypass navigator.locks
-sb.auth.onAuthStateChange(async function(event, session) {
+// Auth state listener — MUST NOT await inside callback to avoid deadlock
+// (awaiting Supabase queries inside onAuthStateChange blocks getSession() internally)
+sb.auth.onAuthStateChange(function(event, session) {
   if (session && session.user) {
-    await initApp(session);
+    // Fire and forget — don't block the auth state change callback
+    initApp(session).catch(function(e) { console.error('initApp error:', e); });
   } else if (event === 'INITIAL_SESSION' || event === 'SIGNED_OUT') {
     currentUser = null;
     currentProfile = null;
