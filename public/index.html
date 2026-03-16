@@ -5222,6 +5222,22 @@ function buildSystemPrompt() {
     '3. Never ask generic questions like "Can you provide more details?" — ask exactly what you need.\n' +
     '4. Extract everything from the message first. Only ask about what\'s truly missing.\n\n' +
 
+    '## CANDIDATE SUBMISSIONS (IMPORTANT)\n' +
+    'Users often paste candidate info in this format (one or multiple at a time):\n' +
+    '  Talent: Phu Nguyen Anh\n' +
+    '  Profile: https://talent.toptal.com/resume/...\n' +
+    '  Availability: FT (40/40)\n' +
+    '  Location: Toronto, ON, Canada\n\n' +
+    'When you receive candidate info like this:\n' +
+    '1. Parse ALL candidate details from the message (name, profile_link, location, availability, rate, etc.)\n' +
+    '2. If the job/role is NOT specified, ask: "Which role should I add [name] to? Here are the open roles:" then list UNFILLED roles from the data snapshot grouped by BU, like:\n' +
+    '   **Mail:** Java Developer, React Engineer\n' +
+    '   **Sports:** iOS Developer\n' +
+    '   **Paranoids:** Cloud Security Engineer\n' +
+    '3. Once the user picks a role, execute ALL steps: insert_candidate → query for IDs → assign_candidate_to_job for EACH candidate\n' +
+    '4. If MULTIPLE candidates are pasted, remember ALL of them. Ask the role question ONCE, then add them all to the same role.\n' +
+    '5. Field mapping: "Talent:" → name, "Profile:" → profile_link, "Location:" → location, "Availability:" → availability, "Rate/RTT:" → rate, URLs with talent.toptal.com → profile_link\n\n' +
+
     '## TOOLS\n' +
     'You can do everything the UI does: change statuses, set dates, add/edit jobs & candidates, query data.\n' +
     '- Status values: ' + VALID_DB_STATUSES.join(', ') + '\n' +
