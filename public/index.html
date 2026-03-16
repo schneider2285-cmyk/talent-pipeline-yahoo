@@ -315,6 +315,82 @@
   .status-pending-decision .pip { background: var(--amber); }
   .status-2nd-interview { background: var(--rose-bg); color: var(--rose); }
   .status-2nd-interview .pip { background: var(--rose); }
+  .status-hired { background: #ECFDF5; color: #059669; }
+  .status-hired .pip { background: #059669; }
+  .status-rejected { background: #FEF2F2; color: #DC2626; }
+  .status-rejected .pip { background: #DC2626; }
+  .status-withdrawn { background: #F3F4F6; color: #6B7280; }
+  .status-withdrawn .pip { background: #6B7280; }
+  .status-unavailable { background: #F3F4F6; color: #6B7280; }
+  .status-unavailable .pip { background: #6B7280; }
+  .status-on-hold { background: #FFFBEB; color: #F59E0B; }
+  .status-on-hold .pip { background: #F59E0B; }
+  .status-other { background: #F5F3FF; color: #8B5CF6; }
+  .status-other .pip { background: #8B5CF6; }
+
+  /* ── Status Dropdown ── */
+  .status-dropdown-wrap { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .status-dropdown {
+    padding: 4px 10px; border-radius: 16px;
+    border: 2px solid #E5E7EB; font-size: 12px; font-weight: 600;
+    cursor: pointer; outline: none; background: white; color: #374151;
+    min-width: 180px; transition: border-color 0.15s, color 0.15s;
+    -webkit-appearance: none; appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394A3B8' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 8px center;
+    padding-right: 24px;
+  }
+  .status-dropdown:focus { box-shadow: 0 0 0 3px rgba(59,130,246,0.15); }
+
+  /* ── Action Badges ── */
+  .action-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 2px 8px; border-radius: 10px; font-size: 10px;
+    font-weight: 700; letter-spacing: 0.3px; white-space: nowrap;
+  }
+  .action-badge.action-review   { background: #EFF6FF; color: #2563EB; }
+  .action-badge.action-schedule  { background: #F5F3FF; color: #7C3AED; }
+  .action-badge.action-schedule-2nd { background: #FDF2F8; color: #DB2777; }
+  .action-badge.action-decide    { background: #FFFBEB; color: #D97706; }
+  .action-badge.action-onboard   { background: #ECFDF5; color: #059669; }
+
+  /* ── Per-Section Filter Bar ── */
+  .section-filter-bar {
+    display: flex; gap: 6px; flex-wrap: wrap;
+    padding: 8px 12px 6px 36px; background: #F8FAFC;
+    border-bottom: 1px solid #E2E8F0; align-items: center;
+  }
+  .section-filter-bar .filter-label-txt {
+    font-size: 11px; font-weight: 600; color: #94A3B8;
+    text-transform: uppercase; letter-spacing: 0.5px; margin-right: 4px;
+  }
+  .section-filter-pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 10px; border-radius: 12px; font-size: 11px;
+    font-weight: 600; cursor: pointer; border: 1.5px solid #E2E8F0;
+    background: white; color: #64748B; transition: all 0.15s ease;
+    user-select: none;
+  }
+  .section-filter-pill:hover { border-color: #CBD5E1; background: #F1F5F9; }
+  .section-filter-pill.active { background: var(--pill-bg); border-color: var(--pill-color); color: var(--pill-color); }
+  .section-filter-pill .pill-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--pill-color); opacity: 0.4;
+  }
+  .section-filter-pill.active .pill-dot { opacity: 1; }
+  .section-filter-pill .pill-count {
+    background: #E2E8F0; color: #475569; border-radius: 8px;
+    padding: 0 5px; font-size: 10px; min-width: 16px; text-align: center;
+  }
+  .section-filter-pill.active .pill-count { background: var(--pill-color); color: white; }
+  .section-filter-pill.clear-pill { border-style: dashed; font-style: italic; }
+  .section-summary-bar {
+    display: flex; gap: 12px; padding: 6px 12px 6px 36px;
+    background: linear-gradient(135deg, #F8FAFC, #F1F5F9);
+    border-top: 1px solid #E2E8F0; font-size: 11px; color: #64748B;
+  }
+  tr.filtered-out { display: none !important; }
+
   .date-cell { color: var(--text-secondary); font-size: 12px; white-space: nowrap; }
   .no-results { text-align: center; padding: 60px 20px; color: var(--text-muted); font-size: 14px; }
 
@@ -1429,11 +1505,21 @@ const BU_COLORS = {
 const DEFAULT_BU_COLOR = '#5A6378';
 
 const STATUS_MAP = {
-  'introduced': { cls: 'status-introduced', color: '#204ECF', label: 'Talent Introduced' },
-  'interview_scheduled': { cls: 'status-interview', color: '#6941C6', label: 'Interview Scheduled' },
-  'pending_decision': { cls: 'status-pending-decision', color: '#D97B00', label: 'Pending Decision' },
-  'pending_2nd_interview': { cls: 'status-2nd-interview', color: '#D6336C', label: 'Pending 2nd Interview' },
+  'introduced': { cls: 'status-introduced', color: '#204ECF', label: 'Talent Introduced', dbValue: 'TALENT INTRODUCED', actionLabel: '📋 Review Profile', actionClass: 'action-review' },
+  'interview_scheduled': { cls: 'status-interview', color: '#6941C6', label: 'Interview Scheduled', dbValue: 'INTERVIEW SCHEDULED', actionLabel: '📅 Schedule Interview', actionClass: 'action-schedule' },
+  'pending_interview': { cls: 'status-interview', color: '#6941C6', label: 'Pending Interview', dbValue: 'PENDING INTERVIEW', actionLabel: '📅 Schedule Interview', actionClass: 'action-schedule' },
+  'pending_decision': { cls: 'status-pending-decision', color: '#D97B00', label: 'Pending Decision', dbValue: 'PENDING DECISION', actionLabel: '⚖️ Make Decision', actionClass: 'action-decide' },
+  'pending_2nd_interview': { cls: 'status-2nd-interview', color: '#D6336C', label: 'Pending 2nd Interview', dbValue: 'PENDING 2ND INTERVIEW', actionLabel: '📅 Schedule 2nd Interview', actionClass: 'action-schedule-2nd' },
+  'hired': { cls: 'status-hired', color: '#059669', label: 'Hired', dbValue: 'ACTIVE', actionLabel: '🎉 Onboard', actionClass: 'action-onboard' },
+  'rejected': { cls: 'status-rejected', color: '#DC2626', label: 'Rejected', dbValue: 'REJECTED', actionLabel: '', actionClass: '' },
+  'withdrawn': { cls: 'status-withdrawn', color: '#6B7280', label: 'Withdrawn', dbValue: 'TALENT WITHDRAWN', actionLabel: '', actionClass: '' },
+  'unavailable': { cls: 'status-unavailable', color: '#6B7280', label: 'Unavailable', dbValue: 'TALENT NO LONGER AVAILABLE', actionLabel: '', actionClass: '' },
+  'consider_other': { cls: 'status-other', color: '#8B5CF6', label: 'Consider Other', dbValue: 'CONSIDER FOR OTHER ROLE', actionLabel: '', actionClass: '' },
+  'removed_location': { cls: 'status-other', color: '#6B7280', label: 'Removed (Location)', dbValue: 'REMOVED DUE TO LOCATION', actionLabel: '', actionClass: '' },
+  'on_hold': { cls: 'status-on-hold', color: '#F59E0B', label: 'On Hold', dbValue: 'ON-HOLD', actionLabel: '', actionClass: '' },
 };
+// Dropdown-eligible statuses (active pipeline statuses for dropdown)
+const DROPDOWN_STATUSES = ['introduced', 'interview_scheduled', 'pending_interview', 'pending_decision', 'pending_2nd_interview', 'hired', 'rejected', 'withdrawn'];
 
 const BU_ICONS = {
   'Mail': '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M2 5l10 7 10-7"/><line x1="6" y1="19" x2="6" y2="21"/><line x1="18" y1="19" x2="18" y2="21"/><line x1="4" y1="21" x2="20" y2="21"/></svg>',
@@ -1520,6 +1606,7 @@ let ffFocusMode = false;
 let ffHideCancelled = true;
 let ffExpandedCards = new Set();
 let ffOpenBUs = new Set(); // Collapsible BU groups in fulfillment view
+let sectionFilters = {}; // Per-project-section active status filters: { 'BU::Project': Set(['introduced', ...]) }
 
 // All possible job statuses
 const JOB_STATUSES = [
@@ -1858,6 +1945,7 @@ function transformPipeline(rows) {
       avatarUrl: cand.avatar_url || '',
       interviewDate: r.date_interview || '',
       updatedAt: r.updated_at || r.date_introduced,
+      jcId: r.id || '', // job_candidate ID for status updates
     });
   });
   // Transform hired rows too
@@ -2429,17 +2517,61 @@ function renderPipelineView() {
           for (var i=0;i<count;i++) html += '<span class="mini-pip" style="background:'+c+'" title="'+((STATUS_MAP[st]||{}).label||st)+'"></span>';
         });
         html += '</div><div class="project-count">'+proj.talent.length+' talent</div></div>';
-        html += '<div class="project-body"><table class="talent-table"><thead><tr><th>Candidate</th><th>Status</th><th>Introduced</th></tr></thead><tbody>';
+        html += '<div class="project-body">';
+
+        // Per-section filter bar
+        var secFilters = sectionFilters[projKey] || new Set();
+        var secStatusCounts = {};
+        proj.talent.forEach(function(t) { secStatusCounts[t.status] = (secStatusCounts[t.status]||0)+1; });
+        html += '<div class="section-filter-bar" data-section-key="'+escHTML(projKey)+'">' +
+          '<span class="filter-label-txt">Filter:</span>';
+        var filterableStatuses = Object.keys(secStatusCounts);
+        filterableStatuses.forEach(function(st) {
+          var sCfg = STATUS_MAP[st] || {};
+          var isActive = secFilters.has(st);
+          html += '<button class="section-filter-pill' + (isActive ? ' active' : '') + '" data-section-filter="'+escHTML(st)+'" data-section-key="'+escHTML(projKey)+'" ' +
+            'style="--pill-color:' + (sCfg.color||'#888') + ';--pill-bg:' + (sCfg.color||'#888') + '15">' +
+            '<span class="pill-dot"></span>' +
+            '<span>' + escHTML((sCfg.label||st).replace('Talent ', '')) + '</span>' +
+            '<span class="pill-count">' + secStatusCounts[st] + '</span>' +
+            '</button>';
+        });
+        html += '<button class="section-filter-pill clear-pill" data-section-clear="'+escHTML(projKey)+'">Clear</button>';
+        html += '</div>';
+
+        html += '<table class="talent-table"><thead><tr><th>Candidate</th><th>Status</th><th>Introduced</th></tr></thead><tbody>';
         proj.talent.forEach(function(t) {
           var cfg = STATUS_MAP[t.status]||{};
           var days = daysSince(t.updatedAt || t.date);
-          html += '<tr><td><div class="talent-name-cell">' + avatarHTML(t.name, t.profileLink, 32, t.avatarUrl) +
+          var isHidden = secFilters.size > 0 && !secFilters.has(t.status);
+          html += '<tr' + (isHidden ? ' class="filtered-out"' : '') + ' data-talent-status="'+escHTML(t.status)+'"' +
+            (t.jcId ? ' data-jc-id="'+escHTML(t.jcId)+'"' : '') + '>' +
+            '<td><div class="talent-name-cell">' + avatarHTML(t.name, t.profileLink, 32, t.avatarUrl) +
             '<div><div class="talent-label">'+escHTML(t.name)+'</div><div class="talent-role">'+escHTML(t.role)+'</div>' +
             '<div class="talent-location">'+escHTML(t.location)+'</div></div></div></td>' +
-            '<td><span class="status-badge '+(cfg.cls||'')+'"><span class="pip"></span>'+escHTML(cfg.label||t.status)+'</span>'+stalenessHTML(days)+'</td>' +
+            '<td><div class="status-dropdown-wrap">' +
+            '<select class="status-dropdown" data-talent-name="'+escHTML(t.name)+'"' +
+            (t.jcId ? ' data-jc-id="'+escHTML(t.jcId)+'"' : '') +
+            ' style="border-color:' + (cfg.color||'#E5E7EB') + ';color:' + (cfg.color||'#374151') + '">';
+          DROPDOWN_STATUSES.forEach(function(sk) {
+            var skCfg = STATUS_MAP[sk] || {};
+            html += '<option value="'+sk+'"' + (sk === t.status ? ' selected' : '') + '>' + escHTML(skCfg.label||sk) + '</option>';
+          });
+          // If current status not in dropdown list, add it
+          if (DROPDOWN_STATUSES.indexOf(t.status) === -1) {
+            html += '<option value="'+escHTML(t.status)+'" selected>' + escHTML(cfg.label||t.status) + '</option>';
+          }
+          html += '</select>';
+          if (cfg.actionLabel) {
+            html += '<span class="action-badge '+cfg.actionClass+'">'+cfg.actionLabel+'</span>';
+          }
+          html += stalenessHTML(days) + '</div></td>' +
             '<td class="date-cell">'+fmtDate(t.date)+'</td></tr>';
         });
-        html += '</tbody></table></div></div>';
+        var visibleCount = proj.talent.filter(function(t) { return secFilters.size === 0 || secFilters.has(t.status); }).length;
+        html += '</tbody></table>';
+        html += '<div class="section-summary-bar"><span style="font-weight:600;">Showing ' + visibleCount + ' of ' + proj.talent.length + ' candidates</span></div>';
+        html += '</div></div>';
       });
       html += '</div></div>';
     });
@@ -2678,6 +2810,70 @@ function bindEvents() {
       var key = el.dataset.toggleProject;
       if (openProjects.has(key)) openProjects.delete(key); else openProjects.add(key);
       render();
+    });
+  });
+
+  // Section filter pills (per-project status filters)
+  document.querySelectorAll('[data-section-filter]').forEach(function(pill) {
+    pill.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var status = pill.dataset.sectionFilter;
+      var key = pill.dataset.sectionKey;
+      if (!sectionFilters[key]) sectionFilters[key] = new Set();
+      if (sectionFilters[key].has(status)) sectionFilters[key].delete(status);
+      else sectionFilters[key].add(status);
+      if (sectionFilters[key].size === 0) delete sectionFilters[key];
+      render();
+    });
+  });
+
+  // Section filter clear buttons
+  document.querySelectorAll('[data-section-clear]').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var key = btn.dataset.sectionClear;
+      delete sectionFilters[key];
+      render();
+    });
+  });
+
+  // Status dropdown changes (update Supabase)
+  document.querySelectorAll('.status-dropdown').forEach(function(sel) {
+    sel.addEventListener('click', function(e) { e.stopPropagation(); });
+    sel.addEventListener('change', function() {
+      var newStatus = sel.value;
+      var cfg = STATUS_MAP[newStatus] || {};
+      sel.style.borderColor = cfg.color || '#E5E7EB';
+      sel.style.color = cfg.color || '#374151';
+      // Update action badge
+      var wrap = sel.closest('.status-dropdown-wrap');
+      if (wrap) {
+        var badge = wrap.querySelector('.action-badge');
+        if (badge && cfg.actionLabel) {
+          badge.className = 'action-badge ' + (cfg.actionClass || '');
+          badge.textContent = cfg.actionLabel;
+        } else if (badge && !cfg.actionLabel) {
+          badge.remove();
+        }
+      }
+      // Supabase update
+      var jcId = sel.dataset.jcId;
+      if (jcId && cfg.dbValue && typeof sb !== 'undefined') {
+        var now = new Date().toISOString();
+        var updateData = { status: cfg.dbValue, status_changed_at: now, updated_at: now };
+        if (cfg.dbValue === 'INTERVIEW SCHEDULED') updateData.date_interview = now;
+        if (cfg.dbValue === 'ACTIVE') updateData.date_hired = now;
+        sb.from('job_candidates').update(updateData).eq('id', jcId).then(function(res) {
+          if (res.error) console.warn('Status update failed:', res.error.message);
+          else console.log('Status updated for', sel.dataset.talentName, '->', cfg.dbValue);
+        });
+        // Log activity
+        sb.from('activity_log').insert({
+          entity_type: 'job_candidate', entity_id: jcId,
+          action: 'status_change', new_value: cfg.dbValue,
+          source: 'pipeline_ui'
+        }).then(function() {});
+      }
     });
   });
 
