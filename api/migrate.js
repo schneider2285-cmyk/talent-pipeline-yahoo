@@ -23,7 +23,8 @@ export default async function handler(req, res) {
     let dbUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL;
     if (!dbUrl && supabaseUrl) {
       const ref = supabaseUrl.replace('https://', '').split('.')[0];
-      const dbPassword = (req.body && req.body.db_password) || process.env.SUPABASE_DB_PASSWORD;
+      const body = req.body || {};
+      const dbPassword = body.db_password || process.env.SUPABASE_DB_PASSWORD || 'Schneider!2285';
       if (dbPassword) {
         dbUrl = `postgresql://postgres.${ref}:${encodeURIComponent(dbPassword)}@aws-0-us-west-2.pooler.supabase.com:5432/postgres`;
       }
