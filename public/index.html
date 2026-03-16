@@ -711,6 +711,65 @@
   .chat-action-btns .confirm-btn:hover { background: var(--toptal-blue-mid); }
   .chat-action-btns .cancel-btn { background: var(--surface); color: var(--text-secondary); }
   .chat-action-btns .cancel-btn:hover { background: var(--surface-hover); }
+  /* ── Chat Form ── */
+  .chat-form {
+    background: var(--surface); border: 2px solid #3B82F6;
+    border-radius: var(--radius); padding: 16px; margin-top: 8px;
+  }
+  .chat-form-title {
+    display: flex; align-items: center; gap: 8px;
+    margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid var(--border);
+    font-weight: 700; color: #1E3A8A; font-size: 15px;
+  }
+  .chat-form-title span { font-size: 18px; }
+  .chat-form label {
+    display: block; font-size: 11px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.5px;
+    color: #64748B; margin-bottom: 4px;
+  }
+  .chat-form label .req { color: #DC2626; }
+  .chat-form .form-group { margin-bottom: 12px; }
+  .chat-form input, .chat-form select {
+    width: 100%; box-sizing: border-box;
+    background: #F8FAFC; border: 1px solid #CBD5E1; border-radius: 8px;
+    padding: 8px 12px; font-family: inherit; font-size: 13px;
+    color: var(--text-primary); outline: none; transition: border-color 0.15s;
+  }
+  .chat-form input:focus, .chat-form select:focus { border-color: #3B82F6; }
+  .chat-form input.error, .chat-form select.error { border-color: #DC2626; background: #FEF2F2; }
+  .chat-form .form-hint {
+    font-size: 10px; color: #94A3B8; margin-top: 3px;
+  }
+  .chat-form-actions {
+    display: flex; gap: 8px; margin-top: 16px;
+  }
+  .chat-form-actions .submit-btn {
+    flex: 1; background: #1D4ED8; color: white; border: none;
+    border-radius: 8px; padding: 10px; font-weight: 600;
+    font-size: 13px; font-family: inherit; cursor: pointer;
+    transition: background 0.15s;
+  }
+  .chat-form-actions .submit-btn:hover { background: #1E40AF; }
+  .chat-form-actions .cancel-form-btn {
+    background: #F1F5F9; color: #64748B; border: 1px solid #CBD5E1;
+    border-radius: 8px; padding: 10px 18px; font-size: 13px;
+    font-family: inherit; cursor: pointer; transition: background 0.15s;
+  }
+  .chat-form-actions .cancel-form-btn:hover { background: #E2E8F0; }
+  .chat-quick-actions {
+    display: flex; gap: 6px; padding: 8px 24px 0;
+    flex-wrap: wrap;
+  }
+  .chat-quick-action {
+    background: transparent; border: 1px solid #BFDBFE; border-radius: 100px;
+    padding: 4px 12px; font-size: 11px; font-weight: 600;
+    font-family: inherit; cursor: pointer; transition: all 0.15s;
+    display: flex; align-items: center; gap: 4px;
+  }
+  .chat-quick-action.add-job { color: #1D4ED8; background: #EFF6FF; }
+  .chat-quick-action.add-job:hover { background: #DBEAFE; border-color: #93C5FD; }
+  .chat-quick-action.add-candidate { color: #166534; background: #F0FDF4; border-color: #BBF7D0; }
+  .chat-quick-action.add-candidate:hover { background: #DCFCE7; border-color: #86EFAC; }
   .chat-input-row {
     padding: 16px 24px; border-top: 1px solid var(--border);
     display: flex; gap: 8px;
@@ -875,6 +934,10 @@
     <button class="chat-close-btn" id="chatCloseBtn">&times;</button>
   </div>
   <div class="chat-messages" id="chatMessages"></div>
+  <div class="chat-quick-actions" id="chatQuickActions">
+    <button class="chat-quick-action add-job" id="quickAddJob">➕ Add Job</button>
+    <button class="chat-quick-action add-candidate" id="quickAddCandidate">👤 Add Candidate</button>
+  </div>
   <div class="chat-input-row">
     <input class="chat-input" id="chatInput" type="text" placeholder="Ask about the pipeline..." />
     <button class="chat-send-btn" id="chatSendBtn">
@@ -1976,6 +2039,14 @@ function bindEvents() {
     chatFab.addEventListener('click', toggleChat);
   }
 
+  // Quick-action buttons
+  var quickAddJobBtn = document.getElementById('quickAddJob');
+  if (quickAddJobBtn) {
+    quickAddJobBtn.addEventListener('click', function() {
+      showJobForm();
+    });
+  }
+
   // User menu dropdown toggle
   var userMenuBtn = document.getElementById('userMenuBtn');
   var userDropdown = document.getElementById('userDropdown');
@@ -2192,7 +2263,9 @@ const CHAT_TOOLS = [
         duration: { type: 'string', description: 'Expected engagement duration (e.g. "6 months")' },
         poc_names: { type: 'string', description: 'Point of contact names' },
         poc_emails: { type: 'string', description: 'Point of contact emails' },
-        notes: { type: 'string', description: 'Additional notes' }
+        notes: { type: 'string', description: 'Additional notes' },
+        salesforce_link: { type: 'string', description: 'Salesforce/SFDC job link URL' },
+        toptal_job_link: { type: 'string', description: 'Platform (Toptal) job link URL' }
       },
       required: ['bu', 'project_name', 'role_title']
     }
@@ -2350,6 +2423,8 @@ async function executeTool(toolName, toolInput) {
       if (toolInput.poc_names) row.poc_names = toolInput.poc_names;
       if (toolInput.poc_emails) row.poc_emails = toolInput.poc_emails;
       if (toolInput.notes) row.notes = toolInput.notes;
+      if (toolInput.salesforce_link) row.salesforce_link = toolInput.salesforce_link;
+      if (toolInput.toptal_job_link) row.toptal_job_link = toolInput.toptal_job_link;
       var { data, error } = await sb.from('jobs').insert(row).select();
       if (error) return { error: error.message };
       await logActivity('job', data[0].id, 'insert', { note: row.role_title + ' (' + row.bu + ')' });
@@ -2502,6 +2577,191 @@ document.addEventListener('keydown', function(e) {
   if ((e.ctrlKey || e.metaKey) && e.key === '/') { e.preventDefault(); toggleChat(); }
 });
 
+// ── Job Form (inline in chat) ──
+function renderJobForm() {
+  // Collect BUs
+  var buList = Object.keys(BU_COLORS).sort();
+  // Also add any BUs from data not in BU_COLORS
+  if (FULFILLMENT_DATA) {
+    FULFILLMENT_DATA.forEach(function(j) {
+      if (j.bu && buList.indexOf(j.bu) === -1) buList.push(j.bu);
+    });
+  }
+
+  // Collect existing projects grouped by BU
+  var projectsByBU = {};
+  var allProjects = [];
+  if (FULFILLMENT_DATA) {
+    FULFILLMENT_DATA.forEach(function(j) {
+      if (j.project_name && allProjects.indexOf(j.project_name) === -1) {
+        allProjects.push(j.project_name);
+        var bu = j.bu || 'Other';
+        if (!projectsByBU[bu]) projectsByBU[bu] = [];
+        if (projectsByBU[bu].indexOf(j.project_name) === -1) projectsByBU[bu].push(j.project_name);
+      }
+    });
+  }
+
+  var html = '<div class="chat-form">';
+  html += '<div class="chat-form-title"><span>\uD83D\uDCCB</span> New Job</div>';
+
+  // BU
+  html += '<div class="form-group"><label>Business Unit <span class="req">*</span></label>';
+  html += '<select id="jf-bu"><option value="">Select BU...</option>';
+  buList.forEach(function(bu) {
+    html += '<option value="' + escHTML(bu) + '">' + escHTML(bu) + '</option>';
+  });
+  html += '</select></div>';
+
+  // Hiring Manager / POC
+  html += '<div class="form-group"><label>Hiring Manager / POC <span class="req">*</span></label>';
+  html += '<input type="text" id="jf-poc" placeholder="e.g. John Smith / Jane Doe" /></div>';
+
+  // Project Name
+  html += '<div class="form-group"><label>Project Name <span class="req">*</span></label>';
+  html += '<select id="jf-project" onchange="var ni=document.getElementById(\'jf-project-new\'); ni.style.display = this.value===\'__new__\' ? \'block\' : \'none\';">';
+  html += '<option value="">Select project...</option>';
+  // Group by BU in optgroups
+  buList.forEach(function(bu) {
+    if (projectsByBU[bu] && projectsByBU[bu].length > 0) {
+      html += '<optgroup label="' + escHTML(bu) + '">';
+      projectsByBU[bu].sort().forEach(function(p) {
+        html += '<option value="' + escHTML(p) + '">' + escHTML(p) + '</option>';
+      });
+      html += '</optgroup>';
+    }
+  });
+  html += '<option value="__new__">\u2795 New project...</option>';
+  html += '</select>';
+  html += '<input type="text" id="jf-project-new" placeholder="Enter new project name" style="display:none; margin-top:6px;" />';
+  html += '<div class="form-hint">Choose from existing projects or select "New project" to create one</div></div>';
+
+  // Role Title
+  html += '<div class="form-group"><label>Role Title <span class="req">*</span></label>';
+  html += '<input type="text" id="jf-role" placeholder="e.g. Senior React Developer" /></div>';
+
+  // SFDC Link
+  html += '<div class="form-group"><label>SFDC Job Link</label>';
+  html += '<input type="url" id="jf-sfdc" placeholder="https://salesforce.com/..." /></div>';
+
+  // Platform Link
+  html += '<div class="form-group"><label>Platform Link</label>';
+  html += '<input type="url" id="jf-platform" placeholder="https://toptal.com/..." /></div>';
+
+  // Actions
+  html += '<div class="chat-form-actions">';
+  html += '<button class="submit-btn" onclick="submitJobForm()">\u2705 Add Job</button>';
+  html += '<button class="cancel-form-btn" onclick="cancelJobForm()">Cancel</button>';
+  html += '</div>';
+
+  html += '</div>';
+  return html;
+}
+
+function showJobForm() {
+  // If chat isn't open, open it
+  if (!chatOpen) toggleChat();
+
+  // If there's already a form showing, don't add another
+  var hasForm = chatMessages.some(function(m) { return m.role === 'action_card' && m._isForm; });
+  if (hasForm) return;
+
+  chatMessages.push({ role: 'action_card', content: renderJobForm(), _isForm: true });
+  renderChat();
+}
+
+async function submitJobForm() {
+  // Read values
+  var bu = (document.getElementById('jf-bu') || {}).value || '';
+  var poc = (document.getElementById('jf-poc') || {}).value || '';
+  var projectSelect = (document.getElementById('jf-project') || {}).value || '';
+  var projectNew = (document.getElementById('jf-project-new') || {}).value || '';
+  var role = (document.getElementById('jf-role') || {}).value || '';
+  var sfdc = (document.getElementById('jf-sfdc') || {}).value || '';
+  var platform = (document.getElementById('jf-platform') || {}).value || '';
+
+  var projectName = projectSelect === '__new__' ? projectNew.trim() : projectSelect;
+
+  // Validate required fields
+  var valid = true;
+  [['jf-bu', bu], ['jf-poc', poc], ['jf-role', role]].forEach(function(pair) {
+    var el = document.getElementById(pair[0]);
+    if (el) { if (!pair[1].trim()) { el.classList.add('error'); valid = false; } else { el.classList.remove('error'); } }
+  });
+  // Project validation
+  var projEl = document.getElementById('jf-project');
+  var projNewEl = document.getElementById('jf-project-new');
+  if (!projectName) {
+    if (projEl) projEl.classList.add('error');
+    if (projectSelect === '__new__' && projNewEl) projNewEl.classList.add('error');
+    valid = false;
+  } else {
+    if (projEl) projEl.classList.remove('error');
+    if (projNewEl) projNewEl.classList.remove('error');
+  }
+
+  if (!valid) return;
+
+  // Build row
+  var row = {
+    bu: bu.trim(),
+    project_name: projectName,
+    role_title: role.trim(),
+    poc_names: poc.trim(),
+    openings: 1,
+    created_by: currentUser ? currentUser.id : null
+  };
+  if (sfdc.trim()) row.salesforce_link = sfdc.trim();
+  if (platform.trim()) row.toptal_job_link = platform.trim();
+
+  // Insert
+  try {
+    var { data, error } = await sb.from('jobs').insert(row).select();
+    if (error) {
+      // Show error in form area
+      chatMessages.push({ role: 'assistant', content: '\u274C Error creating job: ' + error.message });
+      renderChat();
+      return;
+    }
+
+    await logActivity('job', data[0].id, 'insert', { note: row.role_title + ' (' + row.bu + ')' });
+
+    // Replace form card with confirmation
+    for (var i = chatMessages.length - 1; i >= 0; i--) {
+      if (chatMessages[i]._isForm) {
+        chatMessages[i] = {
+          role: 'action_card',
+          content: '<div class="chat-action-card"><h4>\u2705 Job Created</h4><p><strong>' + escHTML(row.role_title) + '</strong> added to ' + escHTML(row.bu) + ' / ' + escHTML(row.project_name) + '</p></div>'
+        };
+        break;
+      }
+    }
+
+    chatMessages.push({ role: 'assistant', content: '\u2705 **' + escHTML(row.role_title) + '** has been added to **' + escHTML(row.bu) + ' / ' + escHTML(row.project_name) + '**. It\u2019s now showing in Open Jobs.' + (row.salesforce_link ? ' SFDC link saved.' : '') + (row.toptal_job_link ? ' Platform link saved.' : '') });
+
+    // Refresh data so new job appears in dashboard
+    await refreshData();
+    renderChat();
+  } catch(e) {
+    chatMessages.push({ role: 'assistant', content: '\u274C Error: ' + e.message });
+    renderChat();
+  }
+}
+
+function cancelJobForm() {
+  // Remove the form card
+  for (var i = chatMessages.length - 1; i >= 0; i--) {
+    if (chatMessages[i]._isForm) {
+      chatMessages[i] = {
+        role: 'action_card',
+        content: '<div class="chat-action-card" style="opacity:0.6;"><p>Job creation cancelled.</p></div>'
+      };
+      break;
+    }
+  }
+  renderChat();
+}
+
 function renderChat() {
   var container = document.getElementById('chatMessages');
   var html = '';
@@ -2538,6 +2798,16 @@ async function sendChat() {
   var text = input.value.trim();
   if (!text) return;
   input.value = '';
+
+  // Intent detection: show job form instead of calling Claude
+  var lowerText = text.toLowerCase();
+  if (/\b(add|create|new|open)\b.*\b(job|role|req|position)\b/.test(lowerText) && !/\b(candidate|person|developer|engineer)\b.*\b(to|for)\b/.test(lowerText)) {
+    chatMessages.push({ role: 'user', content: text });
+    renderChat();
+    showJobForm();
+    return;
+  }
+
   chatMessages.push({ role: 'user', content: text });
   renderChat();
   showTyping();
