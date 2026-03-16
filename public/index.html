@@ -741,9 +741,16 @@ async function getAccessToken() {
 }
 
 async function loadProfile(userId) {
-  var { data } = await sb.from('profiles').select('*').eq('id', userId).single();
-  currentProfile = data;
-  return data;
+  try {
+    var { data, error } = await sb.from('profiles').select('*').eq('id', userId).maybeSingle();
+    if (error) { console.warn('Profile load error:', error.message); }
+    currentProfile = data || null;
+    return currentProfile;
+  } catch(e) {
+    console.warn('Profile load failed:', e);
+    currentProfile = null;
+    return null;
+  }
 }
 
 function showLogin() {
@@ -764,7 +771,7 @@ function getInitials(name) {
 async function initApp(session) {
   if (!session || !session.user) { showLogin(); return; }
   currentUser = session.user;
-  await loadProfile(session.user.id);
+  try { await loadProfile(session.user.id); } catch(e) { console.warn('Profile load skipped:', e); }
   hideLogin();
   if (!appInitialized) {
     appInitialized = true;
