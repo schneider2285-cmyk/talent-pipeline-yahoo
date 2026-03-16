@@ -715,13 +715,20 @@ const SUPABASE_URL = 'https://jbbjofdkbkymiqmlylcy.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpiYmpvZmRrYmt5bWlxbWx5bGN5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyODk4NDgsImV4cCI6MjA4ODg2NTg0OH0.Oi2_WxqI4Xx7LmMJrqZe_DoG_HCS3kfCdVsnPifKb7A';
 
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+    storageKey: 'sb-' + SUPABASE_URL.split('//')[1].split('.')[0] + '-auth-token',
+    flowType: 'implicit'
+  }
 });
 
 // ── Auth State ──
 var currentUser = null;
 var currentProfile = null;
 var appInitialized = false;
+var authResolved = false;
 
 async function getSession() {
   var { data } = await sb.auth.getSession();
@@ -768,11 +775,11 @@ async function initApp(session) {
 
 // Auth state change listener — handles login, logout, and token refresh
 sb.auth.onAuthStateChange(async function(event, session) {
+  authResolved = true;
   if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') {
     if (session && session.user) {
       await initApp(session);
     } else if (event === 'INITIAL_SESSION') {
-      // Only show login on INITIAL_SESSION with no session — not on transient nulls
       showLogin();
     }
   } else if (event === 'SIGNED_OUT') {
@@ -782,6 +789,24 @@ sb.auth.onAuthStateChange(async function(event, session) {
     showLogin();
   }
 });
+
+// Fallback: if onAuthStateChange doesn't fire within 6s (lock timeout), check session manually
+setTimeout(async function() {
+  if (!authResolved) {
+    console.warn('Auth listener timed out — checking session manually');
+    try {
+      var session = await getSession();
+      if (session && session.user) {
+        await initApp(session);
+      } else {
+        showLogin();
+      }
+    } catch(e) {
+      console.error('Fallback session check failed:', e);
+      showLogin();
+    }
+  }
+}, 6000);
 
 // Login button handler
 document.getElementById('loginBtn').addEventListener('click', async function() {
