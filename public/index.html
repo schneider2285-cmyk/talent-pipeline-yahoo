@@ -458,6 +458,25 @@
   .open-job-tag.candidates-tag { background: #FEF3C7; color: #92400E; border: 1px solid #FDE68A; }
   .open-job-tag.empty-tag { background: #FEE2E2; color: #991B1B; border: 1px solid #FECACA; }
   .open-job-tag.rate-tag { background: #F0FDF4; color: #166534; border: 1px solid #BBF7D0; }
+  .open-job-tag.status-tag { background: #EDE9FE; color: #5B21B6; border: 1px solid #C4B5FD; }
+  .open-jobs-filters {
+    display: flex; flex-wrap: wrap; gap: 10px; padding: 0 24px 16px; align-items: center;
+  }
+  .oj-filter-select {
+    padding: 7px 32px 7px 12px; border-radius: 8px; border: 1px solid #93C5FD;
+    background: white url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%231D4ED8' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 10px center;
+    font-size: 13px; color: #1E3A8A; cursor: pointer; appearance: none;
+    -webkit-appearance: none; min-width: 140px; transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .oj-filter-select:focus { outline: none; border-color: #1D4ED8; box-shadow: 0 0 0 3px rgba(29,78,216,0.1); }
+  .oj-filter-select.active-filter { background-color: #DBEAFE; border-color: #1D4ED8; font-weight: 600; }
+  .oj-filter-clear {
+    padding: 7px 14px; border-radius: 8px; border: 1px solid #93C5FD;
+    background: white; font-size: 12px; color: #1D4ED8; cursor: pointer;
+    font-weight: 600; transition: background 0.15s;
+  }
+  .oj-filter-clear:hover { background: #DBEAFE; }
+  .oj-filter-count { font-size: 12px; color: #1D4ED8; font-weight: 500; margin-left: auto; }
 
   /* ── Fulfillment View ── */
   .fulfillment-grid {
@@ -994,7 +1013,21 @@ let openProjects = new Set();
 let allExpanded = false;
 let winsOpen = true;
 let openJobsOpen = true;
+let ojFilterBU = '';
+let ojFilterProject = '';
+let ojFilterRole = '';
+let ojFilterStatus = '';
 let currentView = 'pipeline'; // pipeline | fulfillment
+
+// All possible job statuses
+const JOB_STATUSES = [
+  'FINDING TALENT', 'TALENT INTRODUCED', 'PENDING INTERVIEW', 'INTERVIEW SCHEDULED',
+  'PENDING DECISION', 'PENDING 2ND INTERVIEW', 'REJECTED', 'PENDING QUOTE', 'PENDING PO',
+  'HIRED-PENDING SOW', 'HIRED-PENDING CWE', 'HIRED-PENDING START', 'ACTIVE',
+  'ROLE CANCELLED/FILED', 'CONSIDER FOR OTHER ROLE', 'TALENT NO LONGER AVAILABLE',
+  'ON-HOLD', 'REMOVED DUE TO LOCATION', 'REQ COMPLETE', 'TALENT WITHDRAWN',
+  'ENGAGEMENT COMPLETED', 'FUTURE NEED'
+];
 let chatOpen = false;
 let chatMessages = [];
 
@@ -1021,6 +1054,7 @@ async function loadFulfillmentData() {
     jobMap[j.id] = {
       id: j.id, bu: j.bu, project_name: j.project_name, role_title: j.role_title,
       openings: j.openings || 1, rate_max: j.rate_max || null,
+      status: j.status || 'ACTIVE',
       toptal_job_link: j.toptal_job_link,
       salesforce_link: j.salesforce_link, slack_channel: j.slack_channel,
       total_candidates: 0, active_candidates: 0, hired_count: 0, rejected_count: 0,
@@ -1292,45 +1326,106 @@ function renderPipelineView() {
     html += '</div></div></div>';
   }
 
-  // Open Jobs section — jobs that need candidates
+  // Open Jobs section — jobs that need candidates (with filters)
   if (FULFILLMENT_DATA && FULFILLMENT_DATA.length > 0) {
-    var openJobs = FULFILLMENT_DATA.filter(function(j) {
-      // Show jobs where: no active candidates, or total candidates is 0, or still has unfilled openings
+    // Base pool: jobs with unfilled openings needing candidates
+    var openJobsAll = FULFILLMENT_DATA.filter(function(j) {
       var unfilled = (j.openings || 1) - (j.hired_count || 0);
       return unfilled > 0 && (j.active_candidates || 0) < unfilled;
+    });
+
+    // Collect unique values for filter dropdowns (from unfiltered pool)
+    var ojBUs = []; var ojProjects = []; var ojRoles = []; var ojStatuses = [];
+    var _buSet = {}, _projSet = {}, _roleSet = {}, _statusSet = {};
+    openJobsAll.forEach(function(j) {
+      if (j.bu && !_buSet[j.bu]) { _buSet[j.bu] = 1; ojBUs.push(j.bu); }
+      if (j.project_name && !_projSet[j.project_name]) { _projSet[j.project_name] = 1; ojProjects.push(j.project_name); }
+      if (j.role_title && !_roleSet[j.role_title]) { _roleSet[j.role_title] = 1; ojRoles.push(j.role_title); }
+      if (j.status && !_statusSet[j.status]) { _statusSet[j.status] = 1; ojStatuses.push(j.status); }
+    });
+    ojBUs.sort(); ojProjects.sort(); ojRoles.sort();
+
+    // Apply filters
+    var openJobs = openJobsAll.filter(function(j) {
+      if (ojFilterBU && j.bu !== ojFilterBU) return false;
+      if (ojFilterProject && j.project_name !== ojFilterProject) return false;
+      if (ojFilterRole && j.role_title !== ojFilterRole) return false;
+      if (ojFilterStatus && j.status !== ojFilterStatus) return false;
+      return true;
     }).sort(function(a, b) {
-      // Sort: zero candidates first, then by fewest active candidates
       if (a.total_candidates === 0 && b.total_candidates > 0) return -1;
       if (b.total_candidates === 0 && a.total_candidates > 0) return 1;
       return (a.active_candidates || 0) - (b.active_candidates || 0);
     });
 
-    if (openJobs.length > 0) {
+    var hasActiveFilters = ojFilterBU || ojFilterProject || ojFilterRole || ojFilterStatus;
+
+    if (openJobsAll.length > 0) {
       html += '<div class="open-jobs-section ' + (openJobsOpen ? 'open' : '') + '">' +
         '<div class="open-jobs-header" id="openJobsToggle"><svg class="open-jobs-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>' +
-        '<span class="open-jobs-icon">\uD83D\uDCCB</span><h2>Open Jobs</h2><span class="open-jobs-count">' + openJobs.length + ' Need Candidates</span></div>' +
-        '<div class="open-jobs-body"><div class="open-jobs-subtitle">These roles still need talent \u2014 prioritize sourcing for them.</div><div class="open-jobs-grid">';
+        '<span class="open-jobs-icon">\uD83D\uDCCB</span><h2>Open Jobs</h2><span class="open-jobs-count">' + openJobsAll.length + ' Need Candidates</span></div>' +
+        '<div class="open-jobs-body">' +
+        '<div class="open-jobs-subtitle">These roles still need talent \u2014 prioritize sourcing for them.</div>';
 
-      openJobs.forEach(function(j) {
-        var unfilled = (j.openings || 1) - (j.hired_count || 0);
-        html += '<div class="open-job-card">' +
-          '<div class="open-job-title">' + escHTML(j.role_title) + '</div>' +
-          '<div class="open-job-project">' + escHTML(j.project_name) + '</div>' +
-          '<div class="open-job-meta">' +
-          '<span class="open-job-tag bu-tag">' + escHTML(j.bu) + '</span>' +
-          '<span class="open-job-tag openings-tag">\uD83D\uDC65 ' + unfilled + ' opening' + (unfilled > 1 ? 's' : '') + '</span>';
-        if (j.total_candidates === 0) {
-          html += '<span class="open-job-tag empty-tag">\u26A0\uFE0F No candidates yet</span>';
-        } else {
-          html += '<span class="open-job-tag candidates-tag">' + j.active_candidates + ' active / ' + j.total_candidates + ' total</span>';
-        }
-        if (j.rate_max) {
-          html += '<span class="open-job-tag rate-tag">\uD83D\uDCB0 $' + j.rate_max + '/hr max</span>';
-        }
-        html += '</div></div>';
+      // Filter bar
+      html += '<div class="open-jobs-filters">' +
+        '<select class="oj-filter-select' + (ojFilterBU ? ' active-filter' : '') + '" id="ojFilterBU"><option value="">All Business Units</option>';
+      ojBUs.forEach(function(bu) {
+        html += '<option value="' + escHTML(bu) + '"' + (ojFilterBU === bu ? ' selected' : '') + '>' + escHTML(bu) + '</option>';
       });
+      html += '</select>' +
+        '<select class="oj-filter-select' + (ojFilterProject ? ' active-filter' : '') + '" id="ojFilterProject"><option value="">All Projects</option>';
+      ojProjects.forEach(function(p) {
+        html += '<option value="' + escHTML(p) + '"' + (ojFilterProject === p ? ' selected' : '') + '>' + escHTML(p) + '</option>';
+      });
+      html += '</select>' +
+        '<select class="oj-filter-select' + (ojFilterRole ? ' active-filter' : '') + '" id="ojFilterRole"><option value="">All Roles</option>';
+      ojRoles.forEach(function(r) {
+        html += '<option value="' + escHTML(r) + '"' + (ojFilterRole === r ? ' selected' : '') + '>' + escHTML(r) + '</option>';
+      });
+      html += '</select>' +
+        '<select class="oj-filter-select' + (ojFilterStatus ? ' active-filter' : '') + '" id="ojFilterStatus"><option value="">All Statuses</option>';
+      JOB_STATUSES.forEach(function(s) {
+        var inPool = _statusSet[s];
+        html += '<option value="' + escHTML(s) + '"' + (ojFilterStatus === s ? ' selected' : '') + (inPool ? '' : ' disabled') + '>' + escHTML(s) + (inPool ? '' : ' (none)') + '</option>';
+      });
+      html += '</select>';
+      if (hasActiveFilters) {
+        html += '<button class="oj-filter-clear" id="ojFilterClear">\u2715 Clear Filters</button>';
+      }
+      html += '<span class="oj-filter-count">Showing ' + openJobs.length + ' of ' + openJobsAll.length + '</span>';
+      html += '</div>';
 
-      html += '</div></div></div>';
+      // Job cards grid
+      if (openJobs.length === 0) {
+        html += '<div style="padding: 20px 24px; text-align: center; color: #64748B; font-size: 14px;">No jobs match the selected filters.</div>';
+      } else {
+        html += '<div class="open-jobs-grid">';
+        openJobs.forEach(function(j) {
+          var unfilled = (j.openings || 1) - (j.hired_count || 0);
+          html += '<div class="open-job-card">' +
+            '<div class="open-job-title">' + escHTML(j.role_title) + '</div>' +
+            '<div class="open-job-project">' + escHTML(j.project_name) + '</div>' +
+            '<div class="open-job-meta">' +
+            '<span class="open-job-tag bu-tag">' + escHTML(j.bu) + '</span>' +
+            '<span class="open-job-tag openings-tag">\uD83D\uDC65 ' + unfilled + ' opening' + (unfilled > 1 ? 's' : '') + '</span>';
+          if (j.total_candidates === 0) {
+            html += '<span class="open-job-tag empty-tag">\u26A0\uFE0F No candidates yet</span>';
+          } else {
+            html += '<span class="open-job-tag candidates-tag">' + j.active_candidates + ' active / ' + j.total_candidates + ' total</span>';
+          }
+          if (j.status && j.status !== 'ACTIVE') {
+            html += '<span class="open-job-tag status-tag">' + escHTML(j.status) + '</span>';
+          }
+          if (j.rate_max) {
+            html += '<span class="open-job-tag rate-tag">\uD83D\uDCB0 $' + j.rate_max + '/hr max</span>';
+          }
+          html += '</div></div>';
+        });
+        html += '</div>';
+      }
+
+      html += '</div></div>';
     }
   }
 
@@ -1515,6 +1610,22 @@ function bindEvents() {
   if (openJobsToggle) {
     openJobsToggle.addEventListener('click', function() { openJobsOpen = !openJobsOpen; render(); });
   }
+
+  // Open Jobs filters
+  var ojBUEl = document.getElementById('ojFilterBU');
+  if (ojBUEl) ojBUEl.addEventListener('change', function() { ojFilterBU = this.value; render(); });
+  var ojProjEl = document.getElementById('ojFilterProject');
+  if (ojProjEl) ojProjEl.addEventListener('change', function() { ojFilterProject = this.value; render(); });
+  var ojRoleEl = document.getElementById('ojFilterRole');
+  if (ojRoleEl) ojRoleEl.addEventListener('change', function() { ojFilterRole = this.value; render(); });
+  var ojStatusEl = document.getElementById('ojFilterStatus');
+  if (ojStatusEl) ojStatusEl.addEventListener('change', function() { ojFilterStatus = this.value; render(); });
+  var ojClearEl = document.getElementById('ojFilterClear');
+  if (ojClearEl) ojClearEl.addEventListener('click', function(e) {
+    e.stopPropagation();
+    ojFilterBU = ''; ojFilterProject = ''; ojFilterRole = ''; ojFilterStatus = '';
+    render();
+  });
 
   // View tabs
   document.querySelectorAll('.view-tab').forEach(function(tab) {
