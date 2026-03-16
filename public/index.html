@@ -406,6 +406,26 @@
   .proj-role-badge.filled { background: #D1FAE5; color: #047857; }
   .proj-role-badge.interviewing { background: #EDE9FE; color: #6D28D9; }
 
+  /* ── Project Sourcing Alert (in header) ── */
+  .proj-needs-sourcing {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 11px; font-weight: 700; padding: 3px 10px;
+    border-radius: 100px; background: #FEE2E2; color: #DC2626;
+    border: 1px solid #FECACA; white-space: nowrap;
+    animation: pulseAlert 2s ease-in-out infinite;
+  }
+  @keyframes pulseAlert {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(220,38,38,0.15); }
+    50% { box-shadow: 0 0 0 4px rgba(220,38,38,0.08); }
+  }
+  .proj-needs-sourcing .alert-dot {
+    width: 6px; height: 6px; border-radius: 50%; background: #DC2626;
+    animation: blink 1.5s ease-in-out infinite;
+  }
+  @keyframes blink {
+    0%, 100% { opacity: 1; } 50% { opacity: 0.3; }
+  }
+
   /* ── Table ── */
   .talent-table { width: 100%; border-collapse: collapse; }
   .talent-table thead th {
@@ -2790,11 +2810,37 @@ function renderPipelineView() {
 
             var projOpenings = filteredJobs.reduce(function(s, j) { return s + (j.openings || 1) - (j.hired_count || 0); }, 0);
 
+            // Detect roles that need new candidates:
+            // A role needs sourcing if it has unfilled openings AND no viable/active candidates
+            // (all existing candidates are rejected, withdrawn, unavailable, removed, on_hold, consider_other)
+            var deadStatuses = new Set(['rejected', 'withdrawn', 'unavailable', 'removed_location', 'on_hold', 'consider_other']);
+            var rolesNeedingSourcing = [];
+            filteredJobs.forEach(function(j) {
+              var unfilled = (j.openings || 1) - (j.hired_count || 0);
+              if (unfilled <= 0) return; // fully filled, no need
+              if (!j.candidates || j.candidates.length === 0) {
+                rolesNeedingSourcing.push(j.role_title);
+                return;
+              }
+              // Check if ANY candidate is still viable (not in a dead-end status)
+              var hasViable = j.candidates.some(function(c) {
+                return !deadStatuses.has(c._status || 'other');
+              });
+              if (!hasViable) rolesNeedingSourcing.push(j.role_title);
+            });
+
             html += '<div class="project-section ' + (ojProjOpen ? 'open' : '') + '">' +
               '<div class="project-header" data-toggle-oj-project="' + escHTML(ojProjKey) + '">' +
               '<svg class="project-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>' +
               '<div class="project-name">' + escHTML(projName) + '</div>';
             if (projData.poc) html += '<div class="poc-badge">POC: <span>' + escHTML(projData.poc) + '</span></div>';
+            // Sourcing alert badge on project header
+            if (rolesNeedingSourcing.length > 0) {
+              html += '<div class="proj-needs-sourcing" title="' + escHTML(rolesNeedingSourcing.join(', ')) + '">' +
+                '<span class="alert-dot"></span>' +
+                rolesNeedingSourcing.length + ' role' + (rolesNeedingSourcing.length > 1 ? 's' : '') + ' need' + (rolesNeedingSourcing.length === 1 ? 's' : '') + ' candidates' +
+                '</div>';
+            }
             html += '<div class="project-statuses">';
             Object.entries(projCandStatuses).forEach(function(se) {
               var st = se[0], count = se[1];
@@ -2837,7 +2883,7 @@ function renderPipelineView() {
             var dashFillPct = dashTotalOpenings > 0 ? Math.round((dashTotalFilled / dashTotalOpenings) * 100) : 0;
             var dashUnfilled = dashTotalOpenings - dashTotalFilled;
             var pctClass = dashFillPct >= 75 ? 'great' : dashFillPct >= 40 ? '' : dashFillPct > 0 ? 'caution' : 'danger';
-            var overallCard = dashFillPct >= 75 ? 'good' : dashFillPct >= 40 ? '' : dashUnfilled > 0 && dashNoCandsRoles.length > 0 ? 'urgent' : 'warn';
+            var overallCard = dashFillPct >= 75 ? 'good' : dashFillPct >= 40 ? '' : dashUnfilled > 0 && rolesNeedingSourcing.length > 0 ? 'urgent' : 'warn';
 
             html += '<div class="proj-dashboard">';
 
@@ -2851,16 +2897,22 @@ function renderPipelineView() {
               '</div>';
 
             // Card 2: Urgency / Action Items
-            var hasAlerts = dashNoCandsRoles.length > 0 || dashStaleRoles.length > 0 || dashInterviewRoles.length > 0 || dashPendingRoles.length > 0;
-            var alertCard = dashNoCandsRoles.length > 0 ? 'urgent' : dashStaleRoles.length > 0 ? 'warn' : 'good';
+            // rolesNeedingSourcing already computed above (no candidates OR all candidates dead-end)
+            // dashNoCandsRoles = subset with literally zero candidates
+            var rolesAllDead = rolesNeedingSourcing.filter(function(r) { return dashNoCandsRoles.indexOf(r) === -1; });
+            var hasAlerts = rolesNeedingSourcing.length > 0 || dashStaleRoles.length > 0 || dashInterviewRoles.length > 0 || dashPendingRoles.length > 0;
+            var alertCard = rolesNeedingSourcing.length > 0 ? 'urgent' : dashStaleRoles.length > 0 ? 'warn' : 'good';
             html += '<div class="proj-dash-card ' + alertCard + '">' +
-              '<div class="proj-dash-label">' + (dashNoCandsRoles.length > 0 ? '\uD83D\uDD25 ' : dashStaleRoles.length > 0 ? '\u26A0\uFE0F ' : '\u2728 ') + 'Action Items</div>';
+              '<div class="proj-dash-label">' + (rolesNeedingSourcing.length > 0 ? '\uD83D\uDD25 ' : dashStaleRoles.length > 0 ? '\u26A0\uFE0F ' : '\u2728 ') + 'Action Items</div>';
             html += '<div class="proj-alerts">';
             if (!hasAlerts) {
               html += '<div class="proj-alert-item success"><span class="proj-alert-icon">\u2705</span>All roles have active candidates — looking good!</div>';
             }
             if (dashNoCandsRoles.length > 0) {
-              html += '<div class="proj-alert-item critical"><span class="proj-alert-icon">\uD83D\uDEA8</span><span><strong>' + dashNoCandsRoles.length + ' role' + (dashNoCandsRoles.length > 1 ? 's' : '') + ' with NO candidates</strong> — ' + dashNoCandsRoles.join(', ') + '</span></div>';
+              html += '<div class="proj-alert-item critical"><span class="proj-alert-icon">\uD83D\uDEA8</span><span><strong>' + dashNoCandsRoles.length + ' role' + (dashNoCandsRoles.length > 1 ? 's' : '') + ' with NO candidates</strong> — need sourcing immediately: ' + dashNoCandsRoles.join(', ') + '</span></div>';
+            }
+            if (rolesAllDead.length > 0) {
+              html += '<div class="proj-alert-item critical"><span class="proj-alert-icon">\uD83D\uDED1</span><span><strong>' + rolesAllDead.length + ' role' + (rolesAllDead.length > 1 ? 's' : '') + ' with no viable candidates</strong> — all rejected/withdrawn, need new candidates: ' + rolesAllDead.join(', ') + '</span></div>';
             }
             if (dashStaleRoles.length > 0) {
               html += '<div class="proj-alert-item warning"><span class="proj-alert-icon">\u23F0</span><span><strong>' + dashStaleRoles.length + ' stale</strong> (no activity 7+ days) — ' + dashStaleRoles.join(', ') + '</span></div>';
