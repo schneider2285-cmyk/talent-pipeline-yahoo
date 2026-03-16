@@ -987,6 +987,217 @@
     .priority-card { flex-direction: column; align-items: flex-start; }
     .priority-card .pc-action { align-self: flex-end; }
   }
+
+  /* ═══ Fulfillment View Enhancements ═══ */
+  .ff-controls { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; align-items: center; }
+  .ff-sort-pills { display: flex; gap: 6px; flex-wrap: wrap; }
+  .ff-sort-pill {
+    padding: 6px 14px; border-radius: 100px; border: 1px solid var(--border);
+    background: var(--surface); font-size: 12px; font-weight: 600; cursor: pointer;
+    color: var(--text-muted); transition: all 0.15s;
+  }
+  .ff-sort-pill:hover { border-color: var(--toptal-blue); color: var(--toptal-blue); }
+  .ff-sort-pill.active { background: var(--toptal-blue); color: white; border-color: var(--toptal-blue); }
+  .ff-filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .ff-toggle {
+    display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px;
+    border-radius: 100px; border: 1px solid var(--border); background: var(--surface);
+    font-size: 12px; font-weight: 600; cursor: pointer; color: var(--text-muted); transition: all 0.15s;
+  }
+  .ff-toggle.active { background: #DBEAFE; border-color: #1D4ED8; color: #1D4ED8; }
+  .ff-toggle:hover { border-color: var(--toptal-blue); }
+  .fulfillment-card { position: relative; }
+  .ff-health-circle {
+    position: absolute; top: 12px; right: 12px;
+    width: 36px; height: 36px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700; color: white; z-index: 1;
+  }
+  .ff-staleness-metric {
+    display: flex; flex-direction: column; align-items: center;
+    background: var(--surface-raised); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 10px 16px; min-width: 90px;
+  }
+  .ff-staleness-metric .metric-value {
+    font-family: 'Fraunces', serif; font-size: 26px; font-weight: 600;
+  }
+  .ff-staleness-metric .metric-label {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.8px;
+    color: var(--text-muted); font-weight: 600; margin-top: 2px;
+  }
+  .ff-poc { font-size: 12px; color: var(--text-muted); margin-top: 4px; font-weight: 500; }
+  .ff-cand-toggle {
+    margin-top: 10px; font-size: 11px; color: var(--toptal-blue); cursor: pointer;
+    font-weight: 600; user-select: none;
+  }
+  .ff-cand-toggle:hover { text-decoration: underline; }
+  .ff-cand-list { margin-top: 8px; display: flex; flex-direction: column; gap: 4px; }
+  .ff-cand-row {
+    display: flex; align-items: center; gap: 8px; padding: 5px 10px;
+    background: var(--surface-raised); border-radius: var(--radius-sm);
+    font-size: 12px; border: 1px solid var(--border);
+  }
+  .ff-cand-name { font-weight: 600; color: var(--toptal-dark); min-width: 100px; }
+  .ff-cand-status {
+    padding: 2px 8px; border-radius: 100px; font-size: 10px; font-weight: 600;
+    background: #E0E7FF; color: #3730A3;
+  }
+  .ff-cand-days { margin-left: auto; font-size: 11px; color: var(--text-muted); font-weight: 500; }
+  .ff-grid-2col { grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); }
+
+  /* ── Daily Briefing ── */
+  .chat-msg.chat-briefing {
+    background: linear-gradient(135deg, #EEF2FF 0%, #F0FDF4 100%);
+    border: 1px solid #C7D2FE;
+    border-radius: 12px;
+    padding: 16px;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--toptal-dark);
+  }
+  .chat-briefing h3 { font-size: 14px; font-weight: 700; margin: 12px 0 6px; }
+  .chat-briefing h3:first-child { margin-top: 0; }
+  .chat-briefing ul { margin: 0 0 4px 0; padding-left: 18px; }
+  .chat-briefing li { margin-bottom: 3px; font-size: 12px; }
+  .chat-briefing .bu-tag {
+    display: inline-block; padding: 1px 6px; border-radius: 100px;
+    font-size: 10px; font-weight: 600; color: #fff; margin-left: 4px;
+  }
+  .chat-briefing .briefing-action {
+    background: #EEF2FF; border: 1px solid #C7D2FE; border-radius: 8px;
+    padding: 8px 12px; margin-bottom: 4px; font-size: 12px;
+  }
+  .chat-briefing .briefing-action strong { color: var(--toptal-blue); }
+
+  /* ── Notification Bell ── */
+  .notif-bell-wrap { position: relative; display: inline-flex; }
+  .notif-bell-btn {
+    background: none; border: 1px solid var(--border); border-radius: 8px;
+    padding: 6px 8px; cursor: pointer; position: relative; display: flex;
+    align-items: center; color: var(--text-primary);
+  }
+  .notif-bell-btn:hover { background: var(--surface-raised); }
+  .notif-badge {
+    position: absolute; top: -4px; right: -4px; background: #DC2626; color: #fff;
+    font-size: 9px; font-weight: 700; min-width: 16px; height: 16px;
+    border-radius: 100px; display: flex; align-items: center; justify-content: center;
+    padding: 0 4px; border: 2px solid var(--surface);
+  }
+  .notif-dropdown {
+    display: none; position: absolute; top: calc(100% + 8px); right: 0;
+    width: 360px; max-height: 420px; overflow-y: auto; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 12px;
+    box-shadow: 0 12px 32px rgba(0,0,0,.12); z-index: 1000;
+  }
+  .notif-dropdown.open { display: block; }
+  .notif-dropdown-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 16px; border-bottom: 1px solid var(--border);
+    font-size: 13px; font-weight: 700;
+  }
+  .notif-dismiss-all {
+    background: none; border: none; color: var(--toptal-blue); font-size: 11px;
+    font-weight: 600; cursor: pointer;
+  }
+  .notif-card {
+    display: flex; align-items: flex-start; gap: 10px; padding: 12px 16px;
+    border-bottom: 1px solid var(--border); font-size: 12px;
+  }
+  .notif-card:last-child { border-bottom: none; }
+  .notif-card .notif-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+  .notif-card .notif-text { flex: 1; line-height: 1.5; }
+  .notif-card .notif-dismiss-btn {
+    background: none; border: none; cursor: pointer; color: var(--text-muted);
+    font-size: 14px; padding: 2px 4px; flex-shrink: 0;
+  }
+  .notif-card .notif-dismiss-btn:hover { color: var(--text-primary); }
+  .notif-empty { padding: 24px; text-align: center; color: var(--text-muted); font-size: 13px; }
+  .notif-persistent {
+    animation: notifPulse 2s infinite;
+    border-left: 3px solid #DC2626;
+  }
+  .notif-persistent .notif-dismiss-btn { display: none !important; }
+  @keyframes notifPulse {
+    0%, 100% { box-shadow: inset 0 0 0 0 rgba(220,38,38,.0); }
+    50% { box-shadow: inset 0 0 8px 0 rgba(220,38,38,.12); }
+  }
+
+  /* ── Analytics Tab ── */
+  .analytics-pills { display: flex; gap: 6px; margin-bottom: 20px; }
+  .analytics-pill {
+    padding: 7px 18px; border-radius: 100px; border: 1px solid var(--border);
+    background: var(--surface); color: var(--text-secondary); font-size: 13px;
+    font-weight: 600; cursor: pointer; font-family: inherit; transition: all 0.15s;
+  }
+  .analytics-pill:hover { background: var(--surface-hover); }
+  .analytics-pill.active { background: var(--toptal-blue); color: white; border-color: var(--toptal-blue); }
+  .an-filters { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
+  .an-filter-select {
+    padding: 6px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+    font-size: 12px; font-family: inherit; background: var(--surface); color: var(--text-primary);
+  }
+  .funnel-chart { display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px; }
+  .funnel-row { display: flex; align-items: center; gap: 12px; }
+  .funnel-label { width: 160px; font-size: 13px; font-weight: 600; text-align: right; color: var(--text-primary); white-space: nowrap; }
+  .funnel-bar-wrap { flex: 1; height: 32px; background: var(--surface-hover); border-radius: var(--radius-sm); overflow: hidden; position: relative; }
+  .funnel-bar {
+    height: 100%; border-radius: var(--radius-sm); display: flex; align-items: center;
+    padding-left: 10px; font-size: 12px; font-weight: 700; color: white; min-width: 30px; transition: width 0.4s ease;
+  }
+  .funnel-pct { width: 60px; font-size: 12px; font-weight: 600; color: var(--text-secondary); text-align: left; }
+  .funnel-conversion { display: flex; align-items: center; gap: 4px; margin-left: 172px; margin-bottom: 2px; margin-top: -4px; }
+  .funnel-conv-arrow { color: var(--text-muted); font-size: 11px; }
+  .funnel-conv-pct { font-size: 11px; font-weight: 600; color: var(--toptal-blue); }
+  .funnel-separator { margin: 8px 0; border-top: 1px dashed var(--border); }
+  .loss-summary { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 20px; }
+  .loss-summary h4 { font-size: 13px; font-weight: 700; margin-bottom: 10px; color: var(--text-primary); }
+  .loss-row { display: flex; align-items: center; gap: 8px; font-size: 12px; padding: 3px 0; }
+  .loss-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .loss-count { font-weight: 700; min-width: 24px; }
+  .vel-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .vel-kpi {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 16px; text-align: center;
+  }
+  .vel-kpi-val { font-size: 28px; font-weight: 700; color: var(--toptal-blue); font-family: 'Fraunces', serif; }
+  .vel-kpi-label { font-size: 11px; color: var(--text-secondary); font-weight: 600; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .vel-chart { display: flex; flex-direction: column; gap: 6px; }
+  .vel-row { display: flex; align-items: center; gap: 10px; }
+  .vel-week { width: 80px; font-size: 11px; color: var(--text-secondary); text-align: right; font-weight: 500; }
+  .vel-bar-wrap { flex: 1; height: 24px; background: var(--surface-hover); border-radius: var(--radius-sm); overflow: hidden; }
+  .vel-bar {
+    height: 100%; background: var(--toptal-blue); border-radius: var(--radius-sm);
+    display: flex; align-items: center; padding-left: 8px; font-size: 11px; font-weight: 700;
+    color: white; min-width: 24px; transition: width 0.4s ease;
+  }
+  .sth-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 14px; }
+  .sth-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 18px 20px; box-shadow: var(--shadow-sm);
+  }
+  .sth-card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .sth-avatar {
+    width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center;
+    justify-content: center; font-size: 13px; font-weight: 700; color: white; flex-shrink: 0;
+  }
+  .sth-name { font-size: 15px; font-weight: 700; color: var(--toptal-dark); }
+  .sth-stats { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 10px; }
+  .sth-stat { font-size: 12px; color: var(--text-secondary); }
+  .sth-stat b { color: var(--text-primary); }
+  .sth-roles { margin-top: 8px; }
+  .sth-role-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 12px; border-bottom: 1px solid var(--bg); }
+  .sth-role-title { flex: 1; color: var(--text-primary); font-weight: 500; }
+  .sth-brief-btn {
+    margin-top: 10px; padding: 6px 14px; border-radius: 100px; border: 1px solid var(--toptal-blue);
+    background: transparent; color: var(--toptal-blue); font-size: 11px; font-weight: 600;
+    cursor: pointer; font-family: inherit; transition: all 0.15s;
+  }
+  .sth-brief-btn:hover { background: var(--toptal-blue); color: white; }
+  .sth-brief-area {
+    margin-top: 8px; width: 100%; min-height: 80px; padding: 10px; font-size: 11px;
+    font-family: 'DM Sans', sans-serif; border: 1px solid var(--border); border-radius: var(--radius-sm);
+    background: var(--surface-raised); color: var(--text-primary); resize: vertical;
+  }
 </style>
 </head>
 <body>
@@ -1261,8 +1472,16 @@ let ojFilterBU = '';
 let ojFilterProject = '';
 let ojFilterRole = '';
 let ojFilterStatus = '';
+let ojFilterPOC = '';
+let analyticsSubView = 'funnel'; // funnel | velocity | stakeholders
 let expandedJobIds = new Set();
 let currentView = 'pipeline'; // pipeline | fulfillment
+let ffSortMode = 'urgent'; // urgent | stale | openings | alpha
+let ffFilterBU = '';
+let ffFilterProject = '';
+let ffFocusMode = false;
+let ffHideCancelled = true;
+let ffExpandedCards = new Set();
 
 // All possible job statuses
 const JOB_STATUSES = [
@@ -1275,6 +1494,8 @@ const JOB_STATUSES = [
 ];
 let chatOpen = false;
 let chatMessages = [];
+let briefingShown = false;
+let notifDropdownOpen = false;
 let priorityQueueOpen = true;
 
 // ═══════════════════════════════════════════════════
@@ -1666,6 +1887,7 @@ async function refreshData() {
     HIRED_DATA = transformed.hired;
     FULFILLMENT_DATA = results[1];
     lastRefresh = new Date();
+    briefingShown = false;
     render();
   } catch(e) { console.error('Refresh failed:', e); }
 }
@@ -1719,6 +1941,16 @@ function render() {
       '<span class="dot" style="background:' + cfg.color + '"></span>' + cfg.label + '</button>';
   });
 
+  // Notification bell
+  var notifs = generateNotifications();
+  var unreadNotifs = notifs.filter(function(n) { return !isDismissed(n.id); });
+  headerHTML += '<div class="notif-bell-wrap">' +
+    '<button class="notif-bell-btn" id="notifBellBtn" title="Notifications">' +
+    '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>' +
+    (unreadNotifs.length > 0 ? '<span class="notif-badge">' + unreadNotifs.length + '</span>' : '') +
+    '</button>' +
+    '<div class="notif-dropdown" id="notifDropdown"></div></div>';
+
   headerHTML += '<button class="refresh-btn" id="refreshBtn" title="Refresh data"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg></button>';
 
   // User menu
@@ -1738,7 +1970,8 @@ function render() {
   headerHTML += '</div></div>' +
     '<div class="view-tabs">' +
     '<button class="view-tab ' + (currentView==='pipeline'?'active':'') + '" data-view="pipeline">Pipeline</button>' +
-    '<button class="view-tab ' + (currentView==='fulfillment'?'active':'') + '" data-view="fulfillment">Fulfillment</button>';
+    '<button class="view-tab ' + (currentView==='fulfillment'?'active':'') + '" data-view="fulfillment">Fulfillment</button>' +
+    '<button class="view-tab ' + (currentView==='analytics'?'active':'') + '" data-view="analytics">Analytics</button>';
 
   // Admin tab (visible only for admins)
   if (currentProfile && currentProfile.role === 'admin') {
@@ -1763,6 +1996,8 @@ function render() {
     bodyHTML = renderPipelineView();
   } else if (currentView === 'admin') {
     bodyHTML = renderAdminView();
+  } else if (currentView === 'analytics') {
+    bodyHTML = renderAnalyticsView();
   } else {
     bodyHTML = renderFulfillmentView();
   }
@@ -1875,6 +2110,7 @@ function renderPipelineView() {
       if (ojFilterProject && j.project_name !== ojFilterProject) return false;
       if (ojFilterRole && j.role_title !== ojFilterRole) return false;
       if (ojFilterStatus && j.status !== ojFilterStatus) return false;
+      if (ojFilterPOC && !(j.poc_names || '').toLowerCase().includes(ojFilterPOC.toLowerCase())) return false;
       return true;
     }).sort(function(a, b) {
       if (a.total_candidates === 0 && b.total_candidates > 0) return -1;
@@ -1882,7 +2118,7 @@ function renderPipelineView() {
       return (a.active_candidates || 0) - (b.active_candidates || 0);
     });
 
-    var hasActiveFilters = ojFilterBU || ojFilterProject || ojFilterRole || ojFilterStatus;
+    var hasActiveFilters = ojFilterBU || ojFilterProject || ojFilterRole || ojFilterStatus || ojFilterPOC;
 
     if (openJobsAll.length > 0) {
       html += '<div class="open-jobs-section ' + (openJobsOpen ? 'open' : '') + '">' +
@@ -1921,6 +2157,23 @@ function renderPipelineView() {
       JOB_STATUSES.forEach(function(s) {
         var inPool = _statusSet[s];
         html += '<option value="' + escHTML(s) + '"' + (ojFilterStatus === s ? ' selected' : '') + (inPool ? '' : ' disabled') + '>' + escHTML(s) + (inPool ? '' : ' (none)') + '</option>';
+      });
+      html += '</select>';
+      // POC filter
+      var ojPOCs = [];
+      var _pocSet = {};
+      openJobsAll.forEach(function(j) {
+        if (j.poc_names) {
+          j.poc_names.split(/[\/,]/).forEach(function(p) {
+            var n = p.trim();
+            if (n && !_pocSet[n]) { _pocSet[n] = 1; ojPOCs.push(n); }
+          });
+        }
+      });
+      ojPOCs.sort();
+      html += '<select class="oj-filter-select' + (ojFilterPOC ? ' active-filter' : '') + '" id="ojFilterPOC"><option value="">All POCs</option>';
+      ojPOCs.forEach(function(p) {
+        html += '<option value="' + escHTML(p) + '"' + (ojFilterPOC === p ? ' selected' : '') + '>' + escHTML(p) + '</option>';
       });
       html += '</select>';
       if (hasActiveFilters) {
@@ -2157,12 +2410,74 @@ function renderPipelineView() {
 }
 
 function renderFulfillmentView() {
-  var html = '';
   if (!FULFILLMENT_DATA || FULFILLMENT_DATA.length === 0) {
     return '<div class="no-results">No fulfillment data available.</div>';
   }
-  html += '<div class="fulfillment-grid">';
-  FULFILLMENT_DATA.forEach(function(job) {
+
+  var cancelledStatuses = new Set(['ROLE CANCELLED/FILED', 'REQ COMPLETE', 'ENGAGEMENT COMPLETED']);
+
+  // --- Filter ---
+  var jobs = FULFILLMENT_DATA.filter(function(job) {
+    if (ffHideCancelled && cancelledStatuses.has(job.status)) return false;
+    if (ffFilterBU && job.bu !== ffFilterBU) return false;
+    if (ffFilterProject && job.project_name !== ffFilterProject) return false;
+    if (ffFocusMode) {
+      var s = typeof job._healthScore === 'number' ? job._healthScore : computeHealthScore(job);
+      if (s >= 50) return false;
+    }
+    return true;
+  });
+
+  // --- Sort ---
+  if (ffSortMode === 'urgent') {
+    jobs = sortJobsByUrgency(jobs);
+  } else if (ffSortMode === 'stale') {
+    jobs = jobs.slice().sort(function(a, b) { return (b.days_since_contact || 999) - (a.days_since_contact || 999); });
+  } else if (ffSortMode === 'openings') {
+    jobs = jobs.slice().sort(function(a, b) { return (b.openings || 1) - (a.openings || 1); });
+  } else if (ffSortMode === 'alpha') {
+    jobs = jobs.slice().sort(function(a, b) { return (a.project_name || '').localeCompare(b.project_name || ''); });
+  }
+
+  // Collect unique BUs and projects for filter dropdowns
+  var allBUs = [], allProjects = [], buSet = new Set(), projSet = new Set();
+  FULFILLMENT_DATA.forEach(function(j) {
+    if (j.bu && !buSet.has(j.bu)) { buSet.add(j.bu); allBUs.push(j.bu); }
+    if (j.project_name && !projSet.has(j.project_name)) { projSet.add(j.project_name); allProjects.push(j.project_name); }
+  });
+  allBUs.sort(); allProjects.sort();
+
+  var html = '';
+
+  // --- Sort pills ---
+  html += '<div class="ff-controls">' +
+    '<div class="ff-sort-pills">' +
+    '<button class="ff-sort-pill' + (ffSortMode==='urgent'?' active':'') + '" data-ff-sort="urgent">Most Urgent</button>' +
+    '<button class="ff-sort-pill' + (ffSortMode==='stale'?' active':'') + '" data-ff-sort="stale">Most Stale</button>' +
+    '<button class="ff-sort-pill' + (ffSortMode==='openings'?' active':'') + '" data-ff-sort="openings">Most Openings</button>' +
+    '<button class="ff-sort-pill' + (ffSortMode==='alpha'?' active':'') + '" data-ff-sort="alpha">Alphabetical</button>' +
+    '</div></div>';
+
+  // --- Filters ---
+  html += '<div class="ff-controls">' +
+    '<div class="ff-filters">' +
+    '<select class="oj-filter-select' + (ffFilterBU ? ' active-filter' : '') + '" id="ffFilterBU"><option value="">All Business Units</option>';
+  allBUs.forEach(function(bu) {
+    html += '<option value="' + escHTML(bu) + '"' + (ffFilterBU === bu ? ' selected' : '') + '>' + escHTML(bu) + '</option>';
+  });
+  html += '</select><select class="oj-filter-select' + (ffFilterProject ? ' active-filter' : '') + '" id="ffFilterProject"><option value="">All Projects</option>';
+  allProjects.forEach(function(p) {
+    html += '<option value="' + escHTML(p) + '"' + (ffFilterProject === p ? ' selected' : '') + '>' + escHTML(p) + '</option>';
+  });
+  html += '</select>' +
+    '<button class="ff-toggle' + (ffFocusMode ? ' active' : '') + '" id="ffFocusMode">Focus Mode</button>' +
+    '<button class="ff-toggle' + (ffHideCancelled ? ' active' : '') + '" id="ffHideCancelled">Hide Cancelled &amp; Test</button>' +
+    '<span class="oj-filter-count">' + jobs.length + ' job' + (jobs.length !== 1 ? 's' : '') + '</span>' +
+    '</div></div>';
+
+  // --- Cards ---
+  html += '<div class="fulfillment-grid ff-grid-2col">';
+  jobs.forEach(function(job) {
     var buColor = BU_COLORS[job.bu] || DEFAULT_BU_COLOR;
     var total = (job.total_candidates || 0);
     var active = (job.active_candidates || 0);
@@ -2170,35 +2485,74 @@ function renderFulfillmentView() {
     var rejected = (job.rejected_count || 0);
     var openings = (job.openings || 1);
     var fillPct = openings > 0 ? Math.min(100, Math.round((hiredCount / openings) * 100)) : 0;
-    var barColor = fillPct >= 100 ? 'var(--green)' : fillPct >= 50 ? 'var(--amber)' : 'var(--toptal-blue)';
+    var score = typeof job._healthScore === 'number' ? job._healthScore : computeHealthScore(job);
+    var hb = healthBand(score);
+    var barColor = hb.color;
     var needsAttention = (job.needs_attention || 0) > 0;
-    var daysSinceContact = job.days_since_contact ? Math.round(job.days_since_contact) : null;
+    var daysSinceContact = job.days_since_contact != null ? Math.round(job.days_since_contact) : null;
+    var aging = computeAgingBand(daysSinceContact);
+    var cardId = 'ff-' + (job.id || Math.random());
+    var isExpanded = ffExpandedCards.has(cardId);
 
     html += '<div class="fulfillment-card">' +
+      '<div class="ff-health-circle" style="background:' + hb.color + '" title="Health: ' + score + '/100">' + score + '</div>' +
       '<div class="fulfillment-card-header">' +
       '<div class="fulfillment-card-title">' + escHTML(job.project_name || '') + ' &mdash; ' + escHTML(job.role_title || '') +
       '<span class="fulfillment-card-bu" style="background:'+buColor+'15;color:'+buColor+'">'+escHTML(job.bu||'')+'</span></div>';
     if (needsAttention) {
       html += '<span class="needs-attention-badge">\u26A0 Needs Attention</span>';
     }
-    html += '</div><div class="fulfillment-metrics">' +
-      '<div class="fulfillment-metric"><div class="metric-value" style="color:var(--toptal-dark)">'+openings+'</div><div class="metric-label">Openings</div></div>' +
+    html += '</div>';
+
+    // POC
+    if (job.poc_names) {
+      html += '<div class="ff-poc">POC: ' + escHTML(job.poc_names) + '</div>';
+    }
+
+    // Metrics — staleness first, then openings, total, active, hired, rejected
+    html += '<div class="fulfillment-metrics">';
+    // Staleness (promoted, larger)
+    var pulseClass = aging.band === 'red' ? ' aging-pulse' : '';
+    html += '<div class="ff-staleness-metric' + pulseClass + '" style="border-color:' + aging.color + '20">' +
+      '<div class="metric-value" style="color:' + aging.color + '">' + (daysSinceContact !== null ? daysSinceContact + 'd' : 'N/A') + '</div>' +
+      '<div class="metric-label">Since Contact</div></div>';
+    html += '<div class="fulfillment-metric"><div class="metric-value" style="color:var(--toptal-dark)">'+openings+'</div><div class="metric-label">Openings</div></div>' +
       '<div class="fulfillment-metric"><div class="metric-value" style="color:var(--toptal-blue)">'+total+'</div><div class="metric-label">Total</div></div>' +
       '<div class="fulfillment-metric"><div class="metric-value" style="color:var(--violet)">'+active+'</div><div class="metric-label">Active</div></div>' +
       '<div class="fulfillment-metric"><div class="metric-value" style="color:var(--green)">'+hiredCount+'</div><div class="metric-label">Hired</div></div>' +
       '<div class="fulfillment-metric"><div class="metric-value" style="color:var(--rose)">'+rejected+'</div><div class="metric-label">Rejected</div></div>';
-    if (daysSinceContact !== null) {
-      var contactColor = daysSinceContact >= 7 ? 'var(--rose)' : daysSinceContact >= 3 ? 'var(--amber)' : 'var(--green)';
-      html += '<div class="fulfillment-metric"><div class="metric-value" style="color:'+contactColor+'">'+daysSinceContact+'d</div><div class="metric-label">Since Contact</div></div>';
-    }
-    html += '</div><div class="fulfillment-bar"><div class="fulfillment-bar-fill" style="width:'+fillPct+'%;background:'+barColor+'"></div></div>';
+    html += '</div>';
+
+    // Progress bar colored by health band
+    html += '<div class="fulfillment-bar"><div class="fulfillment-bar-fill" style="width:'+fillPct+'%;background:'+barColor+'"></div></div>';
 
     // Links
     html += '<div class="fulfillment-links">';
     if (job.toptal_job_link) html += '<a class="fulfillment-link" href="'+escHTML(job.toptal_job_link)+'" target="_blank">Toptal Job</a>';
     if (job.salesforce_link) html += '<a class="fulfillment-link" href="'+escHTML(job.salesforce_link)+'" target="_blank">Salesforce</a>';
     if (job.slack_channel) html += '<a class="fulfillment-link" href="'+escHTML(job.slack_channel)+'" target="_blank">Slack</a>';
-    html += '</div></div>';
+    html += '</div>';
+
+    // Collapsible candidate list
+    var cands = job.candidates || [];
+    if (cands.length > 0) {
+      html += '<div class="ff-cand-toggle" data-ff-expand="' + escHTML(cardId) + '">' +
+        (isExpanded ? '&#9660;' : '&#9654;') + ' ' + cands.length + ' candidate' + (cands.length !== 1 ? 's' : '') + '</div>';
+      if (isExpanded) {
+        html += '<div class="ff-cand-list">';
+        cands.forEach(function(c) {
+          var daysInStage = c.status_changed_at ? daysSince(c.status_changed_at) : null;
+          html += '<div class="ff-cand-row">' +
+            '<span class="ff-cand-name">' + escHTML(c.name || 'Unknown') + '</span>' +
+            '<span class="ff-cand-status">' + escHTML(c.status || c._status || '') + '</span>' +
+            (daysInStage !== null && daysInStage < 999 ? '<span class="ff-cand-days">' + daysInStage + 'd in stage</span>' : '') +
+            '</div>';
+        });
+        html += '</div>';
+      }
+    }
+
+    html += '</div>'; // end card
   });
   html += '</div>';
   return html;
@@ -2264,6 +2618,27 @@ function bindEvents() {
     });
   }
 
+  // Notification bell
+  var notifBellBtn = document.getElementById('notifBellBtn');
+  if (notifBellBtn) {
+    notifBellBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      notifDropdownOpen = !notifDropdownOpen;
+      var dd = document.getElementById('notifDropdown');
+      if (dd) {
+        dd.classList.toggle('open', notifDropdownOpen);
+        if (notifDropdownOpen) renderNotifications();
+      }
+    });
+  }
+  document.addEventListener('click', function(e) {
+    if (notifDropdownOpen && !e.target.closest('.notif-bell-wrap')) {
+      notifDropdownOpen = false;
+      var dd = document.getElementById('notifDropdown');
+      if (dd) dd.classList.remove('open');
+    }
+  });
+
   // Refresh
   var refreshBtn = document.getElementById('refreshBtn');
   if (refreshBtn) {
@@ -2311,11 +2686,44 @@ function bindEvents() {
   if (ojRoleEl) ojRoleEl.addEventListener('change', function() { ojFilterRole = this.value; render(); });
   var ojStatusEl = document.getElementById('ojFilterStatus');
   if (ojStatusEl) ojStatusEl.addEventListener('change', function() { ojFilterStatus = this.value; render(); });
+  var ojPOCEl = document.getElementById('ojFilterPOC');
+  if (ojPOCEl) ojPOCEl.addEventListener('change', function() { ojFilterPOC = this.value; render(); });
   var ojClearEl = document.getElementById('ojFilterClear');
   if (ojClearEl) ojClearEl.addEventListener('click', function(e) {
     e.stopPropagation();
-    ojFilterBU = ''; ojFilterProject = ''; ojFilterRole = ''; ojFilterStatus = '';
+    ojFilterBU = ''; ojFilterProject = ''; ojFilterRole = ''; ojFilterStatus = ''; ojFilterPOC = '';
     render();
+  });
+
+
+  // Analytics sub-view pills
+  document.querySelectorAll('[data-an-pill]').forEach(function(btn) {
+    btn.addEventListener('click', function() { analyticsSubView = btn.dataset.anPill; render(); });
+  });
+  // Analytics filters
+  var anBUEl = document.getElementById('anFilterBU');
+  if (anBUEl) anBUEl.addEventListener('change', function() { anFilterBU = this.value; render(); });
+  var anProjEl = document.getElementById('anFilterProject');
+  if (anProjEl) anProjEl.addEventListener('change', function() { anFilterProject = this.value; render(); });
+  // Stakeholder brief buttons
+  document.querySelectorAll('[data-sth-brief]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var idx = parseInt(btn.dataset.sthBrief);
+      var container = document.getElementById('sthBrief' + idx);
+      if (!container) return;
+      if (container.style.display === 'none') {
+        var poc = window._sthPocList && window._sthPocList[idx];
+        if (!poc) return;
+        var brief = generatePOCBrief(poc);
+        container.innerHTML = '<textarea class="sth-brief-area" readonly>' + escHTML(brief) + '</textarea>';
+        container.style.display = 'block';
+        // Select text for easy copy
+        var ta = container.querySelector('textarea');
+        if (ta) { ta.focus(); ta.select(); }
+      } else {
+        container.style.display = 'none';
+      }
+    });
   });
 
   // Expand/collapse Open Job cards
@@ -2324,6 +2732,33 @@ function bindEvents() {
       if (e.target.closest('a') || e.target.closest('select') || e.target.closest('button')) return;
       var jobId = el.dataset.expandJob;
       if (expandedJobIds.has(jobId)) expandedJobIds.delete(jobId); else expandedJobIds.add(jobId);
+      render();
+    });
+  });
+
+  // Fulfillment sort pills
+  document.querySelectorAll('[data-ff-sort]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      ffSortMode = btn.dataset.ffSort;
+      render();
+    });
+  });
+
+  // Fulfillment filters
+  var ffBUEl = document.getElementById('ffFilterBU');
+  if (ffBUEl) ffBUEl.addEventListener('change', function() { ffFilterBU = this.value; render(); });
+  var ffProjEl = document.getElementById('ffFilterProject');
+  if (ffProjEl) ffProjEl.addEventListener('change', function() { ffFilterProject = this.value; render(); });
+  var ffFocusEl = document.getElementById('ffFocusMode');
+  if (ffFocusEl) ffFocusEl.addEventListener('click', function() { ffFocusMode = !ffFocusMode; render(); });
+  var ffCancelEl = document.getElementById('ffHideCancelled');
+  if (ffCancelEl) ffCancelEl.addEventListener('click', function() { ffHideCancelled = !ffHideCancelled; render(); });
+
+  // Fulfillment card expand/collapse
+  document.querySelectorAll('[data-ff-expand]').forEach(function(el) {
+    el.addEventListener('click', function() {
+      var id = el.dataset.ffExpand;
+      if (ffExpandedCards.has(id)) ffExpandedCards.delete(id); else ffExpandedCards.add(id);
       render();
     });
   });
@@ -2866,14 +3301,271 @@ async function executeTool(toolName, toolInput) {
 // Pending tool calls awaiting user confirmation
 var pendingToolCalls = [];
 
+// ═══════════════════════════════════════════════════
+//  DAILY BRIEFING & NOTIFICATIONS
+// ═══════════════════════════════════════════════════
+
+function generateBriefing() {
+  var html = '<h3>\uD83D\uDCCB Daily Pipeline Briefing</h3>';
+  var cancelledStatuses = new Set(['ROLE CANCELLED/FILED', 'REQ COMPLETE', 'ENGAGEMENT COMPLETED', 'TALENT WITHDRAWN', 'TALENT NO LONGER AVAILABLE', 'FUTURE NEED']);
+  var activeJobs = FULFILLMENT_DATA.filter(function(j) { return !cancelledStatuses.has(j.status); });
+
+  // 🎯 Closest to Hire
+  var closestToHire = [];
+  activeJobs.forEach(function(j) {
+    (j.candidates || []).forEach(function(c) {
+      if (c._status === 'pending_decision' || c._status === 'pending_2nd_interview') {
+        closestToHire.push({ name: c.name, role: j.role_title, bu: j.bu, status: c._status });
+      }
+    });
+  });
+  html += '<h3>\uD83C\uDFAF Closest to Hire</h3>';
+  if (closestToHire.length > 0) {
+    html += '<ul>';
+    closestToHire.slice(0, 8).forEach(function(item) {
+      var buColor = BU_COLORS[item.bu] || DEFAULT_BU_COLOR;
+      var statusLabel = item.status === 'pending_decision' ? 'Pending Decision' : 'Pending 2nd Interview';
+      html += '<li><strong>' + escHTML(item.name) + '</strong> for ' + escHTML(item.role) +
+        '<span class="bu-tag" style="background:' + buColor + '">' + escHTML(item.bu) + '</span>' +
+        ' \u2014 ' + statusLabel + '. Follow up today.</li>';
+    });
+    html += '</ul>';
+  } else {
+    html += '<ul><li>No candidates in final stages right now.</li></ul>';
+  }
+
+  // ⚠️ Going Cold
+  var goingCold = activeJobs.filter(function(j) {
+    return j.days_since_contact !== null && j.days_since_contact >= 14 && (j.active_candidates || 0) > 0;
+  }).sort(function(a, b) { return b.days_since_contact - a.days_since_contact; });
+  html += '<h3>\u26A0\uFE0F Going Cold</h3>';
+  if (goingCold.length > 0) {
+    html += '<ul>';
+    goingCold.slice(0, 6).forEach(function(j) {
+      var aging = computeAgingBand(j.days_since_contact);
+      var buColor = BU_COLORS[j.bu] || DEFAULT_BU_COLOR;
+      html += '<li><strong>' + escHTML(j.role_title) + '</strong>' +
+        '<span class="bu-tag" style="background:' + buColor + '">' + escHTML(j.bu) + '</span>' +
+        ' \u2014 <span style="color:' + aging.color + ';font-weight:600">' + j.days_since_contact + ' days</span> since last contact</li>';
+    });
+    html += '</ul>';
+  } else {
+    html += '<ul><li>All active roles have recent contact. Nice!</li></ul>';
+  }
+
+  // 🔴 Empty Pipelines
+  var emptyPipelines = activeJobs.filter(function(j) { return (j.total_candidates || 0) === 0; });
+  html += '<h3>\uD83D\uDD34 Empty Pipelines</h3>';
+  if (emptyPipelines.length > 0) {
+    html += '<ul>';
+    emptyPipelines.slice(0, 6).forEach(function(j) {
+      var buColor = BU_COLORS[j.bu] || DEFAULT_BU_COLOR;
+      html += '<li><strong>' + escHTML(j.role_title) + '</strong>' +
+        '<span class="bu-tag" style="background:' + buColor + '">' + escHTML(j.bu) + '</span>' +
+        ' \u2014 needs candidates ASAP</li>';
+    });
+    html += '</ul>';
+  } else {
+    html += '<ul><li>All roles have at least one candidate. Great coverage!</li></ul>';
+  }
+
+  // 🏆 Recent Wins
+  var recentHires = [];
+  HIRED_DATA.forEach(function(h) {
+    if (h.date_hired && daysSince(h.date_hired) <= 14) {
+      recentHires.push(h);
+    }
+  });
+  html += '<h3>\uD83C\uDFC6 Recent Wins</h3>';
+  if (recentHires.length > 0) {
+    html += '<ul>';
+    recentHires.slice(0, 5).forEach(function(h) {
+      html += '<li>\u2705 <strong>' + escHTML(h.talent_name || h.name || 'Unknown') + '</strong> hired for ' +
+        escHTML(h.role_title || h.job_title || '') + ' \u2014 ' + fmtDate(h.date_hired) + '</li>';
+    });
+    html += '</ul>';
+  } else {
+    html += '<ul><li>No hires in the last two weeks.</li></ul>';
+  }
+
+  // 📋 Today's Top 3 Actions
+  var actions = generatePriorityActions(FULFILLMENT_DATA);
+  html += '<h3>\uD83D\uDCCB Today\'s Top 3 Actions</h3>';
+  if (actions.length > 0) {
+    actions.slice(0, 3).forEach(function(a, i) {
+      html += '<div class="briefing-action"><strong>' + (i + 1) + '. ' + escHTML(a.title) + ':</strong> ' + escHTML(a.description) + '</div>';
+    });
+  } else {
+    html += '<div class="briefing-action">No urgent actions \u2014 pipeline is looking healthy!</div>';
+  }
+
+  return html;
+}
+
+function generateNotifications() {
+  var notifs = [];
+  var cancelledStatuses = new Set(['ROLE CANCELLED/FILED', 'REQ COMPLETE', 'ENGAGEMENT COMPLETED', 'TALENT WITHDRAWN', 'TALENT NO LONGER AVAILABLE', 'FUTURE NEED']);
+
+  FULFILLMENT_DATA.forEach(function(j) {
+    if (cancelledStatuses.has(j.status)) return;
+
+    // CRITICAL: 30+ days since contact
+    if (j.days_since_contact !== null && j.days_since_contact >= 30) {
+      var isPersistent = j.days_since_contact >= 30 && (j.active_candidates || 0) === 0;
+      notifs.push({
+        id: 'critical-stale-' + j.id,
+        severity: 'critical',
+        icon: '\uD83D\uDD34',
+        text: escHTML(j.role_title) + ' (' + escHTML(j.bu) + ') \u2014 ' + j.days_since_contact + ' days with no contact',
+        persistent: isPersistent
+      });
+    }
+
+    // WARNING: zero candidates
+    if ((j.total_candidates || 0) === 0) {
+      notifs.push({
+        id: 'empty-' + j.id,
+        severity: 'warning',
+        icon: '\u26A0\uFE0F',
+        text: escHTML(j.role_title) + ' (' + escHTML(j.bu) + ') has zero candidates',
+        persistent: false
+      });
+    }
+
+    // WARNING: stuck in introduced 21+ days
+    (j.candidates || []).forEach(function(c) {
+      if (c._status === 'introduced' && c.date_introduced && daysSince(c.date_introduced) >= 21) {
+        notifs.push({
+          id: 'stuck-' + j.id + '-' + (c.name || '').replace(/\s/g, ''),
+          severity: 'warning',
+          icon: '\u23F3',
+          text: escHTML(c.name) + ' stuck in Introduced for ' + daysSince(c.date_introduced) + 'd on ' + escHTML(j.role_title),
+          persistent: false
+        });
+      }
+    });
+
+    // SUCCESS: recent hires (within 7 days)
+    (j.candidates || []).forEach(function(c) {
+      if (c._status === 'hired' && c.date_hired && daysSince(c.date_hired) <= 7) {
+        notifs.push({
+          id: 'hired-' + j.id + '-' + (c.name || '').replace(/\s/g, ''),
+          severity: 'success',
+          icon: '\uD83C\uDF89',
+          text: escHTML(c.name) + ' hired for ' + escHTML(j.role_title) + '!',
+          persistent: false
+        });
+      }
+    });
+  });
+
+  return notifs;
+}
+
+function isDismissed(id) {
+  try {
+    var dismissed = JSON.parse(sessionStorage.getItem('dismissed_notifications') || '[]');
+    return dismissed.indexOf(id) !== -1;
+  } catch(e) { return false; }
+}
+
+function dismissNotification(id) {
+  try {
+    var dismissed = JSON.parse(sessionStorage.getItem('dismissed_notifications') || '[]');
+    if (dismissed.indexOf(id) === -1) dismissed.push(id);
+    sessionStorage.setItem('dismissed_notifications', JSON.stringify(dismissed));
+  } catch(e) {}
+  renderNotifications();
+  var notifs = generateNotifications();
+  var unread = notifs.filter(function(n) { return !isDismissed(n.id); });
+  var badge = document.querySelector('.notif-badge');
+  if (badge) {
+    if (unread.length > 0) { badge.textContent = unread.length; badge.style.display = 'flex'; }
+    else { badge.style.display = 'none'; }
+  }
+}
+
+function dismissAllNotifications() {
+  var notifs = generateNotifications();
+  var dismissed = [];
+  notifs.forEach(function(n) { if (!n.persistent) dismissed.push(n.id); });
+  sessionStorage.setItem('dismissed_notifications', JSON.stringify(dismissed));
+  renderNotifications();
+  var badge = document.querySelector('.notif-badge');
+  var remaining = notifs.filter(function(n) { return n.persistent; });
+  if (badge) {
+    if (remaining.length > 0) { badge.textContent = remaining.length; badge.style.display = 'flex'; }
+    else { badge.style.display = 'none'; }
+  }
+}
+
+function renderNotifications() {
+  var dd = document.getElementById('notifDropdown');
+  if (!dd) return;
+  var notifs = generateNotifications();
+  var visible = notifs.filter(function(n) { return n.persistent || !isDismissed(n.id); });
+
+  var headerEl = document.createElement('div');
+  headerEl.className = 'notif-dropdown-header';
+  var headerLabel = document.createElement('span');
+  headerLabel.textContent = 'Notifications (' + visible.length + ')';
+  var dismissBtn = document.createElement('button');
+  dismissBtn.className = 'notif-dismiss-all';
+  dismissBtn.textContent = 'Dismiss All';
+  dismissBtn.addEventListener('click', dismissAllNotifications);
+  headerEl.appendChild(headerLabel);
+  headerEl.appendChild(dismissBtn);
+
+  dd.textContent = '';
+  dd.appendChild(headerEl);
+
+  if (visible.length === 0) {
+    var emptyEl = document.createElement('div');
+    emptyEl.className = 'notif-empty';
+    emptyEl.textContent = 'All caught up! No notifications.';
+    dd.appendChild(emptyEl);
+  } else {
+    visible.forEach(function(n) {
+      var card = document.createElement('div');
+      card.className = 'notif-card' + (n.persistent ? ' notif-persistent' : '');
+      var iconSpan = document.createElement('span');
+      iconSpan.className = 'notif-icon';
+      iconSpan.textContent = n.icon;
+      var textSpan = document.createElement('span');
+      textSpan.className = 'notif-text';
+      textSpan.textContent = '';
+      // n.text is already escaped HTML, set via innerHTML safely (escHTML'd data only)
+      var textContainer = document.createElement('span');
+      textContainer.className = 'notif-text';
+      textContainer.innerHTML = n.text;
+      var dismissBtn = document.createElement('button');
+      dismissBtn.className = 'notif-dismiss-btn';
+      dismissBtn.title = 'Dismiss';
+      dismissBtn.textContent = '\u2715';
+      dismissBtn.addEventListener('click', (function(nid) {
+        return function() { dismissNotification(nid); };
+      })(n.id));
+      card.appendChild(iconSpan);
+      card.appendChild(textContainer);
+      card.appendChild(dismissBtn);
+      dd.appendChild(card);
+    });
+  }
+}
+
 function toggleChat() {
   chatOpen = !chatOpen;
   document.getElementById('chatOverlay').classList.toggle('open', chatOpen);
   document.getElementById('chatDrawer').classList.toggle('open', chatOpen);
   if (chatOpen) {
     document.getElementById('chatInput').focus();
-    if (chatMessages.length === 0) {
-      chatMessages.push({ role: 'system', content: 'Pipeline Assistant ready. I have full context on all jobs, candidates, and statuses. I can also modify the database \u2014 add jobs, update statuses, assign candidates, and more. Ask me anything!' });
+    if (!briefingShown) {
+      var briefingContent = generateBriefing();
+      chatMessages.unshift({ role: 'system', content: briefingContent, cssClass: 'chat-briefing' });
+      briefingShown = true;
+      renderChat();
+    } else if (chatMessages.length === 0) {
+      chatMessages.push({ role: 'system', content: 'Pipeline Assistant ready. Ask me anything!' });
       renderChat();
     }
   }
@@ -3384,8 +4076,12 @@ function renderChat() {
   var container = document.getElementById('chatMessages');
   var html = '';
   chatMessages.forEach(function(msg, idx) {
+    // Hide tool_result messages — they're only used for API context
+    if (msg.role === 'tool_result') return;
     if (msg.role === 'action_card') {
       html += msg.content; // Pre-built HTML
+    } else if (msg.cssClass === 'chat-briefing') {
+      html += '<div class="chat-msg ' + msg.cssClass + '">' + msg.content + '</div>';
     } else {
       // Support basic markdown in assistant messages
       var text = escHTML(msg.content);
@@ -3652,6 +4348,364 @@ function describeToolCall(name, input) {
     case 'query_database': return 'Querying ' + input.table;
     default: return name;
   }
+}
+
+
+
+// ═══════════════════════════════════════════════════
+//  ANALYTICS TAB
+// ═══════════════════════════════════════════════════
+let anFilterBU = '';
+let anFilterProject = '';
+
+function parseFuzzyDate(str) {
+  if (!str) return null;
+  // Handle "12/3 at 2:00 pm EST" - extract date part before "at"
+  var datePart = str.split(/\s+at\s+/i)[0].trim();
+  // Try parsing as-is first
+  var d = new Date(datePart);
+  if (!isNaN(d) && d.getFullYear() > 2000) return d;
+  // Try adding current year for "M/D" format
+  var parts = datePart.match(/^(\d{1,2})\/(\d{1,2})$/);
+  if (parts) {
+    var now = new Date();
+    d = new Date(now.getFullYear(), parseInt(parts[1]) - 1, parseInt(parts[2]));
+    // If date is in the future, use last year
+    if (d > now) d = new Date(now.getFullYear() - 1, parseInt(parts[1]) - 1, parseInt(parts[2]));
+    if (!isNaN(d)) return d;
+  }
+  // Try "M/D/YY" or "M/D/YYYY"
+  var parts2 = datePart.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+  if (parts2) {
+    var yr = parseInt(parts2[3]);
+    if (yr < 100) yr += 2000;
+    d = new Date(yr, parseInt(parts2[1]) - 1, parseInt(parts2[2]));
+    if (!isNaN(d)) return d;
+  }
+  return null;
+}
+
+function parsePOCNames(pocStr) {
+  if (!pocStr) return [];
+  return pocStr.split(/[\/,]/).map(function(s) { return s.trim(); }).filter(function(s) { return s.length > 0; });
+}
+
+function getAllCandidates(buFilter, projFilter) {
+  var cands = [];
+  (FULFILLMENT_DATA || []).forEach(function(job) {
+    if (buFilter && job.bu !== buFilter) return;
+    if (projFilter && job.project_name !== projFilter) return;
+    (job.candidates || []).forEach(function(c) {
+      cands.push(Object.assign({}, c, { _job: job }));
+    });
+  });
+  return cands;
+}
+
+function renderAnalyticsView() {
+  var html = '<div style="padding: 20px 0;">';
+  // Sub-view pills
+  html += '<div class="analytics-pills">';
+  ['funnel', 'velocity', 'stakeholders'].forEach(function(v) {
+    var label = v.charAt(0).toUpperCase() + v.slice(1);
+    html += '<button class="analytics-pill' + (analyticsSubView === v ? ' active' : '') + '" data-an-pill="' + v + '">' + label + '</button>';
+  });
+  html += '</div>';
+
+  if (analyticsSubView === 'funnel') {
+    html += renderFunnelView();
+  } else if (analyticsSubView === 'velocity') {
+    html += renderVelocityView();
+  } else {
+    html += renderStakeholdersView();
+  }
+  html += '</div>';
+  return html;
+}
+
+function renderFunnelView() {
+  // Collect BUs and projects for filters
+  var bus = [], projs = [], _bs = {}, _ps = {};
+  (FULFILLMENT_DATA || []).forEach(function(j) {
+    if (j.bu && !_bs[j.bu]) { _bs[j.bu] = 1; bus.push(j.bu); }
+    if (j.project_name && !_ps[j.project_name]) { _ps[j.project_name] = 1; projs.push(j.project_name); }
+  });
+  bus.sort(); projs.sort();
+
+  var html = '<div class="an-filters">';
+  html += '<select class="an-filter-select" id="anFilterBU"><option value="">All Business Units</option>';
+  bus.forEach(function(b) { html += '<option value="' + escHTML(b) + '"' + (anFilterBU === b ? ' selected' : '') + '>' + escHTML(b) + '</option>'; });
+  html += '</select>';
+  html += '<select class="an-filter-select" id="anFilterProject"><option value="">All Projects</option>';
+  projs.forEach(function(p) { html += '<option value="' + escHTML(p) + '"' + (anFilterProject === p ? ' selected' : '') + '>' + escHTML(p) + '</option>'; });
+  html += '</select></div>';
+
+  var cands = getAllCandidates(anFilterBU, anFilterProject);
+
+  // Count by stage
+  var stages = [
+    { key: 'introduced', label: 'Introduced', color: '#204ECF' },
+    { key: 'interview_scheduled', label: 'Interview Scheduled', color: '#6941C6' },
+    { key: 'pending_decision', label: 'Pending Decision', color: '#D97B00' },
+    { key: 'hired', label: 'Hired', color: '#0D9E6E' }
+  ];
+  var lossBuckets = [
+    { key: 'rejected', label: 'Rejected', color: '#DC2626' },
+    { key: 'withdrawn', label: 'Withdrawn', color: '#9CA3AF' }
+  ];
+
+  var counts = {};
+  var rejectionReasons = {};
+  cands.forEach(function(c) {
+    var s = c._status || 'other';
+    counts[s] = (counts[s] || 0) + 1;
+    if (s === 'rejected' && c.rejection_reason) {
+      var reason = c.rejection_reason.trim();
+      rejectionReasons[reason] = (rejectionReasons[reason] || 0) + 1;
+    }
+  });
+
+  // For funnel, count cumulative (everyone who reached that stage or beyond)
+  // Actually, count current status — more useful for a snapshot
+  var total = cands.length;
+  var maxCount = 0;
+  stages.concat(lossBuckets).forEach(function(s) { if ((counts[s.key] || 0) > maxCount) maxCount = counts[s.key] || 0; });
+  if (maxCount === 0) maxCount = 1;
+
+  html += '<div class="funnel-chart">';
+  for (var i = 0; i < stages.length; i++) {
+    var s = stages[i];
+    var cnt = counts[s.key] || 0;
+    var pct = total > 0 ? Math.round(cnt / total * 100) : 0;
+    var barW = Math.max(5, Math.round(cnt / maxCount * 100));
+    html += '<div class="funnel-row">';
+    html += '<div class="funnel-label">' + s.label + '</div>';
+    html += '<div class="funnel-bar-wrap"><div class="funnel-bar" style="width:' + barW + '%;background:' + s.color + ';">' + cnt + '</div></div>';
+    html += '<div class="funnel-pct">' + pct + '%</div>';
+    html += '</div>';
+    // Conversion between adjacent stages
+    if (i < stages.length - 1) {
+      var next = stages[i + 1];
+      var nextCnt = counts[next.key] || 0;
+      var conv = cnt > 0 ? Math.round(nextCnt / cnt * 100) : 0;
+      html += '<div class="funnel-conversion"><span class="funnel-conv-arrow">\u2193</span><span class="funnel-conv-pct">' + conv + '% conversion</span></div>';
+    }
+  }
+
+  // Separator
+  html += '<div class="funnel-separator"></div>';
+
+  // Loss bars
+  lossBuckets.forEach(function(s) {
+    var cnt = counts[s.key] || 0;
+    var pct = total > 0 ? Math.round(cnt / total * 100) : 0;
+    var barW = Math.max(5, Math.round(cnt / maxCount * 100));
+    html += '<div class="funnel-row">';
+    html += '<div class="funnel-label">' + s.label + '</div>';
+    html += '<div class="funnel-bar-wrap"><div class="funnel-bar" style="width:' + barW + '%;background:' + s.color + ';">' + cnt + '</div></div>';
+    html += '<div class="funnel-pct">' + pct + '%</div>';
+    html += '</div>';
+  });
+  html += '</div>';
+
+  // Loss summary
+  html += '<div class="loss-summary"><h4>Loss Breakdown</h4>';
+  var lossEntries = [];
+  lossBuckets.forEach(function(s) {
+    var cnt = counts[s.key] || 0;
+    if (cnt > 0) lossEntries.push({ label: s.label, count: cnt, color: s.color });
+  });
+  // Add other terminal statuses
+  ['unavailable', 'removed_location', 'consider_other', 'on_hold'].forEach(function(k) {
+    if (counts[k]) {
+      lossEntries.push({ label: k.replace(/_/g, ' ').replace(/\b\w/g, function(l) { return l.toUpperCase(); }), count: counts[k], color: '#6B7280' });
+    }
+  });
+  if (lossEntries.length === 0) {
+    html += '<div style="font-size:12px;color:var(--text-muted);">No losses recorded.</div>';
+  } else {
+    lossEntries.forEach(function(e) {
+      html += '<div class="loss-row"><div class="loss-dot" style="background:' + e.color + '"></div><span class="loss-count">' + e.count + '</span> ' + escHTML(e.label) + '</div>';
+    });
+  }
+  // Rejection reasons breakdown
+  var reasonKeys = Object.keys(rejectionReasons);
+  if (reasonKeys.length > 0) {
+    html += '<h4 style="margin-top:12px;">Rejection Reasons</h4>';
+    reasonKeys.sort(function(a, b) { return rejectionReasons[b] - rejectionReasons[a]; });
+    reasonKeys.forEach(function(r) {
+      html += '<div class="loss-row"><div class="loss-dot" style="background:#DC2626"></div><span class="loss-count">' + rejectionReasons[r] + '</span> ' + escHTML(r) + '</div>';
+    });
+  }
+  html += '</div>';
+  return html;
+}
+
+function renderVelocityView() {
+  var cands = getAllCandidates('', '');
+  var now = new Date();
+
+  // Build 8-week buckets
+  var weeks = [];
+  for (var w = 7; w >= 0; w--) {
+    var weekStart = new Date(now);
+    weekStart.setDate(weekStart.getDate() - weekStart.getDay() - w * 7);
+    weekStart.setHours(0, 0, 0, 0);
+    var weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekEnd.getDate() + 7);
+    weeks.push({ start: weekStart, end: weekEnd, count: 0 });
+  }
+
+  var daysToInterview = [];
+  var daysToHire = [];
+  var thisWeekCount = 0;
+  var lastWeekCount = 0;
+  var thisWeekStart = weeks[weeks.length - 1].start;
+  var lastWeekStart = weeks.length >= 2 ? weeks[weeks.length - 2].start : thisWeekStart;
+  var lastWeekEnd = weeks.length >= 2 ? weeks[weeks.length - 2].end : thisWeekStart;
+
+  cands.forEach(function(c) {
+    var introDate = c.date_introduced ? new Date(c.date_introduced) : null;
+    if (introDate && !isNaN(introDate)) {
+      // Assign to week bucket
+      weeks.forEach(function(wk) {
+        if (introDate >= wk.start && introDate < wk.end) wk.count++;
+      });
+      if (introDate >= thisWeekStart) thisWeekCount++;
+      if (introDate >= lastWeekStart && introDate < lastWeekEnd) lastWeekCount++;
+
+      // Days intro -> interview
+      var interviewDate = parseFuzzyDate(c.date_interview);
+      if (interviewDate) {
+        var diff = Math.round((interviewDate - introDate) / 86400000);
+        if (diff >= 0 && diff < 365) daysToInterview.push(diff);
+      }
+      // Days intro -> hire
+      if (c._status === 'hired' && c.date_hired) {
+        var hireDate = new Date(c.date_hired);
+        if (!isNaN(hireDate)) {
+          var diff2 = Math.round((hireDate - introDate) / 86400000);
+          if (diff2 >= 0 && diff2 < 365) daysToHire.push(diff2);
+        }
+      }
+    }
+  });
+
+  var avgInterview = daysToInterview.length > 0 ? Math.round(daysToInterview.reduce(function(a, b) { return a + b; }, 0) / daysToInterview.length) : null;
+  var avgHire = daysToHire.length > 0 ? Math.round(daysToHire.reduce(function(a, b) { return a + b; }, 0) / daysToHire.length) : null;
+
+  var html = '<div class="vel-kpis">';
+  html += '<div class="vel-kpi"><div class="vel-kpi-val">' + (avgInterview !== null ? avgInterview + 'd' : '\u2014') + '</div><div class="vel-kpi-label">Avg Days to Interview</div></div>';
+  html += '<div class="vel-kpi"><div class="vel-kpi-val">' + (avgHire !== null ? avgHire + 'd' : '\u2014') + '</div><div class="vel-kpi-label">Avg Days to Hire</div></div>';
+  html += '<div class="vel-kpi"><div class="vel-kpi-val">' + thisWeekCount + '</div><div class="vel-kpi-label">Submissions This Week</div></div>';
+  html += '<div class="vel-kpi"><div class="vel-kpi-val">' + lastWeekCount + '</div><div class="vel-kpi-label">Submissions Last Week</div></div>';
+  html += '</div>';
+
+  // Weekly bar chart
+  var maxW = 1;
+  weeks.forEach(function(wk) { if (wk.count > maxW) maxW = wk.count; });
+
+  html += '<div class="vel-chart">';
+  weeks.forEach(function(wk) {
+    var label = (wk.start.getMonth() + 1) + '/' + wk.start.getDate();
+    var barW = Math.max(3, Math.round(wk.count / maxW * 100));
+    html += '<div class="vel-row"><div class="vel-week">Week of ' + label + '</div>';
+    html += '<div class="vel-bar-wrap"><div class="vel-bar" style="width:' + barW + '%;">' + wk.count + '</div></div></div>';
+  });
+  html += '</div>';
+  return html;
+}
+
+function renderStakeholdersView() {
+  // Parse all unique POC names
+  var pocMap = {}; // pocName -> { roles: [], totalOpenings, activeCandidates, hires, agingDays[] }
+  (FULFILLMENT_DATA || []).forEach(function(job) {
+    var names = parsePOCNames(job.poc_names);
+    names.forEach(function(name) {
+      if (!pocMap[name]) pocMap[name] = { name: name, roles: [], totalOpenings: 0, activeCandidates: 0, hires: 0, agingDays: [] };
+      var poc = pocMap[name];
+      poc.roles.push(job);
+      poc.totalOpenings += (job.openings || 1);
+      poc.hires += (job.hired_count || 0);
+      poc.activeCandidates += (job.active_candidates || 0);
+      if (job.days_since_contact != null) poc.agingDays.push(job.days_since_contact);
+    });
+  });
+
+  // Sort by "most roles at risk" — count roles with health score < 40
+  var pocList = Object.values(pocMap);
+  pocList.forEach(function(poc) {
+    poc.atRiskCount = poc.roles.filter(function(j) { return (j._healthScore || 0) < 40; }).length;
+    poc.avgAging = poc.agingDays.length > 0 ? Math.round(poc.agingDays.reduce(function(a, b) { return a + b; }, 0) / poc.agingDays.length) : null;
+  });
+  pocList.sort(function(a, b) { return b.atRiskCount - a.atRiskCount || b.roles.length - a.roles.length; });
+
+  var html = '<div class="sth-grid">';
+  if (pocList.length === 0) {
+    html += '<div style="padding:20px;color:var(--text-muted);font-size:14px;">No POC data available.</div>';
+  }
+  pocList.forEach(function(poc, idx) {
+    var agingBand = computeAgingBand(poc.avgAging);
+    html += '<div class="sth-card">';
+    html += '<div class="sth-card-header">';
+    html += '<div class="sth-avatar" style="background:' + hashColor(poc.name) + ';">' + initials(poc.name) + '</div>';
+    html += '<div><div class="sth-name">' + escHTML(poc.name) + '</div></div>';
+    html += '</div>';
+    html += '<div class="sth-stats">';
+    html += '<div class="sth-stat"><b>' + poc.roles.length + '</b> roles</div>';
+    html += '<div class="sth-stat"><b>' + poc.totalOpenings + '</b> openings</div>';
+    html += '<div class="sth-stat"><b>' + poc.activeCandidates + '</b> active</div>';
+    html += '<div class="sth-stat"><b>' + poc.hires + '</b> hires</div>';
+    html += '<div class="sth-stat">Avg contact: <span style="color:' + agingBand.color + ';font-weight:700;">' + agingBand.label + '</span></div>';
+    html += '</div>';
+    // Mini role list
+    html += '<div class="sth-roles">';
+    poc.roles.forEach(function(j) {
+      html += '<div class="sth-role-row"><span class="sth-role-title">' + escHTML(j.role_title) + '</span>' + generateHealthBadge(j._healthScore || 0) + '</div>';
+    });
+    html += '</div>';
+    // Prepare Brief button
+    html += '<button class="sth-brief-btn" data-sth-brief="' + idx + '">Prepare Brief</button>';
+    html += '<div id="sthBrief' + idx + '" style="display:none;"></div>';
+    html += '</div>';
+  });
+  html += '</div>';
+
+  // Store pocList globally for brief generation
+  window._sthPocList = pocList;
+  return html;
+}
+
+function generatePOCBrief(poc) {
+  var lines = [];
+  lines.push('STAKEHOLDER BRIEF: ' + poc.name);
+  lines.push('Generated: ' + new Date().toLocaleDateString());
+  lines.push('');
+  lines.push('SUMMARY');
+  lines.push('  Roles owned: ' + poc.roles.length);
+  lines.push('  Total openings: ' + poc.totalOpenings);
+  lines.push('  Active candidates: ' + poc.activeCandidates);
+  lines.push('  Hires: ' + poc.hires);
+  var agingBand = computeAgingBand(poc.avgAging);
+  lines.push('  Avg days since contact: ' + agingBand.label + ' (' + agingBand.band + ')');
+  lines.push('');
+  lines.push('ROLES');
+  poc.roles.forEach(function(j) {
+    var hb = healthBand(j._healthScore || 0);
+    lines.push('  - ' + j.role_title + ' (' + j.bu + ' / ' + j.project_name + ')');
+    lines.push('    Health: ' + (j._healthScore || 0) + '/100 (' + hb.band + ')');
+    lines.push('    Openings: ' + (j.openings || 1) + ' | Active: ' + (j.active_candidates || 0) + ' | Hired: ' + (j.hired_count || 0));
+    if (j.days_since_contact != null) lines.push('    Days since contact: ' + Math.round(j.days_since_contact));
+  });
+  var atRisk = poc.roles.filter(function(j) { return (j._healthScore || 0) < 40; });
+  if (atRisk.length > 0) {
+    lines.push('');
+    lines.push('AT-RISK ROLES (' + atRisk.length + ')');
+    atRisk.forEach(function(j) {
+      lines.push('  ! ' + j.role_title + ' - Health: ' + (j._healthScore || 0));
+    });
+  }
+  return lines.join('\n');
 }
 
 // ═══════════════════════════════════════════════════
