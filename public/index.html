@@ -341,6 +341,21 @@
     padding-right: 24px;
   }
   .status-dropdown:focus { box-shadow: 0 0 0 3px rgba(59,130,246,0.15); }
+  .status-dropdown.changed { box-shadow: 0 0 0 2px rgba(245,158,11,0.4); }
+  .status-save-btn {
+    display: none; padding: 3px 12px; border-radius: 12px;
+    border: none; background: #059669; color: white; font-size: 11px;
+    font-weight: 700; cursor: pointer; white-space: nowrap;
+    transition: background 0.15s, transform 0.1s;
+    animation: fadeSlideIn 0.2s ease;
+  }
+  .status-save-btn:hover { background: #047857; transform: scale(1.03); }
+  .status-save-btn.visible { display: inline-flex; align-items: center; gap: 4px; }
+  .status-save-btn.saving { background: #6B7280; pointer-events: none; }
+  .status-save-btn .save-check { display: none; }
+  .status-save-btn.saved { background: #059669; }
+  .status-save-btn.saved .save-check { display: inline; }
+  .status-save-btn.saved .save-text { display: none; }
 
   /* ── Action Badges ── */
   .action-badge {
@@ -2553,6 +2568,7 @@ function renderPipelineView() {
             '<div class="talent-location">'+escHTML(t.location)+'</div></div></div></td>' +
             '<td><div class="status-dropdown-wrap">' +
             '<select class="status-dropdown" data-talent-name="'+escHTML(t.name)+'"' +
+            ' data-original-status="'+escHTML(t.status)+'"' +
             (t.jcId ? ' data-jc-id="'+escHTML(t.jcId)+'"' : '') +
             ' style="border-color:' + (cfg.color||'#E5E7EB') + ';color:' + (cfg.color||'#374151') + '">';
           DROPDOWN_STATUSES.forEach(function(sk) {
@@ -2564,6 +2580,8 @@ function renderPipelineView() {
             html += '<option value="'+escHTML(t.status)+'" selected>' + escHTML(cfg.label||t.status) + '</option>';
           }
           html += '</select>';
+          html += '<button class="status-save-btn" data-save-for="'+escHTML(t.jcId || '')+'">' +
+            '<span class="save-text">Save</span><span class="save-check">✓ Saved</span></button>';
           if (cfg.actionLabel) {
             html += '<span class="action-badge '+cfg.actionClass+'">'+cfg.actionLabel+'</span>';
           }
@@ -2839,11 +2857,12 @@ function bindEvents() {
     });
   });
 
-  // Status dropdown changes (update Supabase)
+  // Status dropdown changes — show Save button on change
   document.querySelectorAll('.status-dropdown').forEach(function(sel) {
     sel.addEventListener('click', function(e) { e.stopPropagation(); });
     sel.addEventListener('change', function() {
       var newStatus = sel.value;
+      var originalStatus = sel.dataset.originalStatus;
       var cfg = STATUS_MAP[newStatus] || {};
       sel.style.borderColor = cfg.color || '#E5E7EB';
       sel.style.color = cfg.color || '#374151';
@@ -2857,24 +2876,79 @@ function bindEvents() {
         } else if (badge && !cfg.actionLabel) {
           badge.remove();
         }
+        // Show/hide Save button
+        var saveBtn = wrap.querySelector('.status-save-btn');
+        if (saveBtn) {
+          if (newStatus !== originalStatus) {
+            saveBtn.classList.add('visible');
+            saveBtn.classList.remove('saved', 'saving');
+            saveBtn.querySelector('.save-text').textContent = 'Save';
+            sel.classList.add('changed');
+          } else {
+            saveBtn.classList.remove('visible', 'saved', 'saving');
+            sel.classList.remove('changed');
+          }
+        }
       }
-      // Supabase update
+    });
+  });
+
+  // Save button click — persist to Supabase and refresh data
+  document.querySelectorAll('.status-save-btn').forEach(function(btn) {
+    btn.addEventListener('click', async function(e) {
+      e.stopPropagation();
+      var wrap = btn.closest('.status-dropdown-wrap');
+      var sel = wrap ? wrap.querySelector('.status-dropdown') : null;
+      if (!sel) return;
+      var newStatus = sel.value;
+      var cfg = STATUS_MAP[newStatus] || {};
       var jcId = sel.dataset.jcId;
+
+      // Visual feedback — saving
+      btn.classList.add('saving');
+      btn.querySelector('.save-text').textContent = 'Saving…';
+
       if (jcId && cfg.dbValue && typeof sb !== 'undefined') {
         var now = new Date().toISOString();
         var updateData = { status: cfg.dbValue, status_changed_at: now, updated_at: now };
         if (cfg.dbValue === 'INTERVIEW SCHEDULED') updateData.date_interview = now;
         if (cfg.dbValue === 'ACTIVE') updateData.date_hired = now;
-        sb.from('job_candidates').update(updateData).eq('id', jcId).then(function(res) {
-          if (res.error) console.warn('Status update failed:', res.error.message);
-          else console.log('Status updated for', sel.dataset.talentName, '->', cfg.dbValue);
-        });
+
+        var res = await sb.from('job_candidates').update(updateData).eq('id', jcId);
+        if (res.error) {
+          console.warn('Status update failed:', res.error.message);
+          btn.classList.remove('saving');
+          btn.querySelector('.save-text').textContent = '✕ Error';
+          btn.style.background = '#DC2626';
+          setTimeout(function() {
+            btn.style.background = '';
+            btn.querySelector('.save-text').textContent = 'Save';
+          }, 2000);
+          return;
+        }
+
         // Log activity
         sb.from('activity_log').insert({
           entity_type: 'job_candidate', entity_id: jcId,
           action: 'status_change', new_value: cfg.dbValue,
           source: 'pipeline_ui'
         }).then(function() {});
+
+        // Show saved confirmation
+        btn.classList.remove('saving');
+        btn.classList.add('saved');
+        sel.classList.remove('changed');
+        sel.dataset.originalStatus = newStatus;
+
+        // Re-fetch all data so Open Jobs + Fulfillment reflect the change
+        setTimeout(async function() {
+          btn.classList.remove('visible', 'saved');
+          await fetchAllData();
+        }, 1200);
+      } else {
+        // No jcId — just reset
+        btn.classList.remove('saving', 'visible');
+        sel.classList.remove('changed');
       }
     });
   });
