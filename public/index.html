@@ -1335,7 +1335,8 @@ function transformPipeline(rows) {
   return { pipeline: result, hired: hiredList };
 }
 
-async function fetchAllData() {
+async function fetchAllData(retryCount) {
+  retryCount = retryCount || 0;
   var app = document.getElementById('app');
   app.innerHTML = '<div class="loading-screen"><div class="spinner"></div><p>Connecting to Supabase\u2026</p></div>';
   try {
@@ -1349,6 +1350,12 @@ async function fetchAllData() {
     lastRefresh = new Date();
     render();
   } catch(err) {
+    // Auto-retry on transient lock/abort errors (up to 3 retries with backoff)
+    var isLockErr = err.message && (err.message.indexOf('Lock broken') !== -1 || err.message.indexOf('AbortError') !== -1);
+    if (retryCount < 3 && isLockErr) {
+      await new Promise(function(r) { setTimeout(r, 500 * (retryCount + 1)); });
+      return fetchAllData(retryCount + 1);
+    }
     app.innerHTML = '<div class="error-screen"><div class="err-icon">\u26A0\uFE0F</div><h2>Unable to load data</h2><p>' + escHTML(err.message) + '</p><button class="retry-btn" onclick="fetchAllData()">Try Again</button></div>';
   }
 }
