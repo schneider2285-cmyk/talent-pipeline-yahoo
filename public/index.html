@@ -406,6 +406,52 @@
   .proj-role-badge.filled { background: #D1FAE5; color: #047857; }
   .proj-role-badge.interviewing { background: #EDE9FE; color: #6D28D9; }
 
+  /* ── Role Fulfillment Summary Bar ── */
+  .role-fulfill-bar {
+    display: flex; align-items: stretch; gap: 0; margin-bottom: 12px;
+    border-radius: 10px; overflow: hidden; border: 1px solid #E2E8F0;
+    background: #F8FAFC;
+  }
+  .role-fulfill-cell {
+    flex: 1; padding: 10px 14px; text-align: center;
+    border-right: 1px solid #E2E8F0; position: relative;
+  }
+  .role-fulfill-cell:last-child { border-right: none; }
+  .role-fulfill-cell.highlight-red { background: #FEF2F2; }
+  .role-fulfill-cell.highlight-green { background: #F0FDF4; }
+  .role-fulfill-cell.highlight-amber { background: #FFFBEB; }
+  .role-fulfill-cell.highlight-blue { background: #EFF6FF; }
+  .role-fulfill-cell.highlight-purple { background: #F5F3FF; }
+  .role-fulfill-num {
+    font-size: 22px; font-weight: 800; line-height: 1.1;
+  }
+  .role-fulfill-num.red { color: #DC2626; }
+  .role-fulfill-num.green { color: #059669; }
+  .role-fulfill-num.amber { color: #D97706; }
+  .role-fulfill-num.blue { color: #2563EB; }
+  .role-fulfill-num.purple { color: #7C3AED; }
+  .role-fulfill-num.muted { color: #94A3B8; }
+  .role-fulfill-label {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.6px;
+    color: #64748B; font-weight: 700; margin-top: 2px;
+  }
+  .role-fulfill-progress {
+    height: 4px; background: #E2E8F0; border-radius: 4px;
+    margin-top: 6px; overflow: hidden;
+  }
+  .role-fulfill-progress-fill {
+    height: 100%; border-radius: 4px; transition: width 0.4s ease;
+  }
+  .role-fulfill-status {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 11px; font-weight: 700; padding: 3px 10px;
+    border-radius: 8px; margin-top: 4px;
+  }
+  .role-fulfill-status.critical { background: #FEE2E2; color: #DC2626; }
+  .role-fulfill-status.warning { background: #FEF3C7; color: #92400E; }
+  .role-fulfill-status.good { background: #DCFCE7; color: #166534; }
+  .role-fulfill-status.info { background: #DBEAFE; color: #1E40AF; }
+
   /* ── Project Sourcing Alert (in header) ── */
   .proj-needs-sourcing {
     display: inline-flex; align-items: center; gap: 5px;
@@ -2974,22 +3020,78 @@ function renderPipelineView() {
             html += '</div>'; // close proj-dashboard
 
             // ── Individual Role Details (below dashboard) ──
+            var _deadSt = new Set(['rejected', 'withdrawn', 'unavailable', 'removed_location', 'on_hold', 'consider_other']);
             filteredJobs.forEach(function(j) {
-              var unfilled = (j.openings || 1) - (j.hired_count || 0);
+              var openings = j.openings || 1;
+              var hired = j.hired_count || 0;
+              var unfilled = openings - hired;
+              var totalC = j.total_candidates || 0;
+              var activeC = j.active_candidates || 0;
+              var viableC = 0, interviewC = 0, pendingC = 0, rejectedC = 0, introducedC = 0;
+              if (j.candidates) j.candidates.forEach(function(c) {
+                var st = c._status || 'other';
+                if (!_deadSt.has(st)) viableC++;
+                if (st === 'introduced') introducedC++;
+                if (st === 'interview_scheduled' || st === 'pending_interview' || st === 'pending_2nd_interview') interviewC++;
+                if (st === 'pending_decision') pendingC++;
+                if (_deadSt.has(st)) rejectedC++;
+              });
+              var fillPct = openings > 0 ? Math.round((hired / openings) * 100) : 0;
+
+              // Determine overall status
+              var roleSt = '', roleStClass = '';
+              if (fillPct >= 100) { roleSt = '\u2705 Fully Filled'; roleStClass = 'good'; }
+              else if (viableC === 0 && totalC > 0) { roleSt = '\uD83D\uDEA8 All Candidates Exhausted — Need New Sourcing'; roleStClass = 'critical'; }
+              else if (totalC === 0) { roleSt = '\uD83D\uDEA8 No Candidates — Needs Immediate Sourcing'; roleStClass = 'critical'; }
+              else if (pendingC > 0) { roleSt = '\uD83D\uDCCB Pending Decision'; roleStClass = 'info'; }
+              else if (interviewC > 0) { roleSt = '\uD83D\uDCC5 Interviews In Progress'; roleStClass = 'info'; }
+              else if (activeC > 0 && activeC < unfilled) { roleSt = '\u26A0\uFE0F Need More Candidates (' + activeC + ' active for ' + unfilled + ' opening' + (unfilled > 1 ? 's' : '') + ')'; roleStClass = 'warning'; }
+              else if (activeC >= unfilled) { roleSt = '\u2714\uFE0F Pipeline On Track'; roleStClass = 'good'; }
+              else { roleSt = '\u26A0\uFE0F Needs Attention'; roleStClass = 'warning'; }
+
               html += '<div style="margin: 0 12px 16px; padding:14px 16px; background:white; border:1px solid #E2E8F0; border-radius:10px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">';
               html += '<div style="display:flex; align-items:center; gap:10px; margin-bottom:10px; flex-wrap:wrap;">' +
-                '<span style="font-weight:700; font-size:14px; color:var(--toptal-dark);">' + escHTML(j.role_title) + '</span>' +
-                '<span class="open-job-tag openings-tag">\uD83D\uDC65 ' + unfilled + ' opening' + (unfilled > 1 ? 's' : '') + '</span>';
-              if (j.total_candidates === 0) {
-                html += '<span class="open-job-tag empty-tag">\u26A0\uFE0F No candidates</span>';
-              } else {
-                html += '<span class="open-job-tag candidates-tag">' + j.active_candidates + ' active / ' + j.total_candidates + ' total</span>';
-              }
+                '<span style="font-weight:700; font-size:14px; color:var(--toptal-dark);">' + escHTML(j.role_title) + '</span>';
               if (j.rate_max) html += '<span class="open-job-tag rate-tag">\uD83D\uDCB0 $' + j.rate_max + '/hr</span>';
               if (j.status && j.status !== 'ACTIVE') html += '<span class="open-job-tag status-tag">' + escHTML(j.status) + '</span>';
               if (j.toptal_job_link) html += '<a href="' + escHTML(j.toptal_job_link) + '" target="_blank" style="font-size:11px; color:var(--toptal-blue); text-decoration:none; font-weight:600;">Platform \u2197</a>';
               if (j.salesforce_link) html += '<a href="' + escHTML(j.salesforce_link) + '" target="_blank" style="font-size:11px; color:var(--toptal-blue); text-decoration:none; font-weight:600;">SFDC \u2197</a>';
               html += '</div>';
+
+              // Fulfillment summary bar
+              var progressColor = fillPct >= 100 ? '#059669' : fillPct >= 50 ? '#3B82F6' : viableC === 0 ? '#DC2626' : '#F59E0B';
+              html += '<div class="role-fulfill-bar">' +
+                '<div class="role-fulfill-cell' + (unfilled > 0 && viableC === 0 ? ' highlight-red' : unfilled === 0 ? ' highlight-green' : '') + '">' +
+                  '<div class="role-fulfill-num ' + (unfilled > 0 ? (viableC === 0 ? 'red' : 'amber') : 'green') + '">' + unfilled + '/' + openings + '</div>' +
+                  '<div class="role-fulfill-label">Openings Left</div>' +
+                  '<div class="role-fulfill-progress"><div class="role-fulfill-progress-fill" style="width:' + fillPct + '%; background:' + progressColor + '"></div></div>' +
+                '</div>' +
+                '<div class="role-fulfill-cell' + (viableC === 0 && totalC > 0 ? ' highlight-red' : viableC > 0 ? ' highlight-blue' : '') + '">' +
+                  '<div class="role-fulfill-num ' + (viableC === 0 ? (totalC > 0 ? 'red' : 'muted') : 'blue') + '">' + viableC + '</div>' +
+                  '<div class="role-fulfill-label">Active Pipeline</div>' +
+                '</div>' +
+                '<div class="role-fulfill-cell' + (introducedC > 0 ? ' highlight-blue' : '') + '">' +
+                  '<div class="role-fulfill-num ' + (introducedC > 0 ? 'blue' : 'muted') + '">' + introducedC + '</div>' +
+                  '<div class="role-fulfill-label">Introduced</div>' +
+                '</div>' +
+                '<div class="role-fulfill-cell' + (interviewC > 0 ? ' highlight-purple' : '') + '">' +
+                  '<div class="role-fulfill-num ' + (interviewC > 0 ? 'purple' : 'muted') + '">' + interviewC + '</div>' +
+                  '<div class="role-fulfill-label">Interviewing</div>' +
+                '</div>' +
+                '<div class="role-fulfill-cell' + (pendingC > 0 ? ' highlight-amber' : '') + '">' +
+                  '<div class="role-fulfill-num ' + (pendingC > 0 ? 'amber' : 'muted') + '">' + pendingC + '</div>' +
+                  '<div class="role-fulfill-label">Pending Decision</div>' +
+                '</div>' +
+                '<div class="role-fulfill-cell' + (rejectedC > 0 && viableC === 0 ? ' highlight-red' : '') + '">' +
+                  '<div class="role-fulfill-num ' + (rejectedC > 0 ? 'red' : 'muted') + '">' + rejectedC + '</div>' +
+                  '<div class="role-fulfill-label">Rejected / Out</div>' +
+                '</div>' +
+              '</div>';
+
+              // Status verdict
+              html += '<div style="margin-bottom:12px; text-align:center;">' +
+                '<span class="role-fulfill-status ' + roleStClass + '">' + roleSt + '</span>' +
+              '</div>';
 
               html += renderOJCandidates(j);
               html += '</div>';
