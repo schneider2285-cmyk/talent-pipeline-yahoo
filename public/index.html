@@ -517,6 +517,68 @@
   .oj-filter-clear:hover { background: #DBEAFE; }
   .oj-filter-count { font-size: 12px; color: #1D4ED8; font-weight: 500; margin-left: auto; }
 
+  /* ── View Toggle (Card/List) ── */
+  .view-toggle {
+    display: inline-flex; border-radius: 8px; overflow: hidden;
+    border: 1px solid #CBD5E1; margin-left: 12px; flex-shrink: 0;
+  }
+  .view-toggle-btn {
+    background: transparent; border: none; padding: 5px 10px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    color: #94A3B8; transition: all 0.15s; font-size: 14px;
+  }
+  .view-toggle-btn:hover { color: #475569; background: rgba(0,0,0,0.03); }
+  .view-toggle-btn.active { background: #1D4ED8; color: white; }
+  .wins-section .view-toggle-btn.active { background: #166534; }
+
+  /* ── Wins List View ── */
+  .wins-list {
+    padding: 0 20px 20px;
+  }
+  .wins-list-table {
+    width: 100%; border-collapse: separate; border-spacing: 0;
+    font-size: 13px;
+  }
+  .wins-list-table thead th {
+    text-align: left; font-weight: 600; font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.5px;
+    color: #166534; padding: 10px 14px; border-bottom: 2px solid #BBF7D0;
+    background: rgba(255,255,255,0.5); position: sticky; top: 0;
+  }
+  .wins-list-table tbody tr { transition: background 0.1s; }
+  .wins-list-table tbody tr:hover { background: rgba(22,101,52,0.03); }
+  .wins-list-table td {
+    padding: 10px 14px; border-bottom: 1px solid #E2E8F0;
+    vertical-align: middle;
+  }
+  .wins-list-table .name-cell {
+    display: flex; align-items: center; gap: 10px; font-weight: 600;
+    color: var(--toptal-dark);
+  }
+
+  /* ── Open Jobs List View ── */
+  .open-jobs-list {
+    padding: 0 20px 20px;
+  }
+  .oj-list-table {
+    width: 100%; border-collapse: separate; border-spacing: 0;
+    font-size: 13px;
+  }
+  .oj-list-table thead th {
+    text-align: left; font-weight: 600; font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.5px;
+    color: #1E3A8A; padding: 10px 14px; border-bottom: 2px solid #93C5FD;
+    background: rgba(255,255,255,0.5); position: sticky; top: 0;
+  }
+  .oj-list-table tbody tr { transition: background 0.1s; cursor: pointer; }
+  .oj-list-table tbody tr:hover { background: rgba(30,64,175,0.03); }
+  .oj-list-table td {
+    padding: 10px 14px; border-bottom: 1px solid #E2E8F0;
+    vertical-align: middle;
+  }
+  .oj-list-table .role-cell { font-weight: 600; color: var(--toptal-dark); }
+  .oj-list-table .role-cell .sub { font-weight: 400; color: var(--text-secondary); font-size: 12px; }
+
   /* ── Fulfillment View ── */
   .fulfillment-grid {
     display: grid; grid-template-columns: 1fr;
@@ -1051,7 +1113,9 @@ let openBUs = new Set();
 let openProjects = new Set();
 let allExpanded = false;
 let winsOpen = true;
+let winsViewMode = 'card'; // 'card' or 'list'
 let openJobsOpen = true;
+let openJobsViewMode = 'card'; // 'card' or 'list'
 let ojFilterBU = '';
 let ojFilterProject = '';
 let ojFilterRole = '';
@@ -1372,18 +1436,49 @@ function renderPipelineView() {
     var confettis = ['\uD83C\uDF89', '\uD83C\uDF8A', '\u2B50', '\uD83D\uDE80', '\uD83D\uDD25', '\uD83C\uDF1F'];
     html += '<div class="wins-section ' + (winsOpen ? 'open' : '') + '">' +
       '<div class="wins-header" id="winsToggle"><svg class="wins-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>' +
-      '<span class="trophy">\uD83C\uDFC6</span><h2>Recent Wins</h2><span class="wins-count">' + HIRED_DATA.length + ' Hired</span></div>' +
-      '<div class="wins-body"><div class="wins-subtitle">These candidates have been hired \u2014 congratulations to the team!</div><div class="wins-grid">';
-    HIRED_DATA.forEach(function(h, i) {
-      html += '<div class="win-card"><span class="confetti-emoji">' + confettis[i % confettis.length] + '</span>' +
-        '<div class="win-card-top">' + (h.avatar_url ? '<div class="win-avatar" style="background:url('+escHTML(h.avatar_url)+') center/cover"' + (h.profile_link ? ' data-profile="'+escHTML(h.profile_link)+'"' : '') + '></div>' : '<div class="win-avatar" style="background:' + hashColor(h.candidate_name) + '"' + (h.profile_link ? ' data-profile="' + escHTML(h.profile_link) + '"' : '') + '>' + escHTML(initials(h.candidate_name)) + '</div>') +
-        '<div><div class="win-name">' + escHTML(h.candidate_name) + '</div><div class="win-role">' + escHTML(h.role_title) + '</div></div></div>' +
-        '<div class="win-details"><span class="win-tag bu-tag">' + escHTML(h.bu) + '</span><span class="win-tag project-tag">' + escHTML(h.project_name) + '</span>' +
-        (h.date_hired ? '<span class="win-tag date-tag">\u2714 Hired ' + fmtDate(h.date_hired) + '</span>' : '<span class="win-tag date-tag">\u2714 Hired</span>') +
-        (h.candidate_location ? '<span class="win-tag location-tag">\uD83D\uDCCD ' + escHTML(h.candidate_location) + '</span>' : '') +
-        '</div></div>';
-    });
-    html += '</div></div></div>';
+      '<span class="trophy">\uD83C\uDFC6</span><h2>Recent Wins</h2>' +
+      '<div class="view-toggle">' +
+        '<button class="view-toggle-btn' + (winsViewMode === 'card' ? ' active' : '') + '" data-view-toggle="wins-card" title="Card view">' +
+          '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>' +
+        '</button>' +
+        '<button class="view-toggle-btn' + (winsViewMode === 'list' ? ' active' : '') + '" data-view-toggle="wins-list" title="List view">' +
+          '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>' +
+        '</button>' +
+      '</div>' +
+      '<span class="wins-count">' + HIRED_DATA.length + ' Hired</span></div>' +
+      '<div class="wins-body"><div class="wins-subtitle">These candidates have been hired \u2014 congratulations to the team!</div>';
+
+    if (winsViewMode === 'list') {
+      // List view
+      html += '<div class="wins-list"><table class="wins-list-table"><thead><tr>' +
+        '<th>Candidate</th><th>Role</th><th>Business Unit</th><th>Project</th><th>Location</th><th>Hired</th>' +
+        '</tr></thead><tbody>';
+      HIRED_DATA.forEach(function(h) {
+        html += '<tr>' +
+          '<td><div class="name-cell">' + avatarHTML(h.candidate_name, h.profile_link, 28) + ' ' + escHTML(h.candidate_name) + '</div></td>' +
+          '<td>' + escHTML(h.role_title) + '</td>' +
+          '<td><span class="win-tag bu-tag">' + escHTML(h.bu) + '</span></td>' +
+          '<td>' + escHTML(h.project_name) + '</td>' +
+          '<td>' + (h.candidate_location ? escHTML(h.candidate_location) : '\u2014') + '</td>' +
+          '<td>' + (h.date_hired ? fmtDate(h.date_hired) : '\u2714') + '</td>' +
+          '</tr>';
+      });
+      html += '</tbody></table></div>';
+    } else {
+      // Card view (existing)
+      html += '<div class="wins-grid">';
+      HIRED_DATA.forEach(function(h, i) {
+        html += '<div class="win-card"><span class="confetti-emoji">' + confettis[i % confettis.length] + '</span>' +
+          '<div class="win-card-top">' + (h.avatar_url ? '<div class="win-avatar" style="background:url('+escHTML(h.avatar_url)+') center/cover"' + (h.profile_link ? ' data-profile="'+escHTML(h.profile_link)+'"' : '') + '></div>' : '<div class="win-avatar" style="background:' + hashColor(h.candidate_name) + '"' + (h.profile_link ? ' data-profile="' + escHTML(h.profile_link) + '"' : '') + '>' + escHTML(initials(h.candidate_name)) + '</div>') +
+          '<div><div class="win-name">' + escHTML(h.candidate_name) + '</div><div class="win-role">' + escHTML(h.role_title) + '</div></div></div>' +
+          '<div class="win-details"><span class="win-tag bu-tag">' + escHTML(h.bu) + '</span><span class="win-tag project-tag">' + escHTML(h.project_name) + '</span>' +
+          (h.date_hired ? '<span class="win-tag date-tag">\u2714 Hired ' + fmtDate(h.date_hired) + '</span>' : '<span class="win-tag date-tag">\u2714 Hired</span>') +
+          (h.candidate_location ? '<span class="win-tag location-tag">\uD83D\uDCCD ' + escHTML(h.candidate_location) + '</span>' : '') +
+          '</div></div>';
+      });
+      html += '</div>';
+    }
+    html += '</div></div>';
   }
 
   // Open Jobs section — jobs that need candidates (with filters)
@@ -1423,7 +1518,16 @@ function renderPipelineView() {
     if (openJobsAll.length > 0) {
       html += '<div class="open-jobs-section ' + (openJobsOpen ? 'open' : '') + '">' +
         '<div class="open-jobs-header" id="openJobsToggle"><svg class="open-jobs-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>' +
-        '<span class="open-jobs-icon">\uD83D\uDCCB</span><h2>Open Jobs</h2><span class="open-jobs-count">' + openJobsAll.length + ' Need Candidates</span></div>' +
+        '<span class="open-jobs-icon">\uD83D\uDCCB</span><h2>Open Jobs</h2>' +
+        '<div class="view-toggle">' +
+          '<button class="view-toggle-btn' + (openJobsViewMode === 'card' ? ' active' : '') + '" data-view-toggle="oj-card" title="Card view">' +
+            '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>' +
+          '</button>' +
+          '<button class="view-toggle-btn' + (openJobsViewMode === 'list' ? ' active' : '') + '" data-view-toggle="oj-list" title="List view">' +
+            '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>' +
+          '</button>' +
+        '</div>' +
+        '<span class="open-jobs-count">' + openJobsAll.length + ' Need Candidates</span></div>' +
         '<div class="open-jobs-body">' +
         '<div class="open-jobs-subtitle">These roles still need talent \u2014 prioritize sourcing for them.</div>';
 
@@ -1456,10 +1560,66 @@ function renderPipelineView() {
       html += '<span class="oj-filter-count">Showing ' + openJobs.length + ' of ' + openJobsAll.length + '</span>';
       html += '</div>';
 
-      // Job cards grid
+      // Job cards / list
       if (openJobs.length === 0) {
         html += '<div style="padding: 20px 24px; text-align: center; color: #64748B; font-size: 14px;">No jobs match the selected filters.</div>';
+      } else if (openJobsViewMode === 'list') {
+        // List view
+        html += '<div class="open-jobs-list"><table class="oj-list-table"><thead><tr>' +
+          '<th>Role</th><th>BU</th><th>Openings</th><th>Candidates</th><th>Status</th><th>Max Rate</th><th>POC</th>' +
+          '</tr></thead><tbody>';
+        openJobs.forEach(function(j) {
+          var unfilled = (j.openings || 1) - (j.hired_count || 0);
+          html += '<tr data-expand-job="' + escHTML(j.id) + '">' +
+            '<td><div class="role-cell">' + escHTML(j.role_title) + '<div class="sub">' + escHTML(j.project_name) + '</div></div></td>' +
+            '<td><span class="open-job-tag bu-tag">' + escHTML(j.bu) + '</span></td>' +
+            '<td>' + unfilled + ' of ' + (j.openings || 1) + '</td>' +
+            '<td>';
+          if (j.total_candidates === 0) {
+            html += '<span style="color:#991B1B; font-size:12px;">\u26A0 None</span>';
+          } else {
+            html += '<span style="font-weight:600;">' + j.active_candidates + '</span> active / ' + j.total_candidates + ' total';
+          }
+          html += '</td>' +
+            '<td>' + (j.status && j.status !== 'ACTIVE' ? '<span class="open-job-tag status-tag">' + escHTML(j.status) + '</span>' : '<span style="color:#166534;">Active</span>') + '</td>' +
+            '<td>' + (j.rate_max ? '$' + j.rate_max + '/hr' : '\u2014') + '</td>' +
+            '<td style="font-size:12px; color:var(--text-secondary);">' + escHTML(j.poc_names || '\u2014') + '</td>' +
+            '</tr>';
+          // If expanded, show detail row
+          if (expandedJobIds.has(j.id)) {
+            html += '<tr class="oj-list-detail-row"><td colspan="7"><div class="oj-detail" style="margin-top:0;">';
+            // Reuse same candidate rendering
+            if (j.candidates && j.candidates.length > 0) {
+              var candGroups = {};
+              var groupOrder = ['introduced','interview_scheduled','pending_interview','pending_decision','pending_2nd_interview','hired','rejected','withdrawn','unavailable','consider_other','removed_location','on_hold'];
+              j.candidates.forEach(function(c) { var g = c._status || 'other'; if (!candGroups[g]) candGroups[g] = []; candGroups[g].push(c); });
+              var orderedGroups = groupOrder.filter(function(g) { return candGroups[g]; });
+              Object.keys(candGroups).forEach(function(g) { if (orderedGroups.indexOf(g) === -1) orderedGroups.push(g); });
+              orderedGroups.forEach(function(groupKey) {
+                var cands = candGroups[groupKey];
+                var groupLabel = (STATUS_MAP[groupKey] || {}).label || groupKey.replace(/_/g, ' ').replace(/\b\w/g, function(l) { return l.toUpperCase(); });
+                var groupColor = (STATUS_MAP[groupKey] || {}).color || '#64748B';
+                html += '<div class="oj-cand-section"><div class="oj-cand-section-title"><span style="color:' + groupColor + '">\u25CF</span> ' + escHTML(groupLabel) + ' <span class="cand-count">' + cands.length + '</span></div>';
+                cands.forEach(function(c) {
+                  html += '<div class="oj-cand-row">' + avatarHTML(c.name, c.profile_link, 28);
+                  html += c.profile_link ? '<span class="oj-cand-name"><a href="' + escHTML(c.profile_link) + '" target="_blank">' + escHTML(c.name) + '</a></span>' : '<span class="oj-cand-name">' + escHTML(c.name) + '</span>';
+                  var details = [];
+                  if (c.location) details.push('\uD83D\uDCCD ' + c.location);
+                  if (c.rate) details.push('$' + c.rate + '/hr');
+                  if (details.length) html += '<span class="oj-cand-detail">' + escHTML(details.join(' \u00B7 ')) + '</span>';
+                  html += '</div>';
+                });
+                html += '</div>';
+              });
+            } else {
+              html += '<div class="oj-no-candidates">No candidates submitted yet.</div>';
+            }
+            html += '</div></td></tr>';
+          }
+        });
+        html += '</tbody></table></div>';
       } else {
+        // Card view (existing)
         html += '<div class="open-jobs-grid">';
         openJobs.forEach(function(j) {
           var unfilled = (j.openings || 1) - (j.hired_count || 0);
@@ -1747,13 +1907,31 @@ function bindEvents() {
   // Wins toggle
   var winsToggle = document.getElementById('winsToggle');
   if (winsToggle) {
-    winsToggle.addEventListener('click', function() { winsOpen = !winsOpen; render(); });
+    winsToggle.addEventListener('click', function(e) {
+      if (e.target.closest('.view-toggle')) return; // don't collapse when clicking view toggle
+      winsOpen = !winsOpen; render();
+    });
   }
 
   var openJobsToggle = document.getElementById('openJobsToggle');
   if (openJobsToggle) {
-    openJobsToggle.addEventListener('click', function() { openJobsOpen = !openJobsOpen; render(); });
+    openJobsToggle.addEventListener('click', function(e) {
+      if (e.target.closest('.view-toggle')) return;
+      openJobsOpen = !openJobsOpen; render();
+    });
   }
+
+  // View toggle buttons (card/list)
+  document.querySelectorAll('[data-view-toggle]').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var mode = btn.dataset.viewToggle;
+      if (mode === 'wins-card') { winsViewMode = 'card'; render(); }
+      else if (mode === 'wins-list') { winsViewMode = 'list'; render(); }
+      else if (mode === 'oj-card') { openJobsViewMode = 'card'; render(); }
+      else if (mode === 'oj-list') { openJobsViewMode = 'list'; render(); }
+    });
+  });
 
   // Open Jobs filters
   var ojBUEl = document.getElementById('ojFilterBU');
