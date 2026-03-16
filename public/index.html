@@ -1767,7 +1767,8 @@ function render() {
     bodyHTML = renderFulfillmentView();
   }
 
-  document.getElementById('app').innerHTML = headerHTML + summaryHTML + '<div class="main">' + bodyHTML + '</div>' +
+  var priorityHTML = (currentView === 'pipeline') ? renderPriorityQueue() : '';
+  document.getElementById('app').innerHTML = headerHTML + summaryHTML + priorityHTML + '<div class="main">' + bodyHTML + '</div>' +
     '<button class="chat-fab" id="chatFab" title="Open AI Assistant (Ctrl+/)">\uD83E\uDD16</button>';
 
   bindEvents();
@@ -2446,6 +2447,7 @@ function bindEvents() {
   });
 
   bindAvatarClicks();
+  bindPriorityQueueEvents();
 }
 
 // ═══════════════════════════════════════════════════
@@ -3650,6 +3652,101 @@ function describeToolCall(name, input) {
     case 'query_database': return 'Querying ' + input.table;
     default: return name;
   }
+}
+
+// ═══════════════════════════════════════════════════
+//  PRIORITY ACTION QUEUE (Workstream B)
+// ═══════════════════════════════════════════════════
+function renderPriorityQueue() {
+  var actions = generatePriorityActions(FULFILLMENT_DATA);
+  if (actions.length === 0) return '';
+
+  var collapsed = priorityQueueOpen ? '' : ' collapsed';
+  var chevron = priorityQueueOpen ? '▾' : '▸';
+
+  var html = '<div class="priority-queue">';
+  html += '<div class="priority-queue-header" onclick="priorityQueueOpen=!priorityQueueOpen;render();">';
+  html += '<h3>' + chevron + ' 🎯 Priority Actions <span class="pq-count">' + actions.length + '</span></h3>';
+  html += '</div>';
+  html += '<div class="priority-queue-body' + collapsed + '">';
+  html += '<div class="priority-cards">';
+
+  actions.forEach(function(a, idx) {
+    var j = a.job;
+    var buColor = BU_COLORS[j.bu] || DEFAULT_BU_COLOR;
+
+    html += '<div class="priority-card" data-pq-idx="' + idx + '">';
+    // Severity dot
+    html += '<div class="sev-dot sev-' + a.severity + '"></div>';
+    // Content
+    html += '<div class="pc-content">';
+    html += '<div class="pc-title">' + escHTML(a.title) + '</div>';
+    html += '<div class="pc-desc">' + escHTML(a.description) + '</div>';
+    html += '<div class="pc-tags">';
+    html += '<span class="pc-tag tier-tag">T' + a.tier + '</span>';
+    html += '<span class="pc-tag" style="background:' + buColor + '15;color:' + buColor + '">' + escHTML(j.bu) + '</span>';
+    html += '<span class="pc-tag">' + escHTML(j.project_name) + '</span>';
+    if (j.poc_names) html += '<span class="pc-tag">👤 ' + escHTML(j.poc_names.split(/[\/,]/)[0].trim()) + '</span>';
+    html += '</div>';
+    html += '</div>';
+    // Action button
+    html += '<button class="pc-action" data-pq-action="' + a.action + '" data-pq-job-id="' + j.id + '" data-pq-role="' + escHTML(j.role_title) + '" data-pq-bu="' + escHTML(j.bu) + '">' + escHTML(a.actionLabel) + '</button>';
+    html += '</div>';
+  });
+
+  html += '</div></div></div>';
+  return html;
+}
+
+function bindPriorityQueueEvents() {
+  document.querySelectorAll('.pc-action').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var action = btn.dataset.pqAction;
+      var jobId = btn.dataset.pqJobId;
+      var role = btn.dataset.pqRole;
+      var bu = btn.dataset.pqBu;
+
+      if (action === 'followup') {
+        // Scroll to and highlight the job in Open Jobs
+        var target = document.querySelector('[data-expand-job="' + jobId + '"]');
+        if (target) {
+          target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          target.style.transition = 'box-shadow 0.3s';
+          target.style.boxShadow = '0 0 0 3px #3B82F6';
+          setTimeout(function() { target.style.boxShadow = ''; }, 3000);
+        }
+        // Also expand the job
+        if (!expandedJobIds.has(jobId)) {
+          expandedJobIds.add(jobId);
+          render();
+          setTimeout(function() {
+            var t2 = document.querySelector('[data-expand-job="' + jobId + '"]');
+            if (t2) {
+              t2.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              t2.style.boxShadow = '0 0 0 3px #3B82F6';
+              setTimeout(function() { t2.style.boxShadow = ''; }, 3000);
+            }
+          }, 100);
+        }
+      } else if (action === 'submit') {
+        // Open chat with sourcing request
+        if (!chatOpen) toggleChat();
+        var msg = 'I need to submit candidates for the ' + role + ' role in ' + bu + '. Can you help me find and add qualified candidates?';
+        chatMessages.push({ role: 'user', content: msg });
+        renderChat();
+        // Trigger Claude
+        callClaude(msg);
+      } else if (action === 'escalate') {
+        // Open chat with escalation prompt
+        if (!chatOpen) toggleChat();
+        var msg2 = 'I need to escalate the ' + role + ' role in ' + bu + '. This role has been stale and needs attention. Can you draft an escalation summary?';
+        chatMessages.push({ role: 'user', content: msg2 });
+        renderChat();
+        callClaude(msg2);
+      }
+    });
+  });
 }
 
 // ═══════════════════════════════════════════════════
