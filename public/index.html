@@ -274,29 +274,40 @@
   .bu-filter-count { font-size: 11px; color: #94A3B8; margin-left: auto; }
 
   /* ── Project ── */
-  .project-section { border-top: 1px solid var(--border); }
+  .project-section { border-top: 1px solid var(--border); transition: background 0.3s ease, box-shadow 0.3s ease; }
+  .project-section.open {
+    background: #EFF6FF;
+    border-radius: 10px; margin: 6px 8px;
+    border: 1px solid #BFDBFE;
+    box-shadow: 0 2px 12px rgba(30,64,175,0.08);
+  }
   .project-header {
     display: flex; align-items: center; padding: 12px 20px 12px 52px;
     cursor: pointer; user-select: none; transition: background 0.15s; gap: 10px;
   }
   .project-header:hover { background: var(--surface-hover); }
+  .project-section.open .project-header { background: transparent; }
+  .project-section.open .project-header:hover { background: rgba(30,64,175,0.04); }
   .project-chevron {
     width: 16px; height: 16px; transition: transform 0.25s ease;
     color: var(--text-muted); flex-shrink: 0;
   }
   .project-section.open .project-chevron { transform: rotate(90deg); color: var(--toptal-blue); }
   .project-name { font-size: 14px; font-weight: 500; flex: 1; color: var(--text-secondary); }
-  .project-section.open .project-name { color: var(--toptal-dark); }
+  .project-section.open .project-name { color: #1E3A8A; font-weight: 700; }
   .project-count {
     font-size: 11px; background: var(--surface-raised);
     border: 1px solid var(--border); padding: 2px 10px;
     border-radius: 100px; color: var(--text-secondary); font-weight: 600;
   }
+  .project-section.open .project-count { background: #DBEAFE; color: #1D4ED8; border-color: #93C5FD; }
   .poc-badge {
     font-size: 11px; color: var(--text-muted);
     background: var(--surface-raised); border: 1px solid var(--border);
     padding: 2px 10px; border-radius: 100px; white-space: nowrap; margin-right: 4px;
   }
+  .project-section.open .poc-badge { background: #DBEAFE; border-color: #93C5FD; color: #1E40AF; }
+  .project-section.open .poc-badge span { color: #1E3A8A; }
   .poc-badge span { color: var(--toptal-dark); font-weight: 600; }
   .project-statuses { display: flex; gap: 3px; margin-right: 6px; }
   .mini-pip { width: 7px; height: 7px; border-radius: 50%; opacity: 0.9; }
