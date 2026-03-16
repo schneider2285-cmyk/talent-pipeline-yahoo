@@ -1947,6 +1947,7 @@ async function loadFulfillmentData() {
     // Store candidate record with details
     var cand = jc.candidates || {};
     j.candidates.push({
+      jc_id: jc.id || '',
       name: cand.name || 'Unknown',
       profile_link: cand.profile_link || '',
       location: cand.location || '',
@@ -2265,6 +2266,89 @@ function renderPipelineView() {
     html += '</div></div>';
   }
 
+  // Helper: render interactive candidate table for an Open Job (matches BU accordion style)
+  function renderOJCandidates(j) {
+    var out = '';
+    // Add Job / Add Candidate buttons for this role
+    out += '<div style="display:flex; gap:8px; margin-bottom:12px;">' +
+      '<button class="bu-action-btn" data-bu-add-job="' + escHTML(j.bu || '') + '" style="font-size:12px; padding:4px 10px;">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M12 5v14M5 12h14"/></svg> Add Job</button>' +
+      '<button class="bu-action-btn" data-bu-add-cand="' + escHTML(j.bu || '') + '" style="font-size:12px; padding:4px 10px;">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg> Add Candidate</button>' +
+      '</div>';
+
+    if (j.candidates && j.candidates.length > 0) {
+      // Per-job status filter pills
+      var ojSecKey = 'oj::' + j.id;
+      var ojSecFilters = sectionFilters[ojSecKey] || new Set();
+      var ojStatusCounts = {};
+      j.candidates.forEach(function(c) {
+        var st = c._status || 'other';
+        ojStatusCounts[st] = (ojStatusCounts[st] || 0) + 1;
+      });
+      out += '<div class="section-filter-bar" data-section-key="' + escHTML(ojSecKey) + '">' +
+        '<span class="filter-label-txt">Filter:</span>';
+      Object.keys(ojStatusCounts).forEach(function(st) {
+        var sCfg = STATUS_MAP[st] || {};
+        var isActive = ojSecFilters.has(st);
+        out += '<button class="section-filter-pill' + (isActive ? ' active' : '') + '" data-section-filter="' + escHTML(st) + '" data-section-key="' + escHTML(ojSecKey) + '" ' +
+          'style="--pill-color:' + (sCfg.color || '#888') + ';--pill-bg:' + (sCfg.color || '#888') + '15">' +
+          '<span class="pill-dot"></span>' +
+          '<span>' + escHTML((sCfg.label || st).replace('Talent ', '')) + '</span>' +
+          '<span class="pill-count">' + ojStatusCounts[st] + '</span>' +
+          '</button>';
+      });
+      out += '<button class="section-filter-pill clear-pill" data-section-clear="' + escHTML(ojSecKey) + '">Clear</button>';
+      out += '</div>';
+
+      // Talent table with status dropdowns and save buttons
+      out += '<table class="talent-table"><thead><tr><th>Candidate</th><th>Status</th><th>Introduced</th></tr></thead><tbody>';
+      j.candidates.forEach(function(c) {
+        var st = c._status || 'other';
+        var cfg = STATUS_MAP[st] || {};
+        var days = daysSince(c.status_changed_at || c.date_introduced);
+        var isHidden = ojSecFilters.size > 0 && !ojSecFilters.has(st);
+        var jcId = c.jc_id || c.id || '';
+        out += '<tr' + (isHidden ? ' class="filtered-out"' : '') + ' data-talent-status="' + escHTML(st) + '"' +
+          (jcId ? ' data-jc-id="' + escHTML(jcId) + '"' : '') + '>' +
+          '<td><div class="talent-name-cell">' + avatarHTML(c.name, c.profile_link, 32, c.avatar_url) +
+          '<div><div class="talent-label">' + escHTML(c.name) + '</div>' +
+          (c.location ? '<div class="talent-location">' + escHTML(c.location) + '</div>' : '') +
+          (c.rate ? '<div class="talent-role">$' + c.rate + '/hr</div>' : '') +
+          '</div></div></td>' +
+          '<td><div class="status-dropdown-wrap">' +
+          '<select class="status-dropdown" data-talent-name="' + escHTML(c.name) + '"' +
+          ' data-original-status="' + escHTML(st) + '"' +
+          (jcId ? ' data-jc-id="' + escHTML(jcId) + '"' : '') +
+          ' style="border-color:' + (cfg.color || '#E5E7EB') + ';color:' + (cfg.color || '#374151') + '">';
+        DROPDOWN_STATUSES.forEach(function(sk) {
+          var skCfg = STATUS_MAP[sk] || {};
+          out += '<option value="' + sk + '"' + (sk === st ? ' selected' : '') + '>' + escHTML(skCfg.label || sk) + '</option>';
+        });
+        if (DROPDOWN_STATUSES.indexOf(st) === -1) {
+          out += '<option value="' + escHTML(st) + '" selected>' + escHTML(cfg.label || st) + '</option>';
+        }
+        out += '</select>';
+        out += '<button class="status-save-btn" data-save-for="' + escHTML(jcId) + '">' +
+          '<span class="save-text">Save</span><span class="save-check">\u2713 Saved</span></button>';
+        if (cfg.actionLabel) {
+          out += '<span class="action-badge ' + cfg.actionClass + '">' + cfg.actionLabel + '</span>';
+        }
+        out += stalenessHTML(days) + '</div></td>' +
+          '<td class="date-cell">' + fmtDate(c.date_introduced) + '</td></tr>';
+      });
+      var ojVisibleCount = j.candidates.filter(function(c) {
+        var st = c._status || 'other';
+        return ojSecFilters.size === 0 || ojSecFilters.has(st);
+      }).length;
+      out += '</tbody></table>';
+      out += '<div class="section-summary-bar"><span style="font-weight:600;">Showing ' + ojVisibleCount + ' of ' + j.candidates.length + ' candidates</span></div>';
+    } else {
+      out += '<div class="oj-no-candidates">No candidates have been submitted yet. Use the chat to add candidates to this role.</div>';
+    }
+    return out;
+  }
+
   // Open Jobs section — all jobs with unfilled openings (with filters)
   if (FULFILLMENT_DATA && FULFILLMENT_DATA.length > 0) {
     var ojCancelledStatuses = new Set(['ROLE CANCELLED/FILED', 'REQ COMPLETE', 'ENGAGEMENT COMPLETED']);
@@ -2314,7 +2398,13 @@ function renderPipelineView() {
             '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>' +
           '</button>' +
         '</div>' +
-        '<span class="open-jobs-count">' + openJobsAll.length + ' Open Roles</span></div>' +
+        '<span class="open-jobs-count">' + openJobsAll.length + ' Open Roles</span>' +
+        '<div class="bu-actions" style="margin-left:auto;">' +
+        '<button class="bu-action-btn" data-oj-add-job title="Add a new job">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M12 5v14M5 12h14"/></svg> Add Job</button>' +
+        '<button class="bu-action-btn" data-oj-add-cand title="Add a candidate">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg> Add Candidate</button>' +
+        '</div></div>' +
         '<div class="open-jobs-body">' +
         '<div class="open-jobs-subtitle">All roles with unfilled openings \u2014 track progress and prioritize sourcing.</div>';
 
@@ -2389,35 +2479,10 @@ function renderPipelineView() {
             '<td>' + (j.rate_max ? '$' + j.rate_max + '/hr' : '\u2014') + '</td>' +
             '<td style="font-size:12px; color:var(--text-secondary);">' + escHTML(j.poc_names || '\u2014') + '</td>' +
             '</tr>';
-          // If expanded, show detail row
+          // If expanded, show detail row with interactive candidate table
           if (expandedJobIds.has(j.id)) {
             html += '<tr class="oj-list-detail-row"><td colspan="7"><div class="oj-detail" style="margin-top:0;">';
-            // Reuse same candidate rendering
-            if (j.candidates && j.candidates.length > 0) {
-              var candGroups = {};
-              var groupOrder = ['introduced','interview_scheduled','pending_interview','pending_decision','pending_2nd_interview','hired','rejected','withdrawn','unavailable','consider_other','removed_location','on_hold'];
-              j.candidates.forEach(function(c) { var g = c._status || 'other'; if (!candGroups[g]) candGroups[g] = []; candGroups[g].push(c); });
-              var orderedGroups = groupOrder.filter(function(g) { return candGroups[g]; });
-              Object.keys(candGroups).forEach(function(g) { if (orderedGroups.indexOf(g) === -1) orderedGroups.push(g); });
-              orderedGroups.forEach(function(groupKey) {
-                var cands = candGroups[groupKey];
-                var groupLabel = (STATUS_MAP[groupKey] || {}).label || groupKey.replace(/_/g, ' ').replace(/\b\w/g, function(l) { return l.toUpperCase(); });
-                var groupColor = (STATUS_MAP[groupKey] || {}).color || '#64748B';
-                html += '<div class="oj-cand-section"><div class="oj-cand-section-title"><span style="color:' + groupColor + '">\u25CF</span> ' + escHTML(groupLabel) + ' <span class="cand-count">' + cands.length + '</span></div>';
-                cands.forEach(function(c) {
-                  html += '<div class="oj-cand-row">' + avatarHTML(c.name, c.profile_link, 28);
-                  html += c.profile_link ? '<span class="oj-cand-name"><a href="' + escHTML(c.profile_link) + '" target="_blank">' + escHTML(c.name) + '</a></span>' : '<span class="oj-cand-name">' + escHTML(c.name) + '</span>';
-                  var details = [];
-                  if (c.location) details.push('\uD83D\uDCCD ' + c.location);
-                  if (c.rate) details.push('$' + c.rate + '/hr');
-                  if (details.length) html += '<span class="oj-cand-detail">' + escHTML(details.join(' \u00B7 ')) + '</span>';
-                  html += '</div>';
-                });
-                html += '</div>';
-              });
-            } else {
-              html += '<div class="oj-no-candidates">No candidates submitted yet.</div>';
-            }
+            html += renderOJCandidates(j);
             html += '</div></td></tr>';
           }
         });
@@ -2471,59 +2536,8 @@ function renderPipelineView() {
             if (j.slack_channel) linksHtml += '<span style="font-size:12px; color:var(--text-secondary);">Slack: ' + escHTML(j.slack_channel) + '</span>';
             if (linksHtml) html += '<div style="margin-bottom:14px;">' + linksHtml + '</div>';
 
-            // Candidates grouped by status
-            if (j.candidates && j.candidates.length > 0) {
-              var candGroups = {};
-              var groupOrder = ['introduced','interview_scheduled','pending_interview','pending_decision','pending_2nd_interview','hired','rejected','withdrawn','unavailable','consider_other','removed_location','on_hold'];
-              j.candidates.forEach(function(c) {
-                var g = c._status || 'other';
-                if (!candGroups[g]) candGroups[g] = [];
-                candGroups[g].push(c);
-              });
-
-              // Render each group
-              var orderedGroups = groupOrder.filter(function(g) { return candGroups[g]; });
-              // Add any remaining groups not in the order
-              Object.keys(candGroups).forEach(function(g) { if (orderedGroups.indexOf(g) === -1) orderedGroups.push(g); });
-
-              orderedGroups.forEach(function(groupKey) {
-                var cands = candGroups[groupKey];
-                var groupLabel = (STATUS_MAP[groupKey] || {}).label || groupKey.replace(/_/g, ' ').replace(/\b\w/g, function(l) { return l.toUpperCase(); });
-                var groupColor = (STATUS_MAP[groupKey] || {}).color || '#64748B';
-                var badgeClass = 'other';
-                if (groupKey === 'introduced') badgeClass = 'introduced';
-                else if (groupKey.includes('interview') || groupKey === 'pending_interview') badgeClass = 'interview';
-                else if (groupKey.includes('pending') || groupKey.includes('decision')) badgeClass = 'pending';
-                else if (groupKey === 'hired') badgeClass = 'hired';
-                else if (groupKey === 'rejected' || groupKey === 'client_rejected') badgeClass = 'rejected';
-
-                html += '<div class="oj-cand-section">';
-                html += '<div class="oj-cand-section-title"><span style="color:' + groupColor + '">\u25CF</span> ' + escHTML(groupLabel) + ' <span class="cand-count">' + cands.length + '</span></div>';
-
-                cands.forEach(function(c) {
-                  html += '<div class="oj-cand-row">';
-                  html += avatarHTML(c.name, c.profile_link, 28, c.avatar_url);
-                  if (c.profile_link) {
-                    html += '<span class="oj-cand-name"><a href="' + escHTML(c.profile_link) + '" target="_blank">' + escHTML(c.name) + '</a></span>';
-                  } else {
-                    html += '<span class="oj-cand-name">' + escHTML(c.name) + '</span>';
-                  }
-                  var details = [];
-                  if (c.location) details.push('\uD83D\uDCCD ' + c.location);
-                  if (c.rate) details.push('$' + c.rate + '/hr');
-                  if (c.date_introduced) details.push('Intro: ' + fmtDate(c.date_introduced));
-                  if (c.date_interview) details.push('Interview: ' + fmtDate(c.date_interview));
-                  if (details.length) html += '<span class="oj-cand-detail">' + escHTML(details.join(' \u00B7 ')) + '</span>';
-                  if (c.client_feedback) html += '<span class="oj-cand-detail" style="color:#92400E;" title="Client feedback">\uD83D\uDCAC ' + escHTML(c.client_feedback.substring(0, 60)) + (c.client_feedback.length > 60 ? '...' : '') + '</span>';
-                  if (c.rejection_reason && badgeClass === 'rejected') html += '<span class="oj-cand-detail" style="color:#991B1B;">\u2715 ' + escHTML(c.rejection_reason.substring(0, 60)) + '</span>';
-                  html += '</div>';
-                });
-
-                html += '</div>';
-              });
-            } else {
-              html += '<div class="oj-no-candidates">No candidates have been submitted yet. Use the chat to add candidates to this role.</div>';
-            }
+            // Interactive candidate table (matches BU accordion style)
+            html += renderOJCandidates(j);
 
             html += '</div>'; // close oj-detail
           }
@@ -3192,6 +3206,20 @@ function bindEvents() {
       else if (mode === 'wins-list') { winsViewMode = 'list'; render(); }
       else if (mode === 'oj-card') { openJobsViewMode = 'card'; render(); }
       else if (mode === 'oj-list') { openJobsViewMode = 'list'; render(); }
+    });
+  });
+
+  // Open Jobs header: Add Job / Add Candidate buttons
+  document.querySelectorAll('[data-oj-add-job]').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      showJobForm();
+    });
+  });
+  document.querySelectorAll('[data-oj-add-cand]').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      showCandidateForm();
     });
   });
 
