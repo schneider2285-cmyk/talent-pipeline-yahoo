@@ -1086,7 +1086,7 @@ async function loadPipelineData() {
 async function loadFulfillmentData() {
   const { data: jobs, error: jobsErr } = await sb.from('jobs').select('*');
   if (jobsErr) throw new Error('Jobs fetch failed: ' + jobsErr.message);
-  const { data: jcData, error: jcErr } = await sb.from('job_candidates').select('*, candidates(id, name, profile_link, location, rate, avatar_url)');
+  const { data: jcData, error: jcErr } = await sb.from('job_candidates').select('*, candidates(id, name, profile_link, location, rate)');
   if (jcErr) throw new Error('JC fetch failed: ' + jcErr.message);
   // Aggregate client-side
   var jobMap = {};
