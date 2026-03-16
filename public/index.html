@@ -2459,8 +2459,10 @@ function renderPipelineView() {
         }
         var introRaw = c.date_introduced || '';
         var intRaw = c.date_interview || '';
-        var introISO = introRaw ? new Date(introRaw).toISOString().slice(0,10) : '';
-        var intISO = intRaw ? new Date(intRaw).toISOString().slice(0,10) : '';
+        var introD = introRaw ? new Date(introRaw) : null;
+        var intD = intRaw ? new Date(intRaw) : null;
+        var introISO = (introD && !isNaN(introD.getTime())) ? introD.toISOString().slice(0,10) : '';
+        var intISO = (intD && !isNaN(intD.getTime())) ? intD.toISOString().slice(0,10) : '';
         out += stalenessHTML(days) + '</div></td>' +
           '<td class="date-cell"><div class="date-cell-editable" data-date-field="date_introduced" data-jc-id="' + escHTML(jcId) + '">' +
             '<span class="date-display">' + (introRaw ? fmtDate(introRaw) : '\u2014') + '<span class="edit-icon">\u270E</span></span>' +
