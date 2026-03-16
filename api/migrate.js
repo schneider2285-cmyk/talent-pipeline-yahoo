@@ -8,8 +8,11 @@ export default async function handler(req, res) {
 
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const auth = (req.headers.authorization || '').replace('Bearer ', '');
+  if (!serviceRoleKey) {
+    return res.status(500).json({ error: 'SUPABASE_SERVICE_ROLE_KEY not set', envKeys: Object.keys(process.env).filter(k => k.includes('SUPA')).sort() });
+  }
   if (!auth || auth !== serviceRoleKey) {
-    return res.status(403).json({ error: 'Forbidden' });
+    return res.status(403).json({ error: 'Forbidden', keyLen: serviceRoleKey.length, authLen: auth.length, match: auth === serviceRoleKey });
   }
 
   // Try DATABASE_URL first, then POSTGRES_URL (Vercel Postgres integration)
