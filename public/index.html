@@ -2607,11 +2607,15 @@ function renderJobForm() {
 
   // BU
   html += '<div class="form-group"><label>Business Unit <span class="req">*</span></label>';
-  html += '<select id="jf-bu"><option value="">Select BU...</option>';
+  html += '<select id="jf-bu" onchange="var ni=document.getElementById(\'jf-bu-new\'); ni.style.display = this.value===\'__new__\' ? \'block\' : \'none\';">';
+  html += '<option value="">Select BU...</option>';
   buList.forEach(function(bu) {
     html += '<option value="' + escHTML(bu) + '">' + escHTML(bu) + '</option>';
   });
-  html += '</select></div>';
+  html += '<option value="__new__">\u2795 New BU...</option>';
+  html += '</select>';
+  html += '<input type="text" id="jf-bu-new" placeholder="Enter new Business Unit name" style="display:none; margin-top:6px;" />';
+  html += '</div>';
 
   // Hiring Manager / POC
   html += '<div class="form-group"><label>Hiring Manager / POC <span class="req">*</span></label>';
@@ -2672,7 +2676,9 @@ function showJobForm() {
 
 async function submitJobForm() {
   // Read values
-  var bu = (document.getElementById('jf-bu') || {}).value || '';
+  var buSelect = (document.getElementById('jf-bu') || {}).value || '';
+  var buNew = (document.getElementById('jf-bu-new') || {}).value || '';
+  var bu = buSelect === '__new__' ? buNew.trim() : buSelect;
   var poc = (document.getElementById('jf-poc') || {}).value || '';
   var projectSelect = (document.getElementById('jf-project') || {}).value || '';
   var projectNew = (document.getElementById('jf-project-new') || {}).value || '';
@@ -2684,10 +2690,21 @@ async function submitJobForm() {
 
   // Validate required fields
   var valid = true;
-  [['jf-bu', bu], ['jf-poc', poc], ['jf-role', role]].forEach(function(pair) {
+  [['jf-poc', poc], ['jf-role', role]].forEach(function(pair) {
     var el = document.getElementById(pair[0]);
     if (el) { if (!pair[1].trim()) { el.classList.add('error'); valid = false; } else { el.classList.remove('error'); } }
   });
+  // BU validation
+  var buEl = document.getElementById('jf-bu');
+  var buNewEl = document.getElementById('jf-bu-new');
+  if (!bu) {
+    if (buEl) buEl.classList.add('error');
+    if (buSelect === '__new__' && buNewEl) buNewEl.classList.add('error');
+    valid = false;
+  } else {
+    if (buEl) buEl.classList.remove('error');
+    if (buNewEl) buNewEl.classList.remove('error');
+  }
   // Project validation
   var projEl = document.getElementById('jf-project');
   var projNewEl = document.getElementById('jf-project-new');
