@@ -714,13 +714,17 @@
 const SUPABASE_URL = 'https://jbbjofdkbkymiqmlylcy.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpiYmpvZmRrYmt5bWlxbWx5bGN5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyODk4NDgsImV4cCI6MjA4ODg2NTg0OH0.Oi2_WxqI4Xx7LmMJrqZe_DoG_HCS3kfCdVsnPifKb7A';
 
+// Custom lock: bypass navigator.locks to prevent auth deadlocks
+// See: https://github.com/supabase/supabase-js/issues/2111
+var noOpLock = async function(name, acquireTimeout, fn) { return await fn(); };
+
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
-    storageKey: 'sb-' + SUPABASE_URL.split('//')[1].split('.')[0] + '-auth-token',
-    flowType: 'implicit'
+    flowType: 'implicit',
+    lock: noOpLock
   }
 });
 
@@ -728,7 +732,6 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 var currentUser = null;
 var currentProfile = null;
 var appInitialized = false;
-var authResolved = false;
 
 async function getSession() {
   var { data } = await sb.auth.getSession();
@@ -743,7 +746,7 @@ async function getAccessToken() {
 async function loadProfile(userId) {
   try {
     var { data, error } = await sb.from('profiles').select('*').eq('id', userId).maybeSingle();
-    if (error) { console.warn('Profile load error:', error.message); }
+    if (error) console.warn('Profile load error:', error.message);
     currentProfile = data || null;
     return currentProfile;
   } catch(e) {
@@ -780,71 +783,11 @@ async function initApp(session) {
   }
 }
 
-// Read session directly from localStorage to bypass Supabase lock issues
-function getStoredSession() {
-  try {
-    var key = 'sb-' + SUPABASE_URL.split('//')[1].split('.')[0] + '-auth-token';
-    var raw = localStorage.getItem(key);
-    if (!raw) return null;
-    var parsed = JSON.parse(raw);
-    // Check if token is expired
-    if (parsed.expires_at && parsed.expires_at * 1000 < Date.now()) return null;
-    return parsed;
-  } catch(e) { return null; }
-}
-
-// Primary auth: read localStorage immediately (no locks, no async)
-(function() {
-  var stored = getStoredSession();
-  if (stored && stored.user) {
-    // We have a valid session in storage — show the app immediately
-    currentUser = stored.user;
-    authResolved = true;
-    hideLogin();
-    // Load profile and data async (non-blocking)
-    (async function() {
-      try { await loadProfile(stored.user.id); } catch(e) { console.warn('Profile load skipped:', e); }
-      if (!appInitialized) {
-        appInitialized = true;
-        fetchAllData();
-        setupRealtime();
-      }
-      // Now let Supabase properly initialize in the background (refreshes token if needed)
-      try {
-        var { data } = await sb.auth.getSession();
-        if (data.session) { currentUser = data.session.user; }
-      } catch(e) { console.warn('Background session refresh:', e); }
-    })();
-  } else {
-    authResolved = true;
-    showLogin();
-  }
-})();
-
-// Secondary: listen for auth changes (handles new sign-in, sign-out, token refresh)
+// Auth state listener — no more lock issues since we bypass navigator.locks
 sb.auth.onAuthStateChange(async function(event, session) {
-  if (event === 'INITIAL_SESSION') {
-    // If we already resolved from localStorage, skip
-    if (authResolved) return;
-    if (session && session.user) {
-      await initApp(session);
-    } else {
-      showLogin();
-    }
-    return;
-  }
-
-  if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-    if (session && session.user) {
-      await initApp(session);
-    }
-  } else if (event === 'SIGNED_OUT') {
-    // Verify this is a real sign-out by checking localStorage
-    var stored = getStoredSession();
-    if (stored && stored.user) {
-      console.warn('Ignoring spurious SIGNED_OUT — stored session still valid');
-      return;
-    }
+  if (session && session.user) {
+    await initApp(session);
+  } else if (event === 'INITIAL_SESSION' || event === 'SIGNED_OUT') {
     currentUser = null;
     currentProfile = null;
     appInitialized = false;
