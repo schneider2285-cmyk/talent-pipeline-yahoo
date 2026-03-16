@@ -909,6 +909,84 @@
     .chat-drawer { width: 100%; }
     .admin-grid { grid-template-columns: 1fr; }
   }
+
+  /* ═══ Health Score Badges ═══ */
+  .health-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 32px; height: 32px; border-radius: 50%; font-size: 11px; font-weight: 700;
+    color: white; line-height: 1;
+  }
+  .health-badge.health-healthy { background: #16A34A; }
+  .health-badge.health-fair { background: #CA8A04; }
+  .health-badge.health-at-risk { background: #EA580C; }
+  .health-badge.health-critical { background: #DC2626; }
+  .health-badge-sm { width: 24px; height: 24px; font-size: 9px; }
+
+  /* ═══ Aging Badges ═══ */
+  .aging-badge {
+    display: inline-block; padding: 2px 8px; border-radius: 100px;
+    font-size: 11px; font-weight: 600; white-space: nowrap;
+  }
+  .aging-badge.aging-green { background: #DCFCE7; color: #166534; }
+  .aging-badge.aging-yellow { background: #FEF9C3; color: #854D0E; }
+  .aging-badge.aging-orange { background: #FFEDD5; color: #9A3412; }
+  .aging-badge.aging-red { background: #FEE2E2; color: #991B1B; }
+  @keyframes agingPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+  }
+  .aging-badge.aging-pulse { animation: agingPulse 2s ease-in-out infinite; }
+
+  /* ═══ Priority Queue ═══ */
+  .priority-queue {
+    margin: 0 24px 20px; padding: 16px 20px; border-radius: var(--radius-lg);
+    background: linear-gradient(135deg, #FFF7ED 0%, #FEF3C7 50%, #ECFDF5 100%);
+    border: 1px solid #FDE68A;
+  }
+  .priority-queue-header {
+    display: flex; align-items: center; justify-content: space-between;
+    cursor: pointer; user-select: none;
+  }
+  .priority-queue-header h3 { margin: 0; font-size: 15px; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
+  .priority-queue-header .pq-count {
+    background: #DC2626; color: white; font-size: 11px; font-weight: 700;
+    padding: 2px 8px; border-radius: 100px;
+  }
+  .priority-queue-body { margin-top: 12px; overflow: hidden; transition: max-height 0.3s ease, opacity 0.3s ease; }
+  .priority-queue-body.collapsed { max-height: 0; opacity: 0; margin-top: 0; }
+  .priority-cards { display: flex; flex-direction: column; gap: 8px; }
+  .priority-card {
+    display: flex; align-items: center; gap: 12px; padding: 10px 14px;
+    background: white; border-radius: var(--radius); border: 1px solid var(--border);
+    transition: box-shadow 0.2s;
+  }
+  .priority-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+  .priority-card .sev-dot {
+    width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+  }
+  .sev-dot.sev-critical { background: #DC2626; }
+  .sev-dot.sev-high { background: #EA580C; }
+  .sev-dot.sev-medium { background: #CA8A04; }
+  .priority-card .pc-content { flex: 1; min-width: 0; }
+  .priority-card .pc-title { font-size: 12px; font-weight: 700; color: var(--text-primary); }
+  .priority-card .pc-desc { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
+  .priority-card .pc-tags { display: flex; gap: 4px; margin-top: 4px; flex-wrap: wrap; }
+  .priority-card .pc-tag {
+    font-size: 10px; padding: 1px 6px; border-radius: 4px;
+    background: #F1F5F9; color: #475569; white-space: nowrap;
+  }
+  .priority-card .pc-tag.tier-tag { background: #EFF6FF; color: #1D4ED8; font-weight: 600; }
+  .priority-card .pc-action {
+    flex-shrink: 0; padding: 6px 12px; border-radius: var(--radius);
+    font-size: 11px; font-weight: 600; border: 1px solid var(--border);
+    background: white; color: var(--toptal-blue); cursor: pointer;
+    transition: background 0.2s;
+  }
+  .priority-card .pc-action:hover { background: #EFF6FF; }
+  @media (max-width: 768px) {
+    .priority-card { flex-direction: column; align-items: flex-start; }
+    .priority-card .pc-action { align-self: flex-end; }
+  }
 </style>
 </head>
 <body>
@@ -1197,6 +1275,220 @@ const JOB_STATUSES = [
 ];
 let chatOpen = false;
 let chatMessages = [];
+let priorityQueueOpen = true;
+
+// ═══════════════════════════════════════════════════
+//  HEALTH SCORE & AGING UTILITIES (Workstream A)
+//  Pure functions — no DOM, no Supabase calls.
+//  Consumed by Priority Queue, Fulfillment, Analytics, Briefing.
+// ═══════════════════════════════════════════════════
+
+// Configurable aging thresholds (days)
+var AGING_THRESHOLDS = { green: 14, yellow: 21, orange: 30 }; // ≤green=green, ≤yellow=yellow, ≤orange=orange, else red
+
+/**
+ * Compute aging band from days since contact.
+ * Returns { band: 'green'|'yellow'|'orange'|'red', label: string, color: string }
+ */
+function computeAgingBand(daysSinceContact) {
+  var d = (daysSinceContact === null || daysSinceContact === undefined) ? 999 : daysSinceContact;
+  if (d <= AGING_THRESHOLDS.green) return { band: 'green', label: d + 'd', color: '#16A34A' };
+  if (d <= AGING_THRESHOLDS.yellow) return { band: 'yellow', label: d + 'd', color: '#CA8A04' };
+  if (d <= AGING_THRESHOLDS.orange) return { band: 'orange', label: d + 'd', color: '#EA580C' };
+  return { band: 'red', label: d === 999 ? 'N/A' : d + 'd', color: '#DC2626' };
+}
+
+/**
+ * Compute a 0-100 health score for a job using FULFILLMENT_DATA structure.
+ * Mirrors the PostgreSQL function logic client-side.
+ * @param {Object} job — a single FULFILLMENT_DATA entry
+ * @returns {number} 0-100
+ */
+function computeHealthScore(job) {
+  var openings = job.openings || 1;
+  var activeCandidates = job.active_candidates || 0;
+  var totalCandidates = job.total_candidates || 0;
+  var daysSinceAct = job.days_since_contact;
+
+  // Coverage score (30%): active candidates vs openings
+  var coverageScore = Math.min(100, (activeCandidates / Math.max(openings, 1)) * 100);
+
+  // Momentum score (25%): recent introductions (last 14 days)
+  var recentIntros = 0;
+  var now = Date.now();
+  var fourteenDays = 14 * 86400000;
+  (job.candidates || []).forEach(function(c) {
+    if (c.date_introduced) {
+      var d = new Date(c.date_introduced);
+      if (!isNaN(d) && (now - d.getTime()) <= fourteenDays) recentIntros++;
+    }
+  });
+  var momentumScore = recentIntros >= 3 ? 100 : recentIntros >= 2 ? 75 : recentIntros >= 1 ? 50 : 0;
+
+  // Staleness score (25%): inverse of days since activity
+  var d = (daysSinceAct === null || daysSinceAct === undefined) ? 999 : daysSinceAct;
+  var stalenessScore = d <= 3 ? 100 : d <= 7 ? 80 : d <= 14 ? 60 : d <= 21 ? 40 : d <= 30 ? 20 : 0;
+
+  // Conversion score (20%): has candidates in advanced stages
+  var hasAdvanced = (job.candidates || []).some(function(c) {
+    return c._status === 'interview_scheduled' || c._status === 'pending_decision' || c._status === 'pending_2nd_interview';
+  });
+  var conversionScore = hasAdvanced ? 100 : 0;
+
+  return Math.max(0, Math.min(100, Math.round(
+    coverageScore * 0.30 +
+    momentumScore * 0.25 +
+    stalenessScore * 0.25 +
+    conversionScore * 0.20
+  )));
+}
+
+/**
+ * Get health band from score.
+ * Returns { band: 'critical'|'at-risk'|'fair'|'healthy', color: string }
+ */
+function healthBand(score) {
+  if (score >= 70) return { band: 'healthy', color: '#16A34A' };
+  if (score >= 40) return { band: 'fair', color: '#CA8A04' };
+  if (score >= 20) return { band: 'at-risk', color: '#EA580C' };
+  return { band: 'critical', color: '#DC2626' };
+}
+
+/**
+ * Generate a small HTML badge for a health score.
+ */
+function generateHealthBadge(score) {
+  var hb = healthBand(score);
+  return '<span class="health-badge health-' + hb.band + '" title="Health: ' + score + '/100">' + score + '</span>';
+}
+
+/**
+ * Generate a small HTML badge for aging.
+ */
+function generateAgingBadge(daysSinceContact) {
+  var ab = computeAgingBand(daysSinceContact);
+  var pulse = ab.band === 'red' ? ' aging-pulse' : '';
+  return '<span class="aging-badge aging-' + ab.band + pulse + '" title="' + ab.label + ' since contact">' + ab.label + '</span>';
+}
+
+/**
+ * Sort jobs by urgency (lowest health score first, then most stale).
+ */
+function sortJobsByUrgency(jobs) {
+  return jobs.slice().sort(function(a, b) {
+    var sa = typeof a._healthScore === 'number' ? a._healthScore : computeHealthScore(a);
+    var sb2 = typeof b._healthScore === 'number' ? b._healthScore : computeHealthScore(b);
+    if (sa !== sb2) return sa - sb2; // lowest score first
+    var da = a.days_since_contact || 999;
+    var db = b.days_since_contact || 999;
+    return db - da; // most stale first
+  });
+}
+
+/**
+ * Detect candidates appearing in multiple active pipelines.
+ * @param {Array} jobs — FULFILLMENT_DATA
+ * @returns {Array} [{ name, jobs: [{id, role_title, bu}] }]
+ */
+function detectDuplicateCandidates(jobs) {
+  var candMap = {};
+  var activeSt = new Set(['introduced', 'interview_scheduled', 'pending_decision', 'pending_2nd_interview']);
+  jobs.forEach(function(j) {
+    (j.candidates || []).forEach(function(c) {
+      if (!activeSt.has(c._status)) return;
+      var key = (c.name || '').trim().toLowerCase();
+      if (!key) return;
+      if (!candMap[key]) candMap[key] = { name: c.name, jobs: [] };
+      candMap[key].jobs.push({ id: j.id, role_title: j.role_title, bu: j.bu });
+    });
+  });
+  return Object.values(candMap).filter(function(c) { return c.jobs.length > 1; });
+}
+
+/**
+ * Generate ranked priority actions across 5 tiers.
+ * @param {Array} jobs — FULFILLMENT_DATA
+ * @returns {Array} [{ tier, severity, title, description, job, action, actionLabel }]
+ */
+function generatePriorityActions(jobs) {
+  var actions = [];
+  var activeStatuses = new Set(['ACTIVE', 'FINDING TALENT', 'TALENT INTRODUCED', 'PENDING INTERVIEW',
+    'INTERVIEW SCHEDULED', 'PENDING DECISION', 'PENDING 2ND INTERVIEW', 'PENDING QUOTE', 'PENDING PO']);
+  var cancelledStatuses = new Set(['ROLE CANCELLED/FILED', 'REQ COMPLETE', 'ENGAGEMENT COMPLETED', 'TALENT WITHDRAWN', 'TALENT NO LONGER AVAILABLE']);
+
+  jobs.forEach(function(j) {
+    // Skip cancelled/completed jobs
+    if (cancelledStatuses.has(j.status)) return;
+
+    var unfilled = (j.openings || 1) - (j.hired_count || 0);
+    if (unfilled <= 0) return; // fully filled
+
+    var score = computeHealthScore(j);
+    var dsc = j.days_since_contact;
+
+    // Tier 1: Closest to hire — candidates in pending decision
+    var pendingDecision = (j.candidates || []).filter(function(c) {
+      return c._status === 'pending_decision' || c._status === 'pending_2nd_interview';
+    });
+    if (pendingDecision.length > 0) {
+      actions.push({
+        tier: 1, severity: 'critical', title: 'Decision Pending',
+        description: pendingDecision.length + ' candidate' + (pendingDecision.length > 1 ? 's' : '') + ' awaiting decision for ' + j.role_title,
+        job: j, action: 'followup', actionLabel: 'Follow Up'
+      });
+    }
+
+    // Tier 2: Roles going cold (14+ days since contact)
+    if (dsc !== null && dsc >= 14 && (j.active_candidates || 0) > 0) {
+      actions.push({
+        tier: 2, severity: dsc >= 30 ? 'critical' : 'high', title: 'Going Cold',
+        description: j.role_title + ' — ' + dsc + ' days since contact with ' + j.active_candidates + ' active candidate' + (j.active_candidates > 1 ? 's' : ''),
+        job: j, action: 'followup', actionLabel: 'Follow Up'
+      });
+    }
+
+    // Tier 3: Zero candidates
+    if ((j.total_candidates || 0) === 0) {
+      actions.push({
+        tier: 3, severity: 'high', title: 'Empty Pipeline',
+        description: j.role_title + ' (' + j.bu + ') has no candidates submitted',
+        job: j, action: 'submit', actionLabel: 'Submit Candidates'
+      });
+    }
+
+    // Tier 4: Underfilled pipelines (active < openings and has some candidates)
+    if ((j.active_candidates || 0) < unfilled && (j.total_candidates || 0) > 0) {
+      actions.push({
+        tier: 4, severity: 'medium', title: 'Underfilled',
+        description: j.role_title + ' needs ' + unfilled + ' hire' + (unfilled > 1 ? 's' : '') + ' but only ' + (j.active_candidates || 0) + ' active candidate' + ((j.active_candidates || 0) !== 1 ? 's' : ''),
+        job: j, action: 'submit', actionLabel: 'Submit Candidates'
+      });
+    }
+
+    // Tier 5: Stuck candidates — in introduced for 21+ days
+    (j.candidates || []).forEach(function(c) {
+      if (c._status === 'introduced' && c.date_introduced) {
+        var introDate = new Date(c.date_introduced);
+        if (!isNaN(introDate) && daysSince(c.date_introduced) >= 21) {
+          actions.push({
+            tier: 5, severity: 'medium', title: 'Stuck Candidate',
+            description: c.name + ' introduced ' + daysSince(c.date_introduced) + ' days ago for ' + j.role_title + ' — no progress',
+            job: j, action: 'escalate', actionLabel: 'Escalate'
+          });
+        }
+      }
+    });
+  });
+
+  // Sort by tier, then severity
+  var sevOrder = { critical: 0, high: 1, medium: 2 };
+  actions.sort(function(a, b) {
+    if (a.tier !== b.tier) return a.tier - b.tier;
+    return (sevOrder[a.severity] || 3) - (sevOrder[b.severity] || 3);
+  });
+
+  return actions.slice(0, 10);
+}
 
 // ═══════════════════════════════════════════════════
 //  SUPABASE DATA LAYER
@@ -1226,6 +1518,8 @@ async function loadFulfillmentData() {
       notes: j.notes || '', interview_context: j.interview_context || '',
       toptal_job_link: j.toptal_job_link,
       salesforce_link: j.salesforce_link, slack_channel: j.slack_channel,
+      health_score: j.health_score, last_activity_at: j.last_activity_at,
+      priority_override: j.priority_override, sow_number: j.sow_number,
       total_candidates: 0, active_candidates: 0, hired_count: 0, rejected_count: 0,
       needs_attention: 0, latest_contact: null,
       candidates: [] // Store per-job candidate details
@@ -1267,11 +1561,15 @@ async function loadFulfillmentData() {
       date_hired: jc.date_hired || '',
       date_rejected: jc.date_rejected || '',
       client_feedback: jc.client_feedback || '',
-      rejection_reason: jc.rejection_reason || ''
+      rejection_reason: jc.rejection_reason || '',
+      status_changed_at: jc.status_changed_at || jc.updated_at || ''
     });
   });
   return Object.values(jobMap).map(function(j) {
     j.days_since_contact = j.latest_contact ? daysSince(j.latest_contact) : null;
+    // Pre-compute client-side health score (use DB score if available, otherwise compute)
+    j._healthScore = (j.health_score !== null && j.health_score !== undefined) ? j.health_score : computeHealthScore(j);
+    j._agingBand = computeAgingBand(j.days_since_contact);
     return j;
   });
 }
