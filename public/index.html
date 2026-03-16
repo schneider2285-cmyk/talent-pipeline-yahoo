@@ -403,6 +403,30 @@
   .status-save-btn.saved .save-check { display: inline; }
   .status-save-btn.saved .save-text { display: none; }
 
+  /* ── Editable Date Cells ── */
+  .date-cell-editable {
+    cursor: pointer; position: relative; padding: 4px 8px;
+    border-radius: 6px; transition: background 0.15s;
+  }
+  .date-cell-editable:hover { background: #F1F5F9; }
+  .date-cell-editable .date-display { display: flex; align-items: center; gap: 4px; }
+  .date-cell-editable .date-display .edit-icon {
+    opacity: 0; transition: opacity 0.15s; color: #94A3B8; font-size: 12px;
+  }
+  .date-cell-editable:hover .date-display .edit-icon { opacity: 1; }
+  .date-cell-editable .date-edit-input {
+    display: none; width: 130px; padding: 3px 6px; border: 1.5px solid #3B82F6;
+    border-radius: 6px; font-size: 12px; color: #1E293B; background: white;
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
+  }
+  .date-cell-editable .date-edit-input.active { display: block; }
+  .date-cell-editable .date-display.hidden { display: none; }
+  .date-saving { opacity: 0.6; pointer-events: none; }
+  .date-saved-flash { animation: dateSavedFlash 1s ease; }
+  @keyframes dateSavedFlash {
+    0% { background: #DCFCE7; } 100% { background: transparent; }
+  }
+
   /* ── Action Badges ── */
   .action-badge {
     display: inline-flex; align-items: center; gap: 4px;
@@ -2433,9 +2457,19 @@ function renderPipelineView() {
         if (cfg.actionLabel) {
           out += '<span class="action-badge ' + cfg.actionClass + '">' + cfg.actionLabel + '</span>';
         }
+        var introRaw = c.date_introduced || '';
+        var intRaw = c.date_interview || '';
+        var introISO = introRaw ? new Date(introRaw).toISOString().slice(0,10) : '';
+        var intISO = intRaw ? new Date(intRaw).toISOString().slice(0,10) : '';
         out += stalenessHTML(days) + '</div></td>' +
-          '<td class="date-cell">' + fmtDate(c.date_introduced) + '</td>' +
-          '<td class="date-cell">' + (c.date_interview ? '<span style="color:' + (isInterviewStatus ? '#6941C6' : '#64748B') + '; font-weight:' + (isInterviewStatus ? '600' : '400') + ';">' + (isInterviewStatus ? '\uD83D\uDCC5 ' : '') + fmtDate(c.date_interview) + '</span>' : '\u2014') + '</td></tr>';
+          '<td class="date-cell"><div class="date-cell-editable" data-date-field="date_introduced" data-jc-id="' + escHTML(jcId) + '">' +
+            '<span class="date-display">' + (introRaw ? fmtDate(introRaw) : '\u2014') + '<span class="edit-icon">\u270E</span></span>' +
+            '<input type="date" class="date-edit-input" value="' + introISO + '">' +
+          '</div></td>' +
+          '<td class="date-cell"><div class="date-cell-editable" data-date-field="date_interview" data-jc-id="' + escHTML(jcId) + '">' +
+            '<span class="date-display">' + (intRaw ? '<span style="color:' + (isInterviewStatus ? '#6941C6' : '#64748B') + '; font-weight:' + (isInterviewStatus ? '600' : '400') + ';">' + (isInterviewStatus ? '\uD83D\uDCC5 ' : '') + fmtDate(intRaw) + '</span>' : '\u2014') + '<span class="edit-icon">\u270E</span></span>' +
+            '<input type="date" class="date-edit-input" value="' + intISO + '">' +
+          '</div></td></tr>';
       });
       var ojVisibleCount = j.candidates.filter(function(c) {
         var st = c._status || 'other';
@@ -3104,6 +3138,81 @@ function bindEvents() {
         btn.classList.remove('saving', 'visible');
         sel.classList.remove('changed');
       }
+    });
+  });
+
+  // Editable date cells — click to open date picker, save on change
+  document.querySelectorAll('.date-cell-editable').forEach(function(cell) {
+    var display = cell.querySelector('.date-display');
+    var input = cell.querySelector('.date-edit-input');
+    if (!display || !input) return;
+
+    // Click display to open editor
+    display.addEventListener('click', function(e) {
+      e.stopPropagation();
+      display.classList.add('hidden');
+      input.classList.add('active');
+      input.focus();
+    });
+
+    // Save on change
+    input.addEventListener('change', async function() {
+      var jcId = cell.dataset.jcId;
+      var field = cell.dataset.dateField;
+      var val = input.value; // YYYY-MM-DD or empty
+      if (!jcId || !field) return;
+
+      cell.classList.add('date-saving');
+      var updateData = {};
+      updateData[field] = val || null;
+      updateData.updated_at = new Date().toISOString();
+
+      if (typeof sb !== 'undefined') {
+        var res = await sb.from('job_candidates').update(updateData).eq('id', jcId);
+        if (res.error) {
+          console.warn('Date update failed:', res.error.message);
+          cell.classList.remove('date-saving');
+          input.classList.remove('active');
+          display.classList.remove('hidden');
+          return;
+        }
+
+        sb.from('activity_log').insert({
+          entity_type: 'job_candidate', entity_id: jcId,
+          action: field + '_change', new_value: val || 'cleared',
+          source: 'pipeline_ui'
+        }).then(function() {});
+      }
+
+      cell.classList.remove('date-saving');
+      input.classList.remove('active');
+      display.classList.remove('hidden');
+      cell.classList.add('date-saved-flash');
+
+      // Update display text
+      if (val) {
+        var parts = val.split('-');
+        var d = new Date(parts[0], parts[1] - 1, parts[2]);
+        var formatted = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        var isInterview = field === 'date_interview';
+        var editIcon = display.querySelector('.edit-icon');
+        display.innerHTML = (isInterview ? '\uD83D\uDCC5 ' : '') + formatted + '<span class="edit-icon">\u270E</span>';
+      } else {
+        display.innerHTML = '\u2014<span class="edit-icon">\u270E</span>';
+      }
+
+      setTimeout(function() { cell.classList.remove('date-saved-flash'); }, 1100);
+
+      // Refresh data after brief delay
+      setTimeout(async function() { await fetchAllData(); }, 1500);
+    });
+
+    // Close on blur (if not changed)
+    input.addEventListener('blur', function() {
+      setTimeout(function() {
+        input.classList.remove('active');
+        display.classList.remove('hidden');
+      }, 150);
     });
   });
 
