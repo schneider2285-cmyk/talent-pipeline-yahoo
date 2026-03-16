@@ -1567,9 +1567,10 @@ const STATUS_MAP = {
   'consider_other': { cls: 'status-other', color: '#8B5CF6', label: 'Consider Other', dbValue: 'CONSIDER FOR OTHER ROLE', actionLabel: '', actionClass: '' },
   'removed_location': { cls: 'status-other', color: '#6B7280', label: 'Removed (Location)', dbValue: 'REMOVED DUE TO LOCATION', actionLabel: '', actionClass: '' },
   'on_hold': { cls: 'status-on-hold', color: '#F59E0B', label: 'On Hold', dbValue: 'ON-HOLD', actionLabel: '', actionClass: '' },
+  'active': { cls: 'status-hired', color: '#059669', label: 'Active (Engaged)', dbValue: 'ACTIVE', actionLabel: '', actionClass: '' },
 };
 // Dropdown-eligible statuses (active pipeline statuses for dropdown)
-const DROPDOWN_STATUSES = ['introduced', 'interview_scheduled', 'pending_interview', 'pending_decision', 'pending_2nd_interview', 'hired', 'rejected', 'withdrawn', 'unavailable', 'consider_other', 'removed_location', 'on_hold'];
+const DROPDOWN_STATUSES = ['introduced', 'interview_scheduled', 'pending_interview', 'pending_decision', 'pending_2nd_interview', 'hired', 'active', 'rejected', 'withdrawn', 'unavailable', 'consider_other', 'removed_location', 'on_hold'];
 
 const BU_ICONS = {
   'Mail': '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M2 5l10 7 10-7"/><line x1="6" y1="19" x2="6" y2="21"/><line x1="18" y1="19" x2="18" y2="21"/><line x1="4" y1="21" x2="20" y2="21"/></svg>',
@@ -1923,7 +1924,7 @@ async function loadFulfillmentData() {
       candidates: [] // Store per-job candidate details
     };
   });
-  var activeSt = new Set(['introduced','interview_scheduled','pending_decision','pending_2nd_interview']);
+  var activeSt = new Set(['introduced','interview_scheduled','pending_interview','pending_decision','pending_2nd_interview']);
   (jcData || []).forEach(function(jc) {
     var j = jobMap[jc.job_id];
     if (!j) return;
@@ -2303,13 +2304,14 @@ function renderPipelineView() {
       out += '</div>';
 
       // Talent table with status dropdowns and save buttons
-      out += '<table class="talent-table"><thead><tr><th>Candidate</th><th>Status</th><th>Introduced</th></tr></thead><tbody>';
+      out += '<table class="talent-table"><thead><tr><th>Candidate</th><th>Status</th><th>Introduced</th><th>Interview</th></tr></thead><tbody>';
       j.candidates.forEach(function(c) {
         var st = c._status || 'other';
         var cfg = STATUS_MAP[st] || {};
         var days = daysSince(c.status_changed_at || c.date_introduced);
         var isHidden = ojSecFilters.size > 0 && !ojSecFilters.has(st);
         var jcId = c.jc_id || c.id || '';
+        var isInterviewStatus = st === 'interview_scheduled' || st === 'pending_interview' || st === 'pending_2nd_interview';
         out += '<tr' + (isHidden ? ' class="filtered-out"' : '') + ' data-talent-status="' + escHTML(st) + '"' +
           (jcId ? ' data-jc-id="' + escHTML(jcId) + '"' : '') + '>' +
           '<td><div class="talent-name-cell">' + avatarHTML(c.name, c.profile_link, 32, c.avatar_url) +
@@ -2336,7 +2338,8 @@ function renderPipelineView() {
           out += '<span class="action-badge ' + cfg.actionClass + '">' + cfg.actionLabel + '</span>';
         }
         out += stalenessHTML(days) + '</div></td>' +
-          '<td class="date-cell">' + fmtDate(c.date_introduced) + '</td></tr>';
+          '<td class="date-cell">' + fmtDate(c.date_introduced) + '</td>' +
+          '<td class="date-cell">' + (c.date_interview ? '<span style="color:' + (isInterviewStatus ? '#6941C6' : '#64748B') + '; font-weight:' + (isInterviewStatus ? '600' : '400') + ';">' + (isInterviewStatus ? '\uD83D\uDCC5 ' : '') + fmtDate(c.date_interview) + '</span>' : '\u2014') + '</td></tr>';
       });
       var ojVisibleCount = j.candidates.filter(function(c) {
         var st = c._status || 'other';
@@ -2682,13 +2685,14 @@ function renderPipelineView() {
         html += '<button class="section-filter-pill clear-pill" data-section-clear="'+escHTML(projKey)+'">Clear</button>';
         html += '</div>';
 
-        html += '<table class="talent-table"><thead><tr><th>Candidate</th><th>Status</th><th>Introduced</th></tr></thead><tbody>';
+        html += '<table class="talent-table"><thead><tr><th>Candidate</th><th>Status</th><th>Introduced</th><th>Interview</th></tr></thead><tbody>';
         proj.talent.forEach(function(t) {
           // Role filter: hide talent that don't match the selected role
           if (curRoleFilter && t.role !== curRoleFilter) return;
           var cfg = STATUS_MAP[t.status]||{};
           var days = daysSince(t.updatedAt || t.date);
           var isHidden = secFilters.size > 0 && !secFilters.has(t.status);
+          var isInterviewStatus = t.status === 'interview_scheduled' || t.status === 'pending_interview' || t.status === 'pending_2nd_interview';
           html += '<tr' + (isHidden ? ' class="filtered-out"' : '') + ' data-talent-status="'+escHTML(t.status)+'"' +
             (t.jcId ? ' data-jc-id="'+escHTML(t.jcId)+'"' : '') + '>' +
             '<td><div class="talent-name-cell">' + avatarHTML(t.name, t.profileLink, 32, t.avatarUrl) +
@@ -2714,7 +2718,8 @@ function renderPipelineView() {
             html += '<span class="action-badge '+cfg.actionClass+'">'+cfg.actionLabel+'</span>';
           }
           html += stalenessHTML(days) + '</div></td>' +
-            '<td class="date-cell">'+fmtDate(t.date)+'</td></tr>';
+            '<td class="date-cell">'+fmtDate(t.date)+'</td>' +
+            '<td class="date-cell">' + (t.interviewDate ? '<span style="color:' + (isInterviewStatus ? '#6941C6' : '#64748B') + '; font-weight:' + (isInterviewStatus ? '600' : '400') + ';">' + (isInterviewStatus ? '\uD83D\uDCC5 ' : '') + fmtDate(t.interviewDate) + '</span>' : '\u2014') + '</td></tr>';
         });
         var visibleCount = proj.talent.filter(function(t) {
           if (curRoleFilter && t.role !== curRoleFilter) return false;
