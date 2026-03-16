@@ -2211,12 +2211,14 @@ function renderPipelineView() {
     html += '</div></div>';
   }
 
-  // Open Jobs section — jobs that need candidates (with filters)
+  // Open Jobs section — all jobs with unfilled openings (with filters)
   if (FULFILLMENT_DATA && FULFILLMENT_DATA.length > 0) {
-    // Base pool: jobs with unfilled openings needing candidates
+    var ojCancelledStatuses = new Set(['ROLE CANCELLED/FILED', 'REQ COMPLETE', 'ENGAGEMENT COMPLETED']);
+    // Base pool: all jobs with unfilled openings that aren't cancelled/completed
     var openJobsAll = FULFILLMENT_DATA.filter(function(j) {
+      if (ojCancelledStatuses.has(j.status)) return false;
       var unfilled = (j.openings || 1) - (j.hired_count || 0);
-      return unfilled > 0 && (j.active_candidates || 0) < unfilled;
+      return unfilled > 0;
     });
 
     // Collect unique values for filter dropdowns (from unfiltered pool)
@@ -2258,9 +2260,9 @@ function renderPipelineView() {
             '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>' +
           '</button>' +
         '</div>' +
-        '<span class="open-jobs-count">' + openJobsAll.length + ' Need Candidates</span></div>' +
+        '<span class="open-jobs-count">' + openJobsAll.length + ' Open Roles</span></div>' +
         '<div class="open-jobs-body">' +
-        '<div class="open-jobs-subtitle">These roles still need talent \u2014 prioritize sourcing for them.</div>';
+        '<div class="open-jobs-subtitle">All roles with unfilled openings \u2014 track progress and prioritize sourcing.</div>';
 
       // Filter bar
       html += '<div class="open-jobs-filters">' +
