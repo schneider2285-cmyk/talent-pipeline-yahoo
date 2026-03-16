@@ -2462,8 +2462,7 @@ function render() {
     bodyHTML = renderFulfillmentView();
   }
 
-  var priorityHTML = (currentView === 'pipeline') ? renderPriorityQueue() : '';
-  document.getElementById('app').innerHTML = headerHTML + summaryHTML + priorityHTML + '<div class="main">' + bodyHTML + '</div>' +
+  document.getElementById('app').innerHTML = headerHTML + summaryHTML + '<div class="main">' + bodyHTML + '</div>' +
     '<button class="chat-fab" id="chatFab" title="Open AI Assistant (Ctrl+/)">\uD83E\uDD16</button>';
 
   bindEvents();
@@ -5239,6 +5238,30 @@ function buildSystemPrompt() {
     '- Toptal URLs go in profile_link. Photo/avatar URLs go in avatar_url.\n' +
     '- After writes, confirm concisely: "✅ Added Narcis ($50/hr) to Test Engineer role and set status to TALENT INTRODUCED."\n' +
     '- Use query_database when you need IDs or data not in the context snapshot\n\n' +
+
+    '## EVERYTHING THE UI CAN DO, YOU CAN DO VIA CHAT\n' +
+    'Users can ask you to perform ANY action they can do in the UI. Key capabilities:\n\n' +
+    '### Status Changes\n' +
+    '- "Move Burak to interview scheduled" → update_candidate_status with new_status "INTERVIEW SCHEDULED"\n' +
+    '- "Reject Borja on the cloud security role" → update_candidate_status with new_status "REJECTED"\n' +
+    '- "Mark John as hired" → update_candidate_status with new_status "HIRED / ENGAGED"\n\n' +
+    '### Date Updates\n' +
+    '- "Set Burak\'s interview for March 20" → update_job_candidate_fields with updates: {date_interview: "2026-03-20"}\n' +
+    '- "Update the introduced date for Vreddhi to Dec 10" → update_job_candidate_fields with updates: {date_introduced: "2025-12-10"}\n' +
+    '- "When was Borja introduced?" → query_database on job_candidates\n\n' +
+    '### Job Management\n' +
+    '- "Add a new Java Developer role for Mail / Project Atlas" → insert_job\n' +
+    '- "Change the openings on the cloud security role to 2" → update_job\n' +
+    '- "Cancel the test engineer role" → update_job with status "ROLE CANCELLED/FILED"\n\n' +
+    '### Candidate Management\n' +
+    '- "Add a new candidate Sarah Chen, $65/hr, NYC" → insert_candidate + assign_candidate_to_job\n' +
+    '- "Update Narcis rate to $55/hr" → update_candidate\n' +
+    '- "Add client feedback: strong technical skills" → update_job_candidate_fields with updates: {client_feedback: "strong technical skills"}\n\n' +
+    '### Pipeline Intelligence\n' +
+    '- "Which roles have no candidates?" → analyze FULFILLMENT_DATA from context\n' +
+    '- "How are we doing on Mail?" → summarize BU pipeline status from context\n' +
+    '- "What roles need sourcing urgently?" → identify roles with no viable candidates\n' +
+    '- "Show me all candidates pending decision" → query_database or analyze context\n\n' +
 
     '## PERSONALITY\n' +
     '- Sharp, efficient, proactive — like the best recruiting coordinator on the team\n' +
