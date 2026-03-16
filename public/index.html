@@ -314,6 +314,92 @@
   .project-body { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; }
   .project-section.open .project-body { max-height: 5000px; }
 
+  /* ── Project Dashboard ── */
+  .proj-dashboard {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
+    padding: 16px 20px; margin: 0 12px 12px; background: white;
+    border-radius: 12px; border: 1px solid #DBEAFE;
+    box-shadow: 0 1px 6px rgba(30,64,175,0.06);
+  }
+  .proj-dashboard-full { grid-column: 1 / -1; }
+  .proj-dash-card {
+    padding: 14px 16px; border-radius: 10px; background: #F8FAFC;
+    border: 1px solid #E2E8F0;
+  }
+  .proj-dash-card.urgent { background: #FEF2F2; border-color: #FECACA; }
+  .proj-dash-card.good { background: #F0FDF4; border-color: #BBF7D0; }
+  .proj-dash-card.warn { background: #FFFBEB; border-color: #FDE68A; }
+  .proj-dash-label {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.8px;
+    color: #64748B; font-weight: 700; margin-bottom: 8px;
+  }
+  .proj-dash-card.urgent .proj-dash-label { color: #DC2626; }
+  .proj-dash-card.good .proj-dash-label { color: #059669; }
+  .proj-dash-card.warn .proj-dash-label { color: #B45309; }
+
+  /* Fulfillment progress bar */
+  .proj-progress-wrap { margin-bottom: 6px; }
+  .proj-progress-bar {
+    height: 10px; background: #E2E8F0; border-radius: 10px; overflow: hidden;
+    position: relative;
+  }
+  .proj-progress-fill {
+    height: 100%; border-radius: 10px; transition: width 0.4s ease;
+    background: linear-gradient(90deg, #3B82F6, #2563EB);
+  }
+  .proj-progress-fill.great { background: linear-gradient(90deg, #22C55E, #059669); }
+  .proj-progress-fill.danger { background: linear-gradient(90deg, #EF4444, #DC2626); }
+  .proj-progress-fill.caution { background: linear-gradient(90deg, #F59E0B, #D97706); }
+  .proj-progress-stats {
+    display: flex; justify-content: space-between; font-size: 11px;
+    color: #64748B; margin-top: 4px;
+  }
+  .proj-progress-pct {
+    font-size: 28px; font-weight: 800; line-height: 1; margin-bottom: 2px;
+  }
+
+  /* Urgency alerts */
+  .proj-alerts { display: flex; flex-direction: column; gap: 6px; }
+  .proj-alert-item {
+    display: flex; align-items: center; gap: 8px; font-size: 12px;
+    padding: 6px 10px; border-radius: 8px; font-weight: 500;
+  }
+  .proj-alert-item.critical { background: #FEE2E2; color: #991B1B; }
+  .proj-alert-item.warning { background: #FEF3C7; color: #92400E; }
+  .proj-alert-item.info { background: #DBEAFE; color: #1E40AF; }
+  .proj-alert-item.success { background: #DCFCE7; color: #166534; }
+  .proj-alert-icon { font-size: 14px; flex-shrink: 0; }
+
+  /* Role progress cards in dashboard */
+  .proj-roles-grid { display: flex; flex-direction: column; gap: 8px; }
+  .proj-role-row {
+    display: flex; align-items: center; gap: 12px; padding: 8px 12px;
+    background: white; border-radius: 8px; border: 1px solid #E2E8F0;
+  }
+  .proj-role-row.needs-attention { border-color: #FECACA; background: #FFFBFB; }
+  .proj-role-ring {
+    width: 42px; height: 42px; flex-shrink: 0; position: relative;
+  }
+  .proj-role-ring svg { width: 42px; height: 42px; transform: rotate(-90deg); }
+  .proj-role-ring-pct {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+    font-size: 10px; font-weight: 800; color: #1E293B;
+  }
+  .proj-role-info { flex: 1; min-width: 0; }
+  .proj-role-name { font-size: 13px; font-weight: 700; color: #1E293B; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .proj-role-meta { font-size: 11px; color: #64748B; display: flex; gap: 10px; flex-wrap: wrap; }
+  .proj-role-meta strong { color: #1E293B; }
+  .proj-role-badges { display: flex; gap: 4px; flex-shrink: 0; }
+  .proj-role-badge {
+    font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 10px;
+    white-space: nowrap;
+  }
+  .proj-role-badge.empty { background: #FEE2E2; color: #DC2626; }
+  .proj-role-badge.stale { background: #FEF3C7; color: #92400E; }
+  .proj-role-badge.on-track { background: #DCFCE7; color: #166534; }
+  .proj-role-badge.filled { background: #D1FAE5; color: #047857; }
+  .proj-role-badge.interviewing { background: #EDE9FE; color: #6D28D9; }
+
   /* ── Table ── */
   .talent-table { width: 100%; border-collapse: collapse; }
   .talent-table thead th {
@@ -2719,11 +2805,121 @@ function renderPipelineView() {
               '</div></div>';
             html += '<div class="project-body">';
 
-            // Render each job/role within this project
+            // ── Project Dashboard ──
+            var dashTotalOpenings = 0, dashTotalFilled = 0, dashTotalCands = 0, dashActiveCands = 0;
+            var dashNoCandsRoles = [], dashStaleRoles = [], dashInterviewRoles = [], dashPendingRoles = [];
+            var now = Date.now();
+            filteredJobs.forEach(function(j) {
+              var openings = j.openings || 1;
+              var hired = j.hired_count || 0;
+              dashTotalOpenings += openings;
+              dashTotalFilled += hired;
+              dashTotalCands += (j.total_candidates || 0);
+              dashActiveCands += (j.active_candidates || 0);
+              if (j.total_candidates === 0) dashNoCandsRoles.push(j.role_title);
+              // Check staleness — no activity in 7+ days
+              var lastActivity = j.candidates && j.candidates.length > 0 ?
+                Math.max.apply(null, j.candidates.map(function(c) { return new Date(c.status_changed_at || c.date_introduced || 0).getTime(); })) : 0;
+              if (j.total_candidates > 0 && hired < openings && lastActivity > 0 && (now - lastActivity) > 7 * 86400000) dashStaleRoles.push(j.role_title);
+              // Check interview/pending states
+              if (j.candidates) j.candidates.forEach(function(c) {
+                var st = c._status || '';
+                if ((st === 'interview_scheduled' || st === 'pending_2nd_interview') && dashInterviewRoles.indexOf(j.role_title) === -1) dashInterviewRoles.push(j.role_title);
+                if (st === 'pending_decision' && dashPendingRoles.indexOf(j.role_title) === -1) dashPendingRoles.push(j.role_title);
+              });
+            });
+            var dashFillPct = dashTotalOpenings > 0 ? Math.round((dashTotalFilled / dashTotalOpenings) * 100) : 0;
+            var dashUnfilled = dashTotalOpenings - dashTotalFilled;
+            var pctClass = dashFillPct >= 75 ? 'great' : dashFillPct >= 40 ? '' : dashFillPct > 0 ? 'caution' : 'danger';
+            var overallCard = dashFillPct >= 75 ? 'good' : dashFillPct >= 40 ? '' : dashUnfilled > 0 && dashNoCandsRoles.length > 0 ? 'urgent' : 'warn';
+
+            html += '<div class="proj-dashboard">';
+
+            // Card 1: Overall fulfillment
+            html += '<div class="proj-dash-card ' + overallCard + '">' +
+              '<div class="proj-dash-label">' + (dashFillPct >= 75 ? '\u2705 ' : dashFillPct >= 40 ? '\uD83D\uDCC8 ' : '\uD83D\uDEA8 ') + 'Fulfillment Progress</div>' +
+              '<div class="proj-progress-pct" style="color:' + (dashFillPct >= 75 ? '#059669' : dashFillPct >= 40 ? '#2563EB' : '#DC2626') + '">' + dashFillPct + '%</div>' +
+              '<div class="proj-progress-wrap"><div class="proj-progress-bar"><div class="proj-progress-fill ' + pctClass + '" style="width:' + dashFillPct + '%"></div></div>' +
+              '<div class="proj-progress-stats"><span>' + dashTotalFilled + ' filled of ' + dashTotalOpenings + ' opening' + (dashTotalOpenings > 1 ? 's' : '') + '</span>' +
+              '<span><strong>' + dashUnfilled + '</strong> still needed</span></div></div>' +
+              '</div>';
+
+            // Card 2: Urgency / Action Items
+            var hasAlerts = dashNoCandsRoles.length > 0 || dashStaleRoles.length > 0 || dashInterviewRoles.length > 0 || dashPendingRoles.length > 0;
+            var alertCard = dashNoCandsRoles.length > 0 ? 'urgent' : dashStaleRoles.length > 0 ? 'warn' : 'good';
+            html += '<div class="proj-dash-card ' + alertCard + '">' +
+              '<div class="proj-dash-label">' + (dashNoCandsRoles.length > 0 ? '\uD83D\uDD25 ' : dashStaleRoles.length > 0 ? '\u26A0\uFE0F ' : '\u2728 ') + 'Action Items</div>';
+            html += '<div class="proj-alerts">';
+            if (!hasAlerts) {
+              html += '<div class="proj-alert-item success"><span class="proj-alert-icon">\u2705</span>All roles have active candidates — looking good!</div>';
+            }
+            if (dashNoCandsRoles.length > 0) {
+              html += '<div class="proj-alert-item critical"><span class="proj-alert-icon">\uD83D\uDEA8</span><span><strong>' + dashNoCandsRoles.length + ' role' + (dashNoCandsRoles.length > 1 ? 's' : '') + ' with NO candidates</strong> — ' + dashNoCandsRoles.join(', ') + '</span></div>';
+            }
+            if (dashStaleRoles.length > 0) {
+              html += '<div class="proj-alert-item warning"><span class="proj-alert-icon">\u23F0</span><span><strong>' + dashStaleRoles.length + ' stale</strong> (no activity 7+ days) — ' + dashStaleRoles.join(', ') + '</span></div>';
+            }
+            if (dashPendingRoles.length > 0) {
+              html += '<div class="proj-alert-item info"><span class="proj-alert-icon">\uD83D\uDCCB</span><span><strong>' + dashPendingRoles.length + ' pending decision</strong> — ' + dashPendingRoles.join(', ') + '</span></div>';
+            }
+            if (dashInterviewRoles.length > 0) {
+              html += '<div class="proj-alert-item info"><span class="proj-alert-icon">\uD83D\uDCC5</span><span><strong>' + dashInterviewRoles.length + ' in interviews</strong> — ' + dashInterviewRoles.join(', ') + '</span></div>';
+            }
+            html += '</div></div>';
+
+            // Card 3: Role-by-role breakdown (full width)
+            html += '<div class="proj-dash-card proj-dashboard-full">' +
+              '<div class="proj-dash-label">\uD83C\uDFAF Role Breakdown</div>' +
+              '<div class="proj-roles-grid">';
+            filteredJobs.forEach(function(j) {
+              var openings = j.openings || 1;
+              var hired = j.hired_count || 0;
+              var unfilled = openings - hired;
+              var fillPct = openings > 0 ? Math.round((hired / openings) * 100) : 0;
+              var ringColor = fillPct >= 100 ? '#059669' : fillPct >= 50 ? '#3B82F6' : j.total_candidates === 0 ? '#EF4444' : '#F59E0B';
+              var circumference = 2 * Math.PI * 16;
+              var dashOffset = circumference - (fillPct / 100) * circumference;
+              var needsAttn = j.total_candidates === 0 || (unfilled > 0 && j.active_candidates === 0);
+
+              // Determine badge
+              var badgeHTML = '';
+              if (fillPct >= 100) badgeHTML = '<span class="proj-role-badge filled">\u2705 Filled</span>';
+              else if (j.total_candidates === 0) badgeHTML = '<span class="proj-role-badge empty">\uD83D\uDEA8 No Candidates</span>';
+              else {
+                var hasInterview = j.candidates && j.candidates.some(function(c) { var s = c._status || ''; return s === 'interview_scheduled' || s === 'pending_2nd_interview' || s === 'pending_interview'; });
+                if (hasInterview) badgeHTML = '<span class="proj-role-badge interviewing">\uD83D\uDCC5 Interviewing</span>';
+                else if (j.active_candidates > 0) badgeHTML = '<span class="proj-role-badge on-track">\u2714 On Track</span>';
+                else badgeHTML = '<span class="proj-role-badge stale">\u26A0 Needs Sourcing</span>';
+              }
+
+              html += '<div class="proj-role-row' + (needsAttn ? ' needs-attention' : '') + '">' +
+                '<div class="proj-role-ring">' +
+                  '<svg viewBox="0 0 42 42"><circle cx="21" cy="21" r="16" fill="none" stroke="#E2E8F0" stroke-width="4"/>' +
+                  '<circle cx="21" cy="21" r="16" fill="none" stroke="' + ringColor + '" stroke-width="4" stroke-linecap="round" ' +
+                    'stroke-dasharray="' + circumference.toFixed(1) + '" stroke-dashoffset="' + dashOffset.toFixed(1) + '"/></svg>' +
+                  '<div class="proj-role-ring-pct">' + fillPct + '%</div>' +
+                '</div>' +
+                '<div class="proj-role-info">' +
+                  '<div class="proj-role-name">' + escHTML(j.role_title) + '</div>' +
+                  '<div class="proj-role-meta">' +
+                    '<span>\uD83C\uDFAF <strong>' + unfilled + '</strong> needed</span>' +
+                    '<span>\uD83D\uDC65 <strong>' + (j.active_candidates || 0) + '</strong> active</span>' +
+                    '<span>\uD83D\uDCCA <strong>' + (j.total_candidates || 0) + '</strong> total</span>' +
+                    (j.rate_max ? '<span>\uD83D\uDCB0 $' + j.rate_max + '/hr</span>' : '') +
+                  '</div>' +
+                '</div>' +
+                '<div class="proj-role-badges">' + badgeHTML + '</div>' +
+              '</div>';
+            });
+            html += '</div></div>';
+
+            html += '</div>'; // close proj-dashboard
+
+            // ── Individual Role Details (below dashboard) ──
             filteredJobs.forEach(function(j) {
               var unfilled = (j.openings || 1) - (j.hired_count || 0);
-              html += '<div style="margin-bottom:16px; padding:12px; background:#F8FAFC; border:1px solid #E2E8F0; border-radius:8px;">';
-              html += '<div style="display:flex; align-items:center; gap:10px; margin-bottom:8px; flex-wrap:wrap;">' +
+              html += '<div style="margin: 0 12px 16px; padding:14px 16px; background:white; border:1px solid #E2E8F0; border-radius:10px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">';
+              html += '<div style="display:flex; align-items:center; gap:10px; margin-bottom:10px; flex-wrap:wrap;">' +
                 '<span style="font-weight:700; font-size:14px; color:var(--toptal-dark);">' + escHTML(j.role_title) + '</span>' +
                 '<span class="open-job-tag openings-tag">\uD83D\uDC65 ' + unfilled + ' opening' + (unfilled > 1 ? 's' : '') + '</span>';
               if (j.total_candidates === 0) {
@@ -2733,12 +2929,10 @@ function renderPipelineView() {
               }
               if (j.rate_max) html += '<span class="open-job-tag rate-tag">\uD83D\uDCB0 $' + j.rate_max + '/hr</span>';
               if (j.status && j.status !== 'ACTIVE') html += '<span class="open-job-tag status-tag">' + escHTML(j.status) + '</span>';
-              // Links
-              if (j.toptal_job_link) html += '<a href="' + escHTML(j.toptal_job_link) + '" target="_blank" style="font-size:11px; color:var(--toptal-blue);">Platform \u2197</a>';
-              if (j.salesforce_link) html += '<a href="' + escHTML(j.salesforce_link) + '" target="_blank" style="font-size:11px; color:var(--toptal-blue);">SFDC \u2197</a>';
+              if (j.toptal_job_link) html += '<a href="' + escHTML(j.toptal_job_link) + '" target="_blank" style="font-size:11px; color:var(--toptal-blue); text-decoration:none; font-weight:600;">Platform \u2197</a>';
+              if (j.salesforce_link) html += '<a href="' + escHTML(j.salesforce_link) + '" target="_blank" style="font-size:11px; color:var(--toptal-blue); text-decoration:none; font-weight:600;">SFDC \u2197</a>';
               html += '</div>';
 
-              // Render candidates using the shared helper
               html += renderOJCandidates(j);
               html += '</div>';
             });
