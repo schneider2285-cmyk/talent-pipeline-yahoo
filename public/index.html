@@ -1157,6 +1157,41 @@
   .chat-action-btns .confirm-btn:hover { background: var(--toptal-blue-mid); }
   .chat-action-btns .cancel-btn { background: var(--surface); color: var(--text-secondary); }
   .chat-action-btns .cancel-btn:hover { background: var(--surface-hover); }
+  /* ── Role Picker ── */
+  .role-picker { margin-top: 8px; }
+  .role-picker-title {
+    font-size: 13px; font-weight: 700; color: var(--toptal-dark);
+    margin-bottom: 10px;
+  }
+  .role-picker-cands {
+    font-size: 12px; color: var(--text-secondary); margin-bottom: 10px;
+    padding: 8px 12px; background: #F0F9FF; border-radius: 8px; border: 1px solid #BAE6FD;
+  }
+  .role-picker-cands strong { color: var(--toptal-dark); }
+  .role-picker-bu {
+    margin-bottom: 8px;
+  }
+  .role-picker-bu-label {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.5px; color: #64748B; margin-bottom: 4px;
+  }
+  .role-picker-roles {
+    display: flex; flex-wrap: wrap; gap: 6px;
+  }
+  .role-picker-btn {
+    padding: 6px 12px; border-radius: 8px; font-size: 12px;
+    font-family: inherit; font-weight: 500; cursor: pointer;
+    border: 1px solid #CBD5E1; background: white; color: #334155;
+    transition: all 0.15s; text-align: left; line-height: 1.3;
+  }
+  .role-picker-btn:hover {
+    background: #EFF6FF; border-color: #3B82F6; color: #1D4ED8;
+    box-shadow: 0 1px 4px rgba(59,130,246,0.15);
+  }
+  .role-picker-btn .rp-unfilled {
+    font-size: 10px; color: #94A3B8; display: block;
+  }
+
   /* ── Chat Form ── */
   .chat-form {
     background: var(--surface); border: 2px solid #3B82F6;
@@ -5171,6 +5206,110 @@ async function sendChat() {
   var text = input.value.trim();
   if (!text) return;
   input.value = '';
+
+  // Detect pasted candidate info (Talent:/Profile:/Location: pattern)
+  var candPasteMatch = text.match(/(?:^|\n)\s*Talent\s*:\s*(.+)/im);
+  var hasProfileOrLocation = /(?:Profile|Location|Availability|Rate)\s*:/im.test(text);
+  if (candPasteMatch && hasProfileOrLocation) {
+    // Parse all candidates from the paste (may have multiple)
+    var parsedCands = [];
+    var blocks = text.split(/(?=\n\s*Talent\s*:)/i);
+    blocks.forEach(function(block) {
+      var nameM = block.match(/Talent\s*:\s*(.+)/i);
+      if (!nameM) return;
+      var cand = { name: nameM[1].trim() };
+      var profileM = block.match(/Profile\s*:\s*(https?:\/\/\S+)/i);
+      var locM = block.match(/Location\s*:\s*(.+)/i);
+      var availM = block.match(/Availability\s*:\s*(.+)/i);
+      var rateM = block.match(/(?:Rate|RTT)\s*:\s*\$?(\d+)/i);
+      if (profileM) cand.profile_link = profileM[1].trim();
+      if (locM) cand.location = locM[1].trim();
+      if (availM) cand.availability = availM[1].trim();
+      if (rateM) cand.rate = parseInt(rateM[1]);
+      parsedCands.push(cand);
+    });
+
+    if (parsedCands.length > 0) {
+      chatMessages.push({ role: 'user', content: text });
+
+      // Build role picker HTML
+      var cancelSt = new Set(['ROLE CANCELLED/FILED', 'REQ COMPLETE', 'ENGAGEMENT COMPLETED']);
+      var openJobs = (FULFILLMENT_DATA || []).filter(function(j) { return !cancelSt.has(j.status); });
+      var byBU = {};
+      openJobs.forEach(function(j) {
+        var bu = j.bu || 'Unknown';
+        if (!byBU[bu]) byBU[bu] = [];
+        var unfilled = (j.openings || 1) - (j.hired_count || 0);
+        if (unfilled > 0) byBU[bu].push({ id: j.id, role: j.role_title, project: j.project_name, unfilled: unfilled });
+      });
+
+      var candNames = parsedCands.map(function(c) { return c.name; }).join(', ');
+      var pickerHTML = '<div class="chat-action-card role-picker">';
+      pickerHTML += '<div class="role-picker-title">\uD83C\uDFAF Select a role for ' + (parsedCands.length > 1 ? 'these candidates' : 'this candidate') + ':</div>';
+      pickerHTML += '<div class="role-picker-cands">';
+      parsedCands.forEach(function(c) {
+        pickerHTML += '<div><strong>' + escHTML(c.name) + '</strong>';
+        if (c.location) pickerHTML += ' \u2022 ' + escHTML(c.location);
+        if (c.rate) pickerHTML += ' \u2022 $' + c.rate + '/hr';
+        pickerHTML += '</div>';
+      });
+      pickerHTML += '</div>';
+
+      Object.keys(byBU).sort().forEach(function(bu) {
+        var roles = byBU[bu];
+        if (roles.length === 0) return;
+        pickerHTML += '<div class="role-picker-bu">';
+        pickerHTML += '<div class="role-picker-bu-label">' + escHTML(bu) + '</div>';
+        pickerHTML += '<div class="role-picker-roles">';
+        roles.forEach(function(r) {
+          var data = escHTML(JSON.stringify({ jobId: r.id, role: r.role, bu: bu, project: r.project, candidates: parsedCands }));
+          pickerHTML += '<button class="role-picker-btn" data-role-pick=\'' + data + '\'>' +
+            escHTML(r.role) + '<span class="rp-unfilled">' + escHTML(r.project) + ' \u2022 ' + r.unfilled + ' needed</span></button>';
+        });
+        pickerHTML += '</div></div>';
+      });
+      pickerHTML += '</div>';
+
+      chatMessages.push({ role: 'action_card', content: pickerHTML, _isRolePicker: true });
+      renderChat();
+
+      // Bind click handlers after render
+      setTimeout(function() {
+        document.querySelectorAll('[data-role-pick]').forEach(function(btn) {
+          btn.addEventListener('click', async function() {
+            var pick = JSON.parse(btn.dataset.rolePick);
+            // Replace picker with confirmation
+            for (var i = chatMessages.length - 1; i >= 0; i--) {
+              if (chatMessages[i]._isRolePicker) {
+                chatMessages[i] = { role: 'action_card', content: '<div class="chat-action-card"><p>\u2705 Adding ' + pick.candidates.length + ' candidate' + (pick.candidates.length > 1 ? 's' : '') + ' to <strong>' + escHTML(pick.role) + '</strong> (' + escHTML(pick.bu) + ' / ' + escHTML(pick.project) + ')...</p></div>' };
+                break;
+              }
+            }
+            renderChat();
+
+            // Send to Claude with explicit instructions
+            var candDesc = pick.candidates.map(function(c) {
+              var parts = [c.name];
+              if (c.profile_link) parts.push('Profile: ' + c.profile_link);
+              if (c.location) parts.push('Location: ' + c.location);
+              if (c.availability) parts.push('Availability: ' + c.availability);
+              if (c.rate) parts.push('Rate: $' + c.rate + '/hr');
+              return parts.join(', ');
+            }).join('\n');
+
+            chatMessages.push({
+              role: 'user',
+              content: 'Add ' + (pick.candidates.length > 1 ? 'these candidates' : 'this candidate') + ' to job ID ' + pick.jobId + ' (' + pick.role + '):\n' + candDesc
+            });
+            renderChat();
+            showTyping();
+            await callClaude();
+          });
+        });
+      }, 50);
+      return;
+    }
+  }
 
   // Intent detection: show forms instead of calling Claude
   var lowerText = text.toLowerCase();
