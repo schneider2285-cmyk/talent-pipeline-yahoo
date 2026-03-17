@@ -1524,6 +1524,11 @@
     background: #E0E7FF; color: #3730A3;
   }
   .ff-cand-days { margin-left: auto; font-size: 11px; color: var(--text-muted); font-weight: 500; }
+  .ff-cand-share-btn { margin-left:auto; font-size:10px; font-weight:600; padding:2px 8px; border-radius:100px; border:1px solid #204ECF; background:white; color:#204ECF; cursor:pointer; white-space:nowrap; font-family:'DM Sans',sans-serif; }
+  .ff-cand-share-btn:hover { background:#204ECF; color:white; }
+  .ff-cand-shared { margin-left:auto; font-size:10px; color:#16a34a; font-weight:600; white-space:nowrap; display:flex; align-items:center; gap:4px; }
+  .ff-cand-shared a { color:#204ECF; text-decoration:none; font-weight:600; }
+  .ff-cand-shared a:hover { text-decoration:underline; }
   .ff-grid-2col { grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); }
 
   /* ── Daily Briefing ── */
@@ -1983,6 +1988,8 @@ function stalenessHTML(days) {
 let PIPELINE_DATA = [];
 let FULFILLMENT_DATA = [];
 let HIRED_DATA = [];
+let ACTIVE_SHARES = {}; // keyed by "bu||project_name" → share object
+let SHARED_JC_MAP = {}; // keyed by jc_id → { share_id, token, updated_at }
 let lastRefresh = null;
 let activeFilters = new Set();
 let searchQuery = '';
@@ -2328,6 +2335,24 @@ async function loadFulfillmentData() {
   });
 }
 
+async function loadActiveShares() {
+  try {
+    var { data: shares } = await sb.from('client_shares').select('*').eq('is_active', true);
+    ACTIVE_SHARES = {};
+    SHARED_JC_MAP = {};
+    (shares || []).forEach(function(s) {
+      var key = s.bu + '||' + s.project_name;
+      // Keep the most recent share per project
+      if (!ACTIVE_SHARES[key] || new Date(s.created_at) > new Date(ACTIVE_SHARES[key].created_at)) {
+        ACTIVE_SHARES[key] = s;
+      }
+      (s.job_candidate_ids || []).forEach(function(jcId) {
+        SHARED_JC_MAP[jcId] = { share_id: s.id, token: s.token, updated_at: s.updated_at || s.created_at };
+      });
+    });
+  } catch (e) { console.error('Failed to load shares:', e); }
+}
+
 function transformPipeline(rows) {
   // Normalize all statuses from DB format to internal keys
   rows.forEach(function(r) { r._status = normalizeStatus(r.status); });
@@ -2397,7 +2422,7 @@ async function fetchAllData(retryCount) {
   var app = document.getElementById('app');
   app.innerHTML = '<div class="loading-screen"><div class="spinner"></div><p>Connecting to Supabase\u2026</p></div>';
   try {
-    var results = await Promise.all([loadPipelineData(), loadFulfillmentData()]);
+    var results = await Promise.all([loadPipelineData(), loadFulfillmentData(), loadActiveShares()]);
     var pipelineRows = results[0];
     var fulfillmentRows = results[1];
     var transformed = transformPipeline(pipelineRows);
@@ -2419,7 +2444,7 @@ async function fetchAllData(retryCount) {
 
 async function refreshData() {
   try {
-    var results = await Promise.all([loadPipelineData(), loadFulfillmentData()]);
+    var results = await Promise.all([loadPipelineData(), loadFulfillmentData(), loadActiveShares()]);
     var transformed = transformPipeline(results[0]);
     PIPELINE_DATA = transformed.pipeline;
     HIRED_DATA = transformed.hired;
@@ -3357,12 +3382,24 @@ function renderFulfillmentView() {
           (isExpanded ? '&#9660;' : '&#9654;') + ' ' + cands.length + ' candidate' + (cands.length !== 1 ? 's' : '') + '</div>';
         if (isExpanded) {
           html += '<div class="ff-cand-list">';
+          var shareKey = job.bu + '||' + job.project_name;
+          var projShare = ACTIVE_SHARES[shareKey] || null;
           cands.forEach(function(c) {
             var daysInStage = c.status_changed_at ? daysSince(c.status_changed_at) : null;
+            var sharedInfo = SHARED_JC_MAP[c.jc_id];
+            var shareHtml = '';
+            if (sharedInfo) {
+              var sharedDate = new Date(sharedInfo.updated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+              shareHtml = '<span class="ff-cand-shared">✓ Shared ' + sharedDate +
+                ' · <a href="/client?token=' + escHTML(sharedInfo.token) + '" target="_blank">View</a></span>';
+            } else if (projShare) {
+              shareHtml = '<button class="ff-cand-share-btn" data-send-to-cv="' + escHTML(c.jc_id) + '" data-share-id="' + escHTML(projShare.id) + '">Send to Client</button>';
+            }
             html += '<div class="ff-cand-row">' +
               '<span class="ff-cand-name">' + escHTML(c.name || 'Unknown') + '</span>' +
               '<span class="ff-cand-status">' + escHTML(c.status || c._status || '') + '</span>' +
               (daysInStage !== null && daysInStage < 999 ? '<span class="ff-cand-days">' + daysInStage + 'd in stage</span>' : '') +
+              shareHtml +
               '</div>';
           });
           html += '</div>';
@@ -3404,6 +3441,14 @@ function bindEvents() {
       if (inp) { inp.focus(); inp.setSelectionRange(pos, pos); }
     });
   }
+
+  // "Send to Client" buttons on candidate rows
+  document.querySelectorAll('[data-send-to-cv]').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      sendCandidateToClientView(btn.dataset.sendToCv, btn.dataset.shareId, btn);
+    });
+  });
 
   // Project-level "Add Job" buttons (BU + project encoded as "BU||Project")
   document.querySelectorAll('[data-proj-add-job]').forEach(function(btn) {
@@ -4486,6 +4531,45 @@ async function updateClientShare(shareId, buName, projName) {
   } catch (err) {
     console.error('Error updating client share:', err);
     alert('Failed to update client share: ' + (err.message || 'Unknown error'));
+  }
+}
+
+// Send a single candidate to an existing client view share
+async function sendCandidateToClientView(jcId, shareId, btnEl) {
+  btnEl.disabled = true;
+  btnEl.textContent = 'Sending…';
+  try {
+    // Fetch current share to get existing job_candidate_ids
+    var { data: shareData, error: fetchErr } = await sb.from('client_shares').select('job_candidate_ids, job_ids').eq('id', shareId).single();
+    if (fetchErr) throw fetchErr;
+
+    var currentIds = shareData.job_candidate_ids || [];
+    if (currentIds.includes(jcId)) {
+      // Already shared — just refresh UI
+      await loadActiveShares();
+      render();
+      return;
+    }
+
+    var updatedIds = currentIds.concat([jcId]);
+    var now = new Date().toISOString();
+    var { error: updateErr } = await sb.from('client_shares').update({
+      job_candidate_ids: updatedIds,
+      updated_at: now
+    }).eq('id', shareId);
+
+    if (updateErr) throw updateErr;
+
+    await logActivity('client_share', shareId, 'add_candidate', { note: 'Candidate sent to client view' });
+
+    // Refresh share data and re-render
+    await loadActiveShares();
+    render();
+  } catch (err) {
+    console.error('Error sending candidate to client view:', err);
+    alert('Failed to send candidate: ' + (err.message || 'Unknown error'));
+    btnEl.disabled = false;
+    btnEl.textContent = 'Send to Client';
   }
 }
 
