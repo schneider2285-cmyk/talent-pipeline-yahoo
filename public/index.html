@@ -2013,6 +2013,7 @@ let ojFilterRole = '';
 let ojFilterStatus = '';
 let ojFilterPOC = '';
 let expandedJobIds = new Set();
+let editingJobId = null; // Currently editing job ID
 let ojOpenBUs = new Set();
 let ojOpenProjects = new Set();
 let currentView = 'pipeline'; // pipeline | admin
@@ -2640,6 +2641,77 @@ function renderPipelineView() {
     html += '</div></div>';
   }
 
+  // Helper: render inline edit form for a job
+  function renderJobEditForm(j) {
+    var buOptions = Object.keys(BU_COLORS).concat(['Other']);
+    var html = '<div style="display:flex; flex-direction:column; gap:10px;">';
+    html += '<div style="font-weight:700; font-size:14px; color:var(--toptal-dark); margin-bottom:4px;">✏️ Edit Job Details</div>';
+
+    // Row 1: Role Title + BU
+    html += '<div style="display:flex; gap:10px; flex-wrap:wrap;">';
+    html += '<label style="flex:1; min-width:200px;"><span style="font-size:11px; font-weight:600; color:#6B7280; text-transform:uppercase; letter-spacing:0.5px;">Role Title</span>' +
+      '<input type="text" data-edit-field="role_title" value="' + escHTML(j.role_title || '') + '" style="width:100%; padding:7px 10px; border:1px solid #D1D5DE; border-radius:6px; font-size:13px; margin-top:3px;" /></label>';
+    html += '<label style="min-width:150px;"><span style="font-size:11px; font-weight:600; color:#6B7280; text-transform:uppercase; letter-spacing:0.5px;">Business Unit</span>' +
+      '<select data-edit-field="bu" style="width:100%; padding:7px 10px; border:1px solid #D1D5DE; border-radius:6px; font-size:13px; margin-top:3px;">';
+    buOptions.forEach(function(bu) {
+      html += '<option value="' + escHTML(bu) + '"' + (j.bu === bu ? ' selected' : '') + '>' + escHTML(bu) + '</option>';
+    });
+    html += '</select></label>';
+    html += '</div>';
+
+    // Row 2: Project Name + POC
+    html += '<div style="display:flex; gap:10px; flex-wrap:wrap;">';
+    html += '<label style="flex:1; min-width:200px;"><span style="font-size:11px; font-weight:600; color:#6B7280; text-transform:uppercase; letter-spacing:0.5px;">Project Name</span>' +
+      '<input type="text" data-edit-field="project_name" value="' + escHTML(j.project_name || '') + '" style="width:100%; padding:7px 10px; border:1px solid #D1D5DE; border-radius:6px; font-size:13px; margin-top:3px;" /></label>';
+    html += '<label style="flex:1; min-width:200px;"><span style="font-size:11px; font-weight:600; color:#6B7280; text-transform:uppercase; letter-spacing:0.5px;">Hiring Manager / POC</span>' +
+      '<input type="text" data-edit-field="poc_names" value="' + escHTML(j.poc_names || '') + '" style="width:100%; padding:7px 10px; border:1px solid #D1D5DE; border-radius:6px; font-size:13px; margin-top:3px;" /></label>';
+    html += '</div>';
+
+    // Row 3: Openings + Status + Rate
+    html += '<div style="display:flex; gap:10px; flex-wrap:wrap;">';
+    html += '<label style="min-width:90px;"><span style="font-size:11px; font-weight:600; color:#6B7280; text-transform:uppercase; letter-spacing:0.5px;">Openings</span>' +
+      '<input type="number" data-edit-field="openings" value="' + (j.openings || 1) + '" min="1" style="width:100%; padding:7px 10px; border:1px solid #D1D5DE; border-radius:6px; font-size:13px; margin-top:3px;" /></label>';
+    html += '<label style="min-width:180px;"><span style="font-size:11px; font-weight:600; color:#6B7280; text-transform:uppercase; letter-spacing:0.5px;">Job Status</span>' +
+      '<select data-edit-field="status" style="width:100%; padding:7px 10px; border:1px solid #D1D5DE; border-radius:6px; font-size:13px; margin-top:3px;">';
+    JOB_STATUSES.forEach(function(s) {
+      html += '<option value="' + escHTML(s) + '"' + (j.status === s ? ' selected' : '') + '>' + escHTML(s) + '</option>';
+    });
+    html += '</select></label>';
+    html += '<label style="min-width:100px;"><span style="font-size:11px; font-weight:600; color:#6B7280; text-transform:uppercase; letter-spacing:0.5px;">Max Rate ($/hr)</span>' +
+      '<input type="number" data-edit-field="rate_max" value="' + (j.rate_max || '') + '" style="width:100%; padding:7px 10px; border:1px solid #D1D5DE; border-radius:6px; font-size:13px; margin-top:3px;" /></label>';
+    html += '</div>';
+
+    // Row 4: Links
+    html += '<div style="display:flex; gap:10px; flex-wrap:wrap;">';
+    html += '<label style="flex:1; min-width:200px;"><span style="font-size:11px; font-weight:600; color:#6B7280; text-transform:uppercase; letter-spacing:0.5px;">Platform Link</span>' +
+      '<input type="url" data-edit-field="toptal_job_link" value="' + escHTML(j.toptal_job_link || '') + '" placeholder="https://..." style="width:100%; padding:7px 10px; border:1px solid #D1D5DE; border-radius:6px; font-size:13px; margin-top:3px;" /></label>';
+    html += '<label style="flex:1; min-width:200px;"><span style="font-size:11px; font-weight:600; color:#6B7280; text-transform:uppercase; letter-spacing:0.5px;">SFDC Link</span>' +
+      '<input type="url" data-edit-field="salesforce_link" value="' + escHTML(j.salesforce_link || '') + '" placeholder="https://..." style="width:100%; padding:7px 10px; border:1px solid #D1D5DE; border-radius:6px; font-size:13px; margin-top:3px;" /></label>';
+    html += '</div>';
+
+    // Row 5: SOW + Duration + POC Emails
+    html += '<div style="display:flex; gap:10px; flex-wrap:wrap;">';
+    html += '<label style="min-width:130px;"><span style="font-size:11px; font-weight:600; color:#6B7280; text-transform:uppercase; letter-spacing:0.5px;">SOW Number</span>' +
+      '<input type="text" data-edit-field="sow_number" value="' + escHTML(j.sow_number || '') + '" style="width:100%; padding:7px 10px; border:1px solid #D1D5DE; border-radius:6px; font-size:13px; margin-top:3px;" /></label>';
+    html += '<label style="min-width:130px;"><span style="font-size:11px; font-weight:600; color:#6B7280; text-transform:uppercase; letter-spacing:0.5px;">Duration</span>' +
+      '<input type="text" data-edit-field="duration" value="' + escHTML(j.duration || '') + '" placeholder="e.g. 6 months" style="width:100%; padding:7px 10px; border:1px solid #D1D5DE; border-radius:6px; font-size:13px; margin-top:3px;" /></label>';
+    html += '<label style="flex:1; min-width:200px;"><span style="font-size:11px; font-weight:600; color:#6B7280; text-transform:uppercase; letter-spacing:0.5px;">POC Emails</span>' +
+      '<input type="text" data-edit-field="poc_emails" value="' + escHTML(j.poc_emails || '') + '" placeholder="email@company.com" style="width:100%; padding:7px 10px; border:1px solid #D1D5DE; border-radius:6px; font-size:13px; margin-top:3px;" /></label>';
+    html += '</div>';
+
+    // Notes
+    html += '<label><span style="font-size:11px; font-weight:600; color:#6B7280; text-transform:uppercase; letter-spacing:0.5px;">Notes</span>' +
+      '<textarea data-edit-field="notes" rows="2" style="width:100%; padding:7px 10px; border:1px solid #D1D5DE; border-radius:6px; font-size:13px; margin-top:3px; resize:vertical;">' + escHTML(j.notes || '') + '</textarea></label>';
+
+    // Buttons
+    html += '<div style="display:flex; gap:8px; margin-top:4px;">' +
+      '<button data-save-job="' + j.id + '" style="padding:7px 18px; background:var(--toptal-blue); color:white; border:none; border-radius:6px; font-size:13px; font-weight:600; cursor:pointer;">💾 Save Changes</button>' +
+      '<button data-cancel-edit-job="' + j.id + '" style="padding:7px 18px; background:#F3F4F6; color:#374151; border:1px solid #D1D5DE; border-radius:6px; font-size:13px; cursor:pointer;">Cancel</button>' +
+      '</div>';
+    html += '</div>';
+    return html;
+  }
+
   // Helper: render interactive candidate table for an Open Job (matches BU accordion style)
   function renderOJCandidates(j) {
     var out = '';
@@ -3161,13 +3233,19 @@ function renderPipelineView() {
               else if (activeC >= unfilled) { roleSt = '\u2714\uFE0F Pipeline On Track'; roleStClass = 'good'; }
               else { roleSt = '\u26A0\uFE0F Needs Attention'; roleStClass = 'warning'; }
 
-              html += '<div style="margin: 0 12px 16px; padding:14px 16px; background:white; border:1px solid #E2E8F0; border-radius:10px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">';
+              html += '<div style="margin: 0 12px 16px; padding:14px 16px; background:white; border:1px solid #E2E8F0; border-radius:10px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);" data-job-card="' + j.id + '">';
+
+              // Check if this job is being edited
+              if (editingJobId === j.id) {
+                html += renderJobEditForm(j);
+              } else {
               html += '<div style="display:flex; align-items:center; gap:10px; margin-bottom:10px; flex-wrap:wrap;">' +
                 '<span style="font-weight:700; font-size:14px; color:var(--toptal-dark);">' + escHTML(j.role_title) + '</span>';
               if (j.rate_max) html += '<span class="open-job-tag rate-tag">\uD83D\uDCB0 $' + j.rate_max + '/hr</span>';
               if (j.status && j.status !== 'ACTIVE') html += '<span class="open-job-tag status-tag">' + escHTML(j.status) + '</span>';
               if (j.toptal_job_link) html += '<a href="' + escHTML(j.toptal_job_link) + '" target="_blank" style="font-size:11px; color:var(--toptal-blue); text-decoration:none; font-weight:600;">Platform \u2197</a>';
               if (j.salesforce_link) html += '<a href="' + escHTML(j.salesforce_link) + '" target="_blank" style="font-size:11px; color:var(--toptal-blue); text-decoration:none; font-weight:600;">SFDC \u2197</a>';
+              html += '<button data-edit-job="' + j.id + '" style="margin-left:auto; background:none; border:1px solid #D1D5DE; border-radius:6px; padding:3px 8px; cursor:pointer; font-size:12px; color:#6B7280; display:flex; align-items:center; gap:4px;" title="Edit job details">✏️ Edit</button>';
               html += '</div>';
 
               // Fulfillment summary bar
@@ -3206,6 +3284,7 @@ function renderPipelineView() {
               '</div>';
 
               html += renderOJCandidates(j);
+              } // end else (not editing)
               html += '</div>';
             });
 
@@ -3221,9 +3300,6 @@ function renderPipelineView() {
   }
   return html;
 }
-
-/* Fulfillment view removed — dead code cleaned up */
-
 
 // ═══════════════════════════════════════════════════
 //  EVENTS
@@ -3652,97 +3728,81 @@ function bindEvents() {
   });
 
 
-  // Analytics sub-view pills
-  document.querySelectorAll('[data-an-pill]').forEach(function(btn) {
-    btn.addEventListener('click', function() { analyticsSubView = btn.dataset.anPill; render(); });
-  });
-  // Analytics filters
-  var anBUEl = document.getElementById('anFilterBU');
-  if (anBUEl) anBUEl.addEventListener('change', function() { anFilterBU = this.value; render(); });
-  var anProjEl = document.getElementById('anFilterProject');
-  if (anProjEl) anProjEl.addEventListener('change', function() { anFilterProject = this.value; render(); });
-  // Stakeholder brief buttons
-  document.querySelectorAll('[data-sth-brief]').forEach(function(btn) {
-    btn.addEventListener('click', function() {
-      var idx = parseInt(btn.dataset.sthBrief);
-      var container = document.getElementById('sthBrief' + idx);
-      if (!container) return;
-      if (container.style.display === 'none') {
-        var poc = window._sthPocList && window._sthPocList[idx];
-        if (!poc) return;
-        var brief = generatePOCBrief(poc);
-        container.innerHTML = '<textarea class="sth-brief-area" readonly>' + escHTML(brief) + '</textarea>';
-        container.style.display = 'block';
-        // Select text for easy copy
-        var ta = container.querySelector('textarea');
-        if (ta) { ta.focus(); ta.select(); }
-      } else {
-        container.style.display = 'none';
-      }
-    });
-  });
-
   // Expand/collapse Open Job cards
   document.querySelectorAll('[data-expand-job]').forEach(function(el) {
     el.addEventListener('click', function(e) {
-      if (e.target.closest('a') || e.target.closest('select') || e.target.closest('button')) return;
+      if (e.target.closest('a') || e.target.closest('select') || e.target.closest('button') || e.target.closest('input') || e.target.closest('textarea')) return;
       var jobId = el.dataset.expandJob;
       if (expandedJobIds.has(jobId)) expandedJobIds.delete(jobId); else expandedJobIds.add(jobId);
       render();
     });
   });
 
-  // Fulfillment sort pills
-  document.querySelectorAll('[data-ff-sort]').forEach(function(btn) {
-    btn.addEventListener('click', function() {
-      ffSortMode = btn.dataset.ffSort;
+  // Edit Job button
+  document.querySelectorAll('[data-edit-job]').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      editingJobId = btn.dataset.editJob;
       render();
     });
   });
 
-  // Fulfillment filters
-  var ffBUEl = document.getElementById('ffFilterBU');
-  if (ffBUEl) ffBUEl.addEventListener('change', function() { ffFilterBU = this.value; render(); });
-  var ffProjEl = document.getElementById('ffFilterProject');
-  if (ffProjEl) ffProjEl.addEventListener('change', function() { ffFilterProject = this.value; render(); });
-  var ffFocusEl = document.getElementById('ffFocusMode');
-  if (ffFocusEl) ffFocusEl.addEventListener('click', function() { ffFocusMode = !ffFocusMode; render(); });
-  var ffCancelEl = document.getElementById('ffHideCancelled');
-  if (ffCancelEl) ffCancelEl.addEventListener('click', function() { ffHideCancelled = !ffHideCancelled; render(); });
-
-  // Fulfillment card expand/collapse
-  document.querySelectorAll('[data-ff-expand]').forEach(function(el) {
-    el.addEventListener('click', function() {
-      var id = el.dataset.ffExpand;
-      if (ffExpandedCards.has(id)) ffExpandedCards.delete(id); else ffExpandedCards.add(id);
+  // Cancel Edit Job
+  document.querySelectorAll('[data-cancel-edit-job]').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      editingJobId = null;
       render();
     });
   });
 
-  // Fulfillment BU group toggle
-  document.querySelectorAll('[data-ff-toggle-bu]').forEach(function(el) {
-    el.addEventListener('click', function() {
-      var bu = el.dataset.ffToggleBu;
-      if (ffOpenBUs.has(bu)) ffOpenBUs.delete(bu); else ffOpenBUs.add(bu);
-      render();
-    });
-  });
+  // Save Job Edit
+  document.querySelectorAll('[data-save-job]').forEach(function(btn) {
+    btn.addEventListener('click', async function(e) {
+      e.stopPropagation();
+      var jobId = btn.dataset.saveJob;
+      var card = document.querySelector('[data-job-card="' + jobId + '"]');
+      if (!card) return;
 
-  // Fulfillment Expand/Collapse All BUs
-  var ffExpandAllBtn = document.getElementById('ffExpandAllBUs');
-  if (ffExpandAllBtn) {
-    ffExpandAllBtn.addEventListener('click', function() {
-      var buGroups = {};
-      FULFILLMENT_DATA.forEach(function(j) { buGroups[j.bu || 'Unassigned'] = true; });
-      var allOpen = Object.keys(buGroups).every(function(bu) { return ffOpenBUs.has(bu); });
-      if (allOpen) {
-        ffOpenBUs.clear();
-      } else {
-        Object.keys(buGroups).forEach(function(bu) { ffOpenBUs.add(bu); });
+      var updates = {};
+      var fields = ['role_title', 'bu', 'project_name', 'poc_names', 'openings', 'status', 'rate_max', 'toptal_job_link', 'salesforce_link', 'sow_number', 'duration', 'poc_emails', 'notes'];
+      fields.forEach(function(f) {
+        var el = card.querySelector('[data-edit-field="' + f + '"]');
+        if (!el) return;
+        var val = el.value.trim();
+        if (f === 'openings') val = parseInt(val) || 1;
+        else if (f === 'rate_max') val = val ? parseFloat(val) : null;
+        else val = val || null;
+        updates[f] = val;
+      });
+
+      // Validate required
+      if (!updates.role_title) { alert('Role title is required'); return; }
+      if (!updates.bu) { alert('Business unit is required'); return; }
+
+      btn.disabled = true;
+      btn.textContent = 'Saving...';
+      updates.updated_by = currentUser ? currentUser.id : null;
+
+      try {
+        var { error } = await sb.from('jobs').update(updates).eq('id', jobId);
+        if (error) {
+          alert('Failed to save: ' + error.message);
+          btn.disabled = false;
+          btn.textContent = '💾 Save Changes';
+          return;
+        }
+        await logActivity('job', jobId, 'update', { note: 'Edited job: ' + updates.role_title });
+        editingJobId = null;
+        await refreshData();
+        render();
+      } catch(err) {
+        alert('Error saving job: ' + err.message);
+        btn.disabled = false;
+        btn.textContent = '💾 Save Changes';
       }
-      render();
     });
-  }
+  });
 
   // View tabs
   document.querySelectorAll('.view-tab').forEach(function(tab) {
@@ -5852,9 +5912,7 @@ function describeToolCall(name, input) {
 
 
 
-// ═══════════════════════════════════════════════════
-//  ANALYTICS TAB
-// ═══════════════════════════════════════════════════
+// (Analytics tab removed)
 let anFilterBU = '';
 let anFilterProject = '';
 
