@@ -20,14 +20,13 @@ export default async function handler(req, res) {
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!supabaseUrl || !serviceKey) {
-    return res.status(500).json({ error: 'Server misconfigured' });
+    return res.status(500).json({ error: 'Server misconfigured: missing env vars' });
   }
 
   const headers = {
     'apikey': serviceKey,
     'Authorization': `Bearer ${serviceKey}`,
-    'Content-Type': 'application/json',
-    'Prefer': 'return=representation'
+    'Content-Type': 'application/json'
   };
 
   try {
@@ -36,9 +35,13 @@ export default async function handler(req, res) {
       `${supabaseUrl}/rest/v1/client_shares?token=eq.${encodeURIComponent(token)}&is_active=eq.true&select=*`,
       { headers }
     );
+    if (!shareResp.ok) {
+      const errText = await shareResp.text();
+      return res.status(500).json({ error: 'DB query failed for shares', detail: errText });
+    }
     const shares = await shareResp.json();
 
-    if (!shareResp.ok || !shares || shares.length === 0) {
+    if (!shares || shares.length === 0) {
       return res.status(404).json({ error: 'Share not found or inactive' });
     }
     const share = shares[0];
@@ -52,14 +55,22 @@ export default async function handler(req, res) {
     // 3. Fetch jobs for this share
     const jobIds = share.job_ids || [];
     if (jobIds.length === 0) {
-      return res.status(200).json({ share: { project_name: share.project_name, bu: share.bu, client_logo_url: share.client_logo_url }, jobs: [] });
+      return res.status(200).json({
+        share: { project_name: share.project_name, bu: share.bu, client_logo_url: share.client_logo_url },
+        jobs: []
+      });
     }
 
-    const jobIdFilter = jobIds.map(id => `"${id}"`).join(',');
+    // PostgREST in filter: in.(val1,val2,val3) — no quotes needed for UUIDs
+    const jobIdFilter = jobIds.join(',');
     const jobsResp = await fetch(
       `${supabaseUrl}/rest/v1/jobs?id=in.(${jobIdFilter})&select=*`,
       { headers }
     );
+    if (!jobsResp.ok) {
+      const errText = await jobsResp.text();
+      return res.status(500).json({ error: 'DB query failed for jobs', detail: errText });
+    }
     const jobs = await jobsResp.json();
 
     // 4. Fetch job_candidates with candidate details for these jobs
@@ -67,6 +78,10 @@ export default async function handler(req, res) {
       `${supabaseUrl}/rest/v1/job_candidates?job_id=in.(${jobIdFilter})&select=*,candidates(id,name,profile_link,location,avatar_url,notes)`,
       { headers }
     );
+    if (!jcResp.ok) {
+      const errText = await jcResp.text();
+      return res.status(500).json({ error: 'DB query failed for candidates', detail: errText });
+    }
     const jcData = await jcResp.json();
 
     // 5. Group candidates by job
@@ -113,6 +128,6 @@ export default async function handler(req, res) {
 
   } catch (err) {
     console.error('client-data error:', err);
-    return res.status(500).json({ error: 'Internal server error' });
+    return res.status(500).json({ error: 'Internal server error', detail: err.message || String(err) });
   }
 }

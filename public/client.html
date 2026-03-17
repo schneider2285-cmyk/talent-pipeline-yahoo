@@ -369,7 +369,7 @@ async function verifyEmail() {
         errEl.style.display = 'block';
         return;
       }
-      throw new Error(data.error || 'Unknown error');
+      throw new Error((data.detail ? data.error + ' — ' + data.detail : data.error) || 'Unknown error');
     }
 
     EMAIL = email;
@@ -377,7 +377,7 @@ async function verifyEmail() {
     SHARE_DATA = data;
     renderPage();
   } catch (err) {
-    errEl.textContent = 'Something went wrong: ' + (err.message || err) + '. Please try again.';
+    errEl.textContent = 'Error: ' + (err.message || err) + '. Please try again.';
     errEl.style.display = 'block';
     console.error('Gate error:', err);
   }
