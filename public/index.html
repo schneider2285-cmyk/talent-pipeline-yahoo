@@ -1679,6 +1679,26 @@
     font-family: 'DM Sans', sans-serif; border: 1px solid var(--border); border-radius: var(--radius-sm);
     background: var(--surface-raised); color: var(--text-primary); resize: vertical;
   }
+
+  /* Client View Share Modal */
+  .cv-share-modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.4); z-index:2000; display:flex; align-items:center; justify-content:center; }
+  .cv-share-modal { background:white; border-radius:12px; padding:28px; max-width:500px; width:92%; max-height:90vh; overflow-y:auto; box-shadow:0 8px 40px rgba(0,0,0,0.15); }
+  .cv-share-modal h3 { font-size:17px; font-weight:700; margin-bottom:16px; color:var(--text-primary); }
+  .cv-share-modal label { display:block; font-size:12px; font-weight:600; color:var(--text-primary); margin-bottom:4px; margin-top:14px; text-transform:uppercase; letter-spacing:0.3px; }
+  .cv-share-modal input[type="text"], .cv-share-modal input[type="url"] {
+    width:100%; padding:9px 12px; border:1px solid var(--border); border-radius:8px; font-size:13px;
+    font-family:'DM Sans',sans-serif; background:var(--surface-raised);
+  }
+  .cv-share-modal input:focus { outline:none; border-color:#204ECF; box-shadow:0 0 0 3px rgba(32,78,207,0.1); }
+  .cv-share-modal .role-checks { margin-top:6px; display:flex; flex-direction:column; gap:6px; }
+  .cv-share-modal .role-check { display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer; }
+  .cv-share-modal .role-check input { width:16px; height:16px; accent-color:#204ECF; }
+  .cv-share-result { margin-top:16px; padding:14px; background:#F0FDF4; border:1px solid #BBF7D0; border-radius:10px; display:none; }
+  .cv-share-result label { color:#166534; margin-top:0; }
+  .cv-share-result input { background:white; border-color:#BBF7D0; }
+  .cv-share-btn { margin-top:16px; padding:10px 20px; border:none; border-radius:10px; background:linear-gradient(135deg,#204ECF,#1A3FA6); color:white; font-size:13px; font-weight:700; font-family:'DM Sans',sans-serif; cursor:pointer; }
+  .cv-share-btn:hover { opacity:0.92; }
+  .cv-share-btn-cancel { margin-left:8px; padding:10px 20px; border:1px solid var(--border); border-radius:10px; background:white; color:var(--text-secondary); font-size:13px; font-weight:600; font-family:'DM Sans',sans-serif; cursor:pointer; }
 </style>
 </head>
 <body>
@@ -1865,6 +1885,7 @@ function normalizeStatus(s) {
     'REMOVED DUE TO LOCATION': 'removed_location',
     'TALENT NO LONGER AVAILABLE': 'unavailable',
     'TALENT WITHDRAWN': 'withdrawn',
+    'CLIENT REJECTED': 'client_rejected',
   };
   return map[s.toUpperCase()] || s.toLowerCase().replace(/\s+/g, '_');
 }
@@ -1888,6 +1909,7 @@ const STATUS_MAP = {
   'consider_other': { cls: 'status-other', color: '#8B5CF6', label: 'Consider Other', dbValue: 'CONSIDER FOR OTHER ROLE', actionLabel: '', actionClass: '' },
   'removed_location': { cls: 'status-other', color: '#6B7280', label: 'Removed (Location)', dbValue: 'REMOVED DUE TO LOCATION', actionLabel: '', actionClass: '' },
   'on_hold': { cls: 'status-on-hold', color: '#F59E0B', label: 'On Hold', dbValue: 'ON-HOLD', actionLabel: '', actionClass: '' },
+  'client_rejected': { cls: 'status-rejected', color: '#EF4444', label: 'Client Passed', dbValue: 'CLIENT REJECTED', actionLabel: '', actionClass: '' },
   'active': { cls: 'status-hired', color: '#059669', label: 'Active (Engaged)', dbValue: 'ACTIVE', actionLabel: '', actionClass: '' },
 };
 // Dropdown-eligible statuses (active pipeline statuses for dropdown)
@@ -2282,6 +2304,9 @@ async function loadFulfillmentData() {
       date_hired: jc.date_hired || '',
       date_rejected: jc.date_rejected || '',
       client_feedback: jc.client_feedback || '',
+      client_viewed_at: jc.client_viewed_at || null,
+      client_action_at: jc.client_action_at || null,
+      interview_notes: jc.interview_notes || null,
       rejection_reason: jc.rejection_reason || '',
       status_changed_at: jc.status_changed_at || jc.updated_at || ''
     });
@@ -2903,7 +2928,7 @@ function renderPipelineView() {
             // Detect roles that need new candidates:
             // A role needs sourcing if it has unfilled openings AND no viable/active candidates
             // (all existing candidates are rejected, withdrawn, unavailable, removed, on_hold, consider_other)
-            var deadStatuses = new Set(['rejected', 'withdrawn', 'unavailable', 'removed_location', 'on_hold', 'consider_other']);
+            var deadStatuses = new Set(['rejected', 'client_rejected', 'withdrawn', 'unavailable', 'removed_location', 'on_hold', 'consider_other']);
             var rolesNeedingSourcing = [];
             filteredJobs.forEach(function(j) {
               var unfilled = (j.openings || 1) - (j.hired_count || 0);
@@ -2944,6 +2969,8 @@ function renderPipelineView() {
                 '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M12 5v14M5 12h14"/></svg> Add Job</button>' +
               '<button class="bu-action-btn" data-proj-add-cand="' + escHTML(buName) + '||' + escHTML(projName) + '" title="Add a candidate to ' + escHTML(projName) + '">' +
                 '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg> Add Candidate</button>' +
+              '<button class="bu-action-btn" data-proj-client-view="' + escHTML(buName) + '||' + escHTML(projName) + '" title="Create client view for ' + escHTML(projName) + '" style="background:#204ECF;color:white;border:none;">' +
+                '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg> Client View</button>' +
               '</div></div>';
             html += '<div class="project-body">';
 
@@ -3385,6 +3412,15 @@ function bindEvents() {
       e.stopPropagation();
       var parts = (btn.dataset.projAddCand || '').split('||');
       showCandidateForm(parts[0], parts[1]);
+    });
+  });
+
+  // Project-level "Client View" buttons
+  document.querySelectorAll('[data-proj-client-view]').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var parts = (btn.dataset.projClientView || '').split('||');
+      showClientViewModal(parts[0], parts[1]);
     });
   });
 
@@ -4203,6 +4239,112 @@ const CHAT_TOOLS = [
     }
   }
 ];
+
+// ── Client View Share Modal ──
+function showClientViewModal(buName, projName) {
+  // Find jobs for this project
+  var projJobs = FULFILLMENT_DATA.filter(function(j) {
+    return j.project_name === projName && j.bu === buName;
+  });
+
+  if (projJobs.length === 0) {
+    alert('No jobs found for this project.');
+    return;
+  }
+
+  var overlay = document.createElement('div');
+  overlay.className = 'cv-share-modal-overlay';
+  overlay.id = 'cvShareOverlay';
+
+  var rolesHtml = '';
+  projJobs.forEach(function(j) {
+    rolesHtml += '<label class="role-check">' +
+      '<input type="checkbox" checked value="' + escHTML(j.id) + '" />' +
+      '<span>' + escHTML(j.role_title) + ' (' + (j.openings || 1) + ' opening' + ((j.openings || 1) > 1 ? 's' : '') + ')</span></label>';
+  });
+
+  var modalHtml = '<div class="cv-share-modal">' +
+    '<h3>Create Client View for ' + escHTML(projName) + '</h3>' +
+    '<label>Roles to Include</label>' +
+    '<div class="role-checks" id="cvShareRoles">' + rolesHtml + '</div>' +
+    '<label>Client Email Addresses</label>' +
+    '<input type="text" id="cvShareEmails" placeholder="email@company.com, email2@company.com" />' +
+    '<label>Client Logo URL (optional)</label>' +
+    '<input type="url" id="cvShareLogo" placeholder="https://example.com/logo.png" />' +
+    '<div class="cv-share-result" id="cvShareResult">' +
+      '<label>Share Link</label>' +
+      '<input type="text" id="cvShareLink" readonly onclick="this.select()" />' +
+    '</div>' +
+    '<div style="margin-top:16px;">' +
+      '<button class="cv-share-btn" id="cvShareGenBtn">Generate Link</button>' +
+      '<button class="cv-share-btn-cancel" id="cvShareCancelBtn">Cancel</button>' +
+    '</div>' +
+  '</div>';
+
+  overlay.innerHTML = modalHtml;
+  document.body.appendChild(overlay);
+
+  document.getElementById('cvShareGenBtn').addEventListener('click', function() {
+    createClientShare(buName, projName);
+  });
+  document.getElementById('cvShareCancelBtn').addEventListener('click', function() {
+    var el = document.getElementById('cvShareOverlay');
+    if (el) el.remove();
+  });
+  overlay.addEventListener('click', function(e) {
+    if (e.target === overlay) overlay.remove();
+  });
+}
+
+async function createClientShare(buName, projName) {
+  var checkboxes = document.querySelectorAll('#cvShareRoles input[type="checkbox"]:checked');
+  var jobIds = [];
+  checkboxes.forEach(function(cb) { jobIds.push(cb.value); });
+
+  if (jobIds.length === 0) {
+    alert('Please select at least one role.');
+    return;
+  }
+
+  var emailsRaw = document.getElementById('cvShareEmails').value.trim();
+  if (!emailsRaw) {
+    alert('Please enter at least one client email address.');
+    return;
+  }
+  var emails = emailsRaw.split(',').map(function(e) { return e.trim().toLowerCase(); }).filter(function(e) { return e.length > 0; });
+  if (emails.length === 0) {
+    alert('Please enter valid email addresses.');
+    return;
+  }
+
+  var logoUrl = document.getElementById('cvShareLogo').value.trim() || null;
+
+  try {
+    var { data, error } = await sb.from('client_shares').insert({
+      project_name: projName,
+      bu: buName,
+      job_ids: jobIds,
+      allowed_emails: emails,
+      client_logo_url: logoUrl,
+      created_by: currentUser.id
+    }).select();
+
+    if (error) throw error;
+
+    var token = data[0].token;
+    var shareUrl = window.location.origin + '/client?token=' + token;
+
+    document.getElementById('cvShareLink').value = shareUrl;
+    document.getElementById('cvShareResult').style.display = 'block';
+    document.getElementById('cvShareGenBtn').textContent = 'Link Generated!';
+    document.getElementById('cvShareGenBtn').disabled = true;
+
+    await logActivity('client_share', data[0].id, 'create', { note: 'Client view created for ' + projName + ' — shared with ' + emails.join(', ') });
+  } catch (err) {
+    console.error('Error creating client share:', err);
+    alert('Failed to create client share: ' + (err.message || 'Unknown error'));
+  }
+}
 
 // Execute a tool call from Claude against Supabase
 async function logActivity(entityType, entityId, action, opts) {

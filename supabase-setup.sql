@@ -75,6 +75,44 @@ CREATE POLICY "activity_select" ON public.activity_log FOR SELECT TO authenticat
 CREATE POLICY "activity_insert" ON public.activity_log FOR INSERT TO authenticated WITH CHECK (true);
 
 -- ============================================================
+-- Client View Tables
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS client_shares (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  token UUID DEFAULT gen_random_uuid() UNIQUE NOT NULL,
+  project_name TEXT NOT NULL,
+  bu TEXT NOT NULL,
+  job_ids UUID[] NOT NULL DEFAULT '{}',
+  allowed_emails TEXT[] NOT NULL DEFAULT '{}',
+  client_logo_url TEXT,
+  created_by UUID REFERENCES auth.users(id),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  is_active BOOLEAN DEFAULT TRUE
+);
+
+CREATE INDEX idx_client_shares_token ON client_shares(token);
+CREATE INDEX idx_client_shares_active ON client_shares(is_active) WHERE is_active = TRUE;
+
+CREATE TABLE IF NOT EXISTS client_actions_log (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  share_id UUID REFERENCES client_shares(id),
+  job_candidate_id UUID REFERENCES job_candidates(id),
+  action_type TEXT NOT NULL,
+  action_data JSONB DEFAULT '{}',
+  actor_email TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_client_actions_share ON client_actions_log(share_id);
+
+ALTER TABLE job_candidates ADD COLUMN IF NOT EXISTS client_viewed_at TIMESTAMPTZ;
+ALTER TABLE job_candidates ADD COLUMN IF NOT EXISTS client_feedback TEXT;
+ALTER TABLE job_candidates ADD COLUMN IF NOT EXISTS client_action_at TIMESTAMPTZ;
+ALTER TABLE job_candidates ADD COLUMN IF NOT EXISTS interview_notes TEXT;
+
+-- ============================================================
 -- MANUAL STEPS (do in Supabase Dashboard UI):
 -- 1. Authentication > Settings > toggle OFF "Enable sign ups"
 --    (this makes it invite-only)

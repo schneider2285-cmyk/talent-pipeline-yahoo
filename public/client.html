@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Candidate Review - Toptal</title>
+  <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Figtree', sans-serif; background: #F7F8FA; color: #262D3D; min-height: 100vh; }
+
+    /* Email Gate */
+    .cv-gate-overlay { position: fixed; inset: 0; background: #F7F8FA; z-index: 1000; display: flex; align-items: center; justify-content: center; }
+    .cv-gate-card { background: white; border-radius: 16px; padding: 40px; max-width: 420px; width: 90%; box-shadow: 0 4px 24px rgba(0,0,0,0.08); text-align: center; }
+    .cv-gate-card img { height: 32px; margin-bottom: 24px; }
+    .cv-gate-card h2 { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
+    .cv-gate-card p { font-size: 13px; color: #5A6171; margin-bottom: 20px; }
+    .cv-gate-card input { width: 100%; padding: 12px 16px; border: 1px solid #D1D5DE; border-radius: 10px; font-size: 14px; font-family: 'Figtree', sans-serif; margin-bottom: 12px; }
+    .cv-gate-card input:focus { outline: none; border-color: #204ECF; box-shadow: 0 0 0 3px rgba(32,78,207,0.1); }
+    .cv-gate-card button { width: 100%; padding: 12px; border: none; border-radius: 10px; background: linear-gradient(135deg,#204ECF,#1A3FA6); color: white; font-size: 14px; font-weight: 700; font-family: 'Figtree', sans-serif; cursor: pointer; }
+    .cv-gate-card button:hover { opacity: 0.92; }
+    .cv-gate-error { color: #DC2626; font-size: 12px; margin-top: 8px; display: none; }
+    .cv-gate-card .cv-not-you { font-size: 12px; color: #204ECF; cursor: pointer; margin-top: 12px; display: none; }
+
+    /* Error page */
+    .cv-error-page { position: fixed; inset: 0; background: #F7F8FA; z-index: 999; display: none; align-items: center; justify-content: center; }
+    .cv-error-page .cv-gate-card h2 { color: #DC2626; }
+
+    /* Header */
+    .cv-header { display: flex; align-items: center; gap: 14px; padding: 16px 24px; border-bottom: 2px solid #204ECF; background: white; }
+    .cv-header-logos { display: flex; align-items: center; gap: 12px; }
+    .cv-header-logos img { height: 28px; object-fit: contain; }
+    .cv-header-logos .cv-logo-sep { font-size: 14px; color: #8C93A3; font-weight: 500; }
+    .cv-header-pills { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+    .cv-pill { font-size: 12px; padding: 5px 14px; border-radius: 20px; font-weight: 600; }
+    .cv-pill-bu { color: #5A6171; background: #EDEEF2; }
+    .cv-pill-proj { color: #204ECF; background: #E8EEFB; }
+
+    /* Main content */
+    .cv-main { max-width: 1100px; margin: 0 auto; padding: 24px; }
+
+    /* Role section */
+    .cv-role-section { margin-bottom: 32px; }
+    .cv-role-section + .cv-role-section { padding-top: 24px; border-top: 2px solid #D1D5DE; }
+    .cv-role-title { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+    .cv-role-meta { font-size: 12px; color: #5A6171; margin-bottom: 20px; }
+
+    /* Card grid */
+    .cv-card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+    /* Cards */
+    .cv-card { background: white; border: 1px solid #D1D5DE; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.04); position: relative; transition: border-color 0.2s, box-shadow 0.2s; }
+    .cv-card.awaiting { border: 2px solid #F59E0B; box-shadow: 0 2px 12px rgba(245,158,11,0.15); }
+    .cv-card.expanded { border: 2px solid #204ECF; box-shadow: 0 4px 20px rgba(32,78,207,0.12); }
+
+    /* NEW ribbon */
+    .cv-new-ribbon { position: absolute; top: 14px; right: -8px; z-index: 2; }
+    .cv-new-ribbon-label { background: linear-gradient(135deg,#F59E0B,#D97706); color: white; font-size: 11px; font-weight: 800; letter-spacing: 0.8px; padding: 4px 16px 4px 12px; border-radius: 6px 0 0 6px; box-shadow: 0 2px 6px rgba(217,119,6,0.3); }
+    .cv-new-ribbon-fold { position: absolute; right: 0; top: 100%; width: 0; height: 0; border-left: 8px solid #92400E; border-bottom: 8px solid transparent; }
+
+    /* Awaiting bar */
+    .cv-awaiting-bar { background: linear-gradient(90deg,#FEF3C7,#FDE68A); padding: 8px 20px; font-size: 11px; font-weight: 700; color: #92400E; }
+
+    /* Card top section */
+    .cv-card-top { padding: 20px; display: flex; gap: 16px; }
+    .cv-avatar { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+    .cv-avatar-new { border: 3px solid #F59E0B; }
+    .cv-avatar-default { border: 3px solid #D1D5DE; }
+    .cv-avatar-expanded { border: 3px solid #204ECF; }
+    .cv-card-info { flex: 1; min-width: 0; }
+    .cv-name { font-size: 15px; font-weight: 700; margin-bottom: 2px; }
+    .cv-location { font-size: 11px; color: #5A6171; margin-bottom: 3px; }
+    .cv-date-added { font-size: 11px; color: #8C93A3; margin-bottom: 6px; }
+    .cv-tags { display: flex; gap: 5px; flex-wrap: wrap; }
+    .cv-tag { font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 5px; }
+    .cv-tag-blue { background: #E8EEFB; color: #204ECF; }
+    .cv-tag-green { background: #F0FDF4; color: #059669; }
+    .cv-tag-orange { background: #FFF7ED; color: #C2410C; }
+    .cv-tag-purple { background: #F5F3FF; color: #7C3AED; }
+
+    /* Card bio */
+    .cv-card-bio { padding: 0 20px 12px; font-size: 12px; color: #4A5165; line-height: 1.5; }
+
+    /* "Why this candidate fits" panel */
+    .cv-fit-panel { margin: 0 20px 16px; background: #F7F8FA; border: 1px solid #D1D5DE; border-radius: 10px; padding: 14px; }
+    .cv-fit-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #204ECF; margin-bottom: 10px; }
+    .cv-fit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .cv-fit-item { font-size: 11px; color: #4A5165; }
+    .cv-fit-item strong { display: block; font-weight: 600; color: #262D3D; margin-bottom: 2px; }
+
+    /* Card actions */
+    .cv-card-actions { padding: 10px 20px; background: #F7F8FA; border-top: 1px solid #D1D5DE; display: flex; align-items: center; gap: 8px; }
+    .cv-card.awaiting .cv-card-actions { background: #FFFBEB; border-top-color: #FDE68A; }
+    .cv-card.expanded .cv-card-actions { background: #E8EEFB; border-top-color: #B8C8F0; }
+
+    .cv-btn { font-family: 'Figtree', sans-serif; padding: 8px 14px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; border: none; transition: opacity 0.15s; }
+    .cv-btn:hover { opacity: 0.85; }
+    .cv-btn-outline { background: white; border: 1px solid #D1D5DE; color: #262D3D; }
+    .cv-btn-primary { background: #204ECF; color: white; }
+    .cv-btn-primary-lg { background: linear-gradient(135deg,#204ECF,#1A3FA6); color: white; flex: 1; padding: 10px 16px; border-radius: 10px; font-size: 13px; font-weight: 700; }
+    .cv-btn-danger { background: #FEF2F2; border: 1px solid #FECACA; color: #DC2626; }
+    .cv-btn-danger-lg { background: linear-gradient(135deg,#EF4444,#DC2626); color: white; flex: 1; padding: 12px; border-radius: 10px; font-size: 14px; font-weight: 700; }
+    .cv-btn-cancel { background: white; border: 1px solid #D1D5DE; color: #5A6171; padding: 12px 20px; border-radius: 10px; font-size: 13px; font-weight: 600; }
+    .cv-profile-link { margin-left: auto; font-size: 11px; color: #204ECF; font-weight: 600; text-decoration: none; }
+    .cv-profile-link:hover { text-decoration: underline; }
+
+    /* Passed card */
+    .cv-passed-section { margin-top: 16px; }
+    .cv-passed-toggle { display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px 0; }
+    .cv-passed-toggle span { font-size: 12px; color: #8C93A3; }
+    .cv-passed-toggle div { font-size: 13px; font-weight: 600; color: #8C93A3; }
+    .cv-passed-cards { margin-top: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .cv-passed-card { background: white; border: 1px solid #D1D5DE; border-radius: 12px; overflow: hidden; opacity: 0.65; }
+    .cv-passed-card .cv-card-top { padding: 16px 20px; align-items: center; }
+    .cv-passed-card .cv-avatar { width: 56px; height: 56px; filter: grayscale(50%); border: 3px solid #D1D5DE; }
+    .cv-passed-name { font-size: 14px; font-weight: 700; color: #8C93A3; text-decoration: line-through; }
+    .cv-passed-badge { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 6px; background: #FEE2E2; color: #DC2626; margin-left: 8px; }
+    .cv-passed-feedback { margin: 0 20px 14px; background: #FEF2F2; border: 1px solid #FECACA; border-radius: 8px; padding: 10px 12px; }
+    .cv-passed-feedback-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #DC2626; margin-bottom: 4px; }
+    .cv-passed-feedback-text { font-size: 12px; color: #7F1D1D; line-height: 1.4; }
+
+    /* Pipeline Board */
+    .cv-pipeline { border-top: 2px solid #D1D5DE; padding-top: 24px; margin-top: 28px; }
+    .cv-pipeline-title { font-size: 14px; font-weight: 700; margin-bottom: 16px; }
+    .cv-pipeline-board { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 12px; }
+    .cv-pipeline-col { border-radius: 12px; padding: 14px; min-height: 160px; border: 1px solid; }
+    .cv-pipeline-col-header { display: flex; align-items: center; gap: 6px; margin-bottom: 12px; }
+    .cv-pipeline-col-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .cv-pipeline-col-label { font-size: 12px; font-weight: 700; }
+    .cv-pipeline-col-count { font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 10px; margin-left: auto; }
+    .cv-pipeline-empty { font-size: 11px; opacity: 0.6; text-align: center; margin-top: 40px; }
+    .cv-mini-card { background: white; border-radius: 10px; padding: 10px; border: 1px solid; box-shadow: 0 1px 3px rgba(0,0,0,0.04); margin-bottom: 8px; }
+    .cv-mini-card-top { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .cv-mini-card-top img { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; }
+    .cv-mini-card-name { font-size: 12px; font-weight: 700; }
+    .cv-mini-card-loc { font-size: 10px; color: #5A6171; }
+    .cv-mini-card-date { font-size: 10px; font-weight: 600; }
+    .cv-mini-card-tags { margin-top: 6px; display: flex; gap: 4px; }
+    .cv-mini-card-tags span { font-size: 9px; font-weight: 600; padding: 2px 6px; border-radius: 4px; }
+
+    /* Col 1: 1st Interview (blue) */
+    .cv-col-1st { background: #E8EEFB; border-color: #B8C8F0; }
+    .cv-col-1st .cv-pipeline-col-dot { background: #204ECF; }
+    .cv-col-1st .cv-pipeline-col-label { color: #162D7A; }
+    .cv-col-1st .cv-pipeline-col-count { background: #CFD9F2; color: #162D7A; }
+    .cv-col-1st .cv-pipeline-empty { color: #162D7A; }
+    .cv-col-1st .cv-mini-card { border-color: #B8C8F0; }
+    .cv-col-1st .cv-mini-card-date { color: #204ECF; }
+    /* Col 2: 2nd Interview (purple) */
+    .cv-col-2nd { background: #F5F3FF; border-color: #DDD6FE; }
+    .cv-col-2nd .cv-pipeline-col-dot { background: #7C3AED; }
+    .cv-col-2nd .cv-pipeline-col-label { color: #5B21B6; }
+    .cv-col-2nd .cv-pipeline-col-count { background: #EDE9FE; color: #6D28D9; }
+    .cv-col-2nd .cv-pipeline-empty { color: #5B21B6; }
+    .cv-col-2nd .cv-mini-card { border-color: #DDD6FE; }
+    .cv-col-2nd .cv-mini-card-date { color: #7C3AED; }
+    /* Col 3: Pending Decision (amber) */
+    .cv-col-pending { background: #FFFBEB; border-color: #FDE68A; }
+    .cv-col-pending .cv-pipeline-col-dot { background: #D97706; }
+    .cv-col-pending .cv-pipeline-col-label { color: #92400E; }
+    .cv-col-pending .cv-pipeline-col-count { background: #FEF3C7; color: #92400E; }
+    .cv-col-pending .cv-pipeline-empty { color: #92400E; }
+    .cv-col-pending .cv-mini-card { border-color: #FDE68A; }
+    .cv-col-pending .cv-mini-card-date { color: #D97706; }
+    /* Col 4: Hired (green) */
+    .cv-col-hired { background: #F0FDF4; border-color: #BBF7D0; }
+    .cv-col-hired .cv-pipeline-col-dot { background: #059669; }
+    .cv-col-hired .cv-pipeline-col-label { color: #166534; }
+    .cv-col-hired .cv-pipeline-col-count { background: #DCFCE7; color: #166534; }
+    .cv-col-hired .cv-pipeline-empty { color: #166534; }
+    .cv-col-hired .cv-mini-card { border-color: #BBF7D0; }
+    .cv-col-hired .cv-mini-card-date { color: #059669; }
+
+    /* Modal */
+    .cv-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 500; display: none; align-items: center; justify-content: center; }
+    .cv-modal-overlay.active { display: flex; }
+    .cv-modal { background: white; border-radius: 12px; padding: 24px; max-width: 520px; width: 92%; max-height: 90vh; overflow-y: auto; }
+    .cv-modal-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+    .cv-modal-header img { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; }
+    .cv-modal-header h3 { font-size: 15px; font-weight: 700; }
+    .cv-modal-header p { font-size: 12px; color: #5A6171; }
+    .cv-modal label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+    .cv-modal input, .cv-modal textarea { width: 100%; padding: 10px 12px; border: 1px solid #D1D5DE; border-radius: 8px; font-size: 12px; font-family: 'Figtree', sans-serif; }
+    .cv-modal input:focus, .cv-modal textarea:focus { outline: none; border-color: #204ECF; }
+    .cv-modal textarea { height: 64px; resize: none; }
+    .cv-modal-sched-options { display: flex; gap: 12px; margin-bottom: 16px; }
+    .cv-modal-sched-option { flex: 1; padding: 14px; border-radius: 10px; cursor: pointer; transition: border-color 0.15s; }
+    .cv-modal-sched-option.active { border: 2px solid #204ECF; background: #E8EEFB; }
+    .cv-modal-sched-option.inactive { border: 1px solid #D1D5DE; background: #F7F8FA; }
+    .cv-modal-sched-option h4 { font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+    .cv-modal-sched-option.active h4 { color: #204ECF; }
+    .cv-modal-sched-option p { font-size: 11px; color: #5A6171; margin-bottom: 8px; }
+    .cv-modal-actions { display: flex; gap: 10px; margin-top: 16px; }
+
+    /* Toast */
+    .cv-toast { position: fixed; top: 20px; right: 20px; z-index: 600; padding: 12px 20px; border-radius: 10px; font-size: 13px; font-weight: 600; display: none; box-shadow: 0 4px 16px rgba(0,0,0,0.12); }
+    .cv-toast.success { background: #F0FDF4; color: #166534; border: 1px solid #BBF7D0; }
+    .cv-toast.error { background: #FEF2F2; color: #DC2626; border: 1px solid #FECACA; }
+    .cv-toast.show { display: block; animation: cvToastIn 0.3s ease; }
+    @keyframes cvToastIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* Loading skeleton */
+    .cv-skeleton { background: linear-gradient(90deg, #EDEEF2 25%, #F7F8FA 50%, #EDEEF2 75%); background-size: 200% 100%; animation: cvShimmer 1.5s infinite; border-radius: 8px; }
+    @keyframes cvShimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .cv-card-grid, .cv-passed-cards { grid-template-columns: 1fr; }
+      .cv-pipeline-board { overflow-x: auto; grid-template-columns: repeat(4, minmax(200px, 1fr)); }
+      .cv-header { flex-wrap: wrap; }
+      .cv-header-pills { margin-left: 0; margin-top: 8px; }
+      .cv-modal-sched-options { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Error Page -->
+  <div class="cv-error-page" id="errorPage">
+    <div class="cv-gate-card">
+      <img src="/assets/toptal-logo.png" alt="Toptal" />
+      <h2 id="errorTitle">Link Inactive</h2>
+      <p id="errorMsg">This link is no longer active. Please contact your Toptal representative.</p>
+    </div>
+  </div>
+
+  <!-- Email Gate -->
+  <div class="cv-gate-overlay" id="gateOverlay">
+    <div class="cv-gate-card">
+      <img src="/assets/toptal-logo.png" alt="Toptal" />
+      <h2>Welcome</h2>
+      <p>Enter your email address to review candidates for this project.</p>
+      <input type="email" id="gateEmail" placeholder="you@company.com" />
+      <button id="gateSubmitBtn">Continue</button>
+      <div class="cv-gate-error" id="gateError"></div>
+      <div class="cv-not-you" id="gateNotYou" style="display:none;">Not you? Click to sign in with a different email.</div>
+    </div>
+  </div>
+
+  <!-- Main Page -->
+  <div id="cvPage" style="display:none;">
+    <div class="cv-header" id="cvHeader"></div>
+    <div class="cv-main" id="cvMain">
+      <div class="cv-skeleton" style="height:200px;margin-bottom:16px;"></div>
+      <div class="cv-skeleton" style="height:200px;"></div>
+    </div>
+  </div>
+
+  <!-- Modal Overlay -->
+  <div class="cv-modal-overlay" id="modalOverlay">
+    <div class="cv-modal" id="modalContent"></div>
+  </div>
+
+  <!-- Toast -->
+  <div class="cv-toast" id="cvToast"></div>
+
+<script>
+/* ================================================================
+   Client View — All dynamic content is escaped via escapeHtml().
+   Data comes exclusively from our server API, not from URL params
+   or direct user input. escapeHtml provides defense-in-depth.
+   ================================================================ */
+
+// --- Globals ---
+var TOKEN = null;
+var EMAIL = null;
+var SHARE_DATA = null;
+
+// --- XSS Prevention Helper ---
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function formatDate(d) {
+  if (!d) return '';
+  var dt = new Date(d);
+  var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return months[dt.getMonth()] + ' ' + dt.getDate() + ', ' + dt.getFullYear();
+}
+
+function daysSince(d) {
+  if (!d) return 0;
+  var now = new Date(); var then = new Date(d);
+  return Math.floor((now - then) / (1000 * 60 * 60 * 24));
+}
+
+function normalizeStatus(s) {
+  if (!s) return '';
+  var v = s.toLowerCase().replace(/[\s_-]+/g, '_').trim();
+  var map = {
+    'interview_scheduled': 'interview_scheduled',
+    'pending_2nd_interview': 'pending_2nd_interview',
+    'pending_decision': 'pending_decision',
+    'hired': 'hired',
+    'client_rejected': 'client_rejected'
+  };
+  return map[v] || v;
+}
+
+function showToast(msg, type) {
+  var t = document.getElementById('cvToast');
+  t.className = 'cv-toast ' + (type || 'success') + ' show';
+  t.textContent = msg;
+  setTimeout(function() { t.className = 'cv-toast'; }, 3500);
+}
+
+function showError(title, msg) {
+  document.getElementById('errorTitle').textContent = title;
+  document.getElementById('errorMsg').textContent = msg;
+  document.getElementById('errorPage').style.display = 'flex';
+  document.getElementById('gateOverlay').style.display = 'none';
+  document.getElementById('cvPage').style.display = 'none';
+}
+
+// --- Token extraction ---
+(function init() {
+  var params = new URLSearchParams(window.location.search);
+  TOKEN = params.get('token');
+  if (!TOKEN) {
+    showError('Invalid Link', 'No token provided. Please use the link shared by your Toptal representative.');
+    return;
+  }
+  // Check for stored email
+  var stored = localStorage.getItem('cv_email_' + TOKEN);
+  if (stored) {
+    EMAIL = stored;
+    document.getElementById('gateNotYou').style.display = 'block';
+    document.getElementById('gateEmail').value = stored;
+    loadShareData();
+  }
+})();
+
+function clearSession() {
+  localStorage.removeItem('cv_email_' + TOKEN);
+  EMAIL = null;
+  SHARE_DATA = null;
+  document.getElementById('gateOverlay').style.display = 'flex';
+  document.getElementById('gateNotYou').style.display = 'none';
+  document.getElementById('gateEmail').value = '';
+  document.getElementById('cvPage').style.display = 'none';
+}
+
+// --- Email Gate ---
+async function verifyEmail() {
+  var input = document.getElementById('gateEmail');
+  var email = input.value.toLowerCase().trim();
+  if (!email) { input.focus(); return; }
+
+  var errEl = document.getElementById('gateError');
+  errEl.style.display = 'none';
+
+  try {
+    var resp = await fetch('/api/client-data?token=' + encodeURIComponent(TOKEN) + '&email=' + encodeURIComponent(email));
+    var data = await resp.json();
+
+    if (!resp.ok) {
+      if (resp.status === 404) {
+        showError('Link Inactive', 'This link is no longer active. Please contact your Toptal representative.');
+        return;
+      }
+      if (resp.status === 403) {
+        errEl.textContent = "We don't have that email on file for this project. Please check with your Toptal representative.";
+        errEl.style.display = 'block';
+        return;
+      }
+      throw new Error(data.error || 'Unknown error');
+    }
+
+    EMAIL = email;
+    localStorage.setItem('cv_email_' + TOKEN, email);
+    SHARE_DATA = data;
+    renderPage();
+  } catch (err) {
+    errEl.textContent = 'Something went wrong. Please try again.';
+    errEl.style.display = 'block';
+    console.error('Gate error:', err);
+  }
+}
+
+// --- Data Loading ---
+async function loadShareData() {
+  try {
+    var resp = await fetch('/api/client-data?token=' + encodeURIComponent(TOKEN) + '&email=' + encodeURIComponent(EMAIL));
+    var data = await resp.json();
+    if (!resp.ok) {
+      if (resp.status === 404) { showError('Link Inactive', 'This link is no longer active. Please contact your Toptal representative.'); return; }
+      if (resp.status === 403) { clearSession(); return; }
+      throw new Error(data.error);
+    }
+    SHARE_DATA = data;
+    renderPage();
+  } catch (err) {
+    showToast('Failed to load data. Please refresh.', 'error');
+    console.error('Load error:', err);
+  }
+}
+
+// --- Render Page ---
+// NOTE: All dynamic values are sanitized through escapeHtml() before DOM insertion.
+// Data originates from our own Supabase API, not from raw user input.
+function renderPage() {
+  document.getElementById('gateOverlay').style.display = 'none';
+  document.getElementById('cvPage').style.display = 'block';
+
+  var share = SHARE_DATA.share;
+
+  // Build header via DOM API for logos
+  var headerEl = document.getElementById('cvHeader');
+  headerEl.textContent = '';
+  var logosDiv = document.createElement('div');
+  logosDiv.className = 'cv-header-logos';
+  var toptalImg = document.createElement('img');
+  toptalImg.src = '/assets/toptal-logo.png';
+  toptalImg.alt = 'Toptal';
+  logosDiv.appendChild(toptalImg);
+  if (share.client_logo_url) {
+    var sep = document.createElement('span');
+    sep.className = 'cv-logo-sep';
+    sep.textContent = '\u00D7';
+    logosDiv.appendChild(sep);
+    var clientImg = document.createElement('img');
+    clientImg.src = share.client_logo_url;
+    clientImg.alt = 'Client';
+    clientImg.style.height = '24px';
+    logosDiv.appendChild(clientImg);
+  }
+  headerEl.appendChild(logosDiv);
+  var pillsDiv = document.createElement('div');
+  pillsDiv.className = 'cv-header-pills';
+  var buPill = document.createElement('span');
+  buPill.className = 'cv-pill cv-pill-bu';
+  buPill.textContent = share.bu;
+  pillsDiv.appendChild(buPill);
+  var projPill = document.createElement('span');
+  projPill.className = 'cv-pill cv-pill-proj';
+  projPill.textContent = share.project_name;
+  pillsDiv.appendChild(projPill);
+  headerEl.appendChild(pillsDiv);
+
+  // Build main content — uses escapeHtml for all data-bound strings
+  var mainHtml = '';
+  var jobs = SHARE_DATA.jobs || [];
+  for (var i = 0; i < jobs.length; i++) {
+    mainHtml += renderRole(jobs[i]);
+  }
+  if (jobs.length === 0) {
+    mainHtml = '<div style="text-align:center;padding:60px 20px;color:#5A6171;">' +
+      '<p style="font-size:16px;font-weight:600;margin-bottom:8px;">No candidates yet</p>' +
+      '<p style="font-size:13px;">We will notify you when candidates are ready for review.</p></div>';
+  }
+  document.getElementById('cvMain').innerHTML = mainHtml;
+}
+
+// --- Render Role Section ---
+function renderRole(job) {
+  var candidates = job.candidates || [];
+  var review = [], pipeline = [], passed = [];
+
+  for (var i = 0; i < candidates.length; i++) {
+    var c = candidates[i];
+    var ns = normalizeStatus(c.status);
+    if (ns === 'client_rejected') { passed.push(c); }
+    else if (ns === 'interview_scheduled' || ns === 'pending_2nd_interview' || ns === 'pending_decision' || ns === 'hired') { pipeline.push(c); }
+    else { review.push(c); }
+  }
+
+  // Sort: awaiting action (oldest first) at top, then newest first
+  review.sort(function(a, b) {
+    var aDays = daysSince(a.date_introduced);
+    var bDays = daysSince(b.date_introduced);
+    var aAwaiting = aDays >= 3 && !a.client_viewed_at;
+    var bAwaiting = bDays >= 3 && !b.client_viewed_at;
+    if (aAwaiting && !bAwaiting) return -1;
+    if (!aAwaiting && bAwaiting) return 1;
+    if (aAwaiting && bAwaiting) return bDays - aDays;
+    return new Date(b.date_introduced) - new Date(a.date_introduced);
+  });
+
+  var html = '<div class="cv-role-section">';
+  html += '<div class="cv-role-title">' + escapeHtml(job.role_title) + '</div>';
+  html += '<div class="cv-role-meta">' + (job.openings || 1) + ' opening' + ((job.openings || 1) !== 1 ? 's' : '') + ' &middot; ' + candidates.length + ' candidate' + (candidates.length !== 1 ? 's' : '') + ' presented</div>';
+
+  // Review cards
+  if (review.length > 0) {
+    html += '<div class="cv-card-grid">';
+    for (var j = 0; j < review.length; j++) {
+      html += renderCard(review[j], job);
+    }
+    html += '</div>';
+  }
+
+  // Pipeline board — always show if there are any candidates
+  html += renderPipelineBoard(pipeline);
+
+  // Passed section
+  if (passed.length > 0) {
+    html += '<div class="cv-passed-section">';
+    html += '<div class="cv-passed-toggle" onclick="var cards=this.nextElementSibling;var arrow=this.querySelector(\'span\');if(cards.style.display===\'none\'){cards.style.display=\'grid\';arrow.textContent=\'\\u25BE\';}else{cards.style.display=\'none\';arrow.textContent=\'\\u25B8\';}">';
+    html += '<span>&#9656;</span><div>Passed Candidates (' + passed.length + ')</div></div>';
+    html += '<div class="cv-passed-cards" style="display:none;">';
+    for (var k = 0; k < passed.length; k++) {
+      html += renderPassedCard(passed[k]);
+    }
+    html += '</div></div>';
+  }
+
+  html += '</div>';
+  return html;
+}
+
+// --- Render Candidate Card ---
+function renderCard(c, job) {
+  var days = daysSince(c.date_introduced);
+  var isNew = !c.client_viewed_at;
+  var isAwaiting = isNew && days >= 3;
+  var cardClass = 'cv-card' + (isAwaiting ? ' awaiting' : '');
+  var avatarClass = isNew ? 'cv-avatar cv-avatar-new' : 'cv-avatar cv-avatar-default';
+
+  var html = '<div class="' + cardClass + '">';
+
+  // NEW ribbon
+  if (isNew) {
+    html += '<div class="cv-new-ribbon"><div class="cv-new-ribbon-label">NEW</div><div class="cv-new-ribbon-fold"></div></div>';
+  }
+
+  // Awaiting bar
+  if (isAwaiting) {
+    html += '<div class="cv-awaiting-bar">Awaiting your review &mdash; added ' + days + ' days ago</div>';
+  }
+
+  // Card top
+  var avatarSrc = c.avatar_url || ('https://ui-avatars.com/api/?name=' + encodeURIComponent(c.name || 'U') + '&background=E8EEFB&color=204ECF&size=128');
+  html += '<div class="cv-card-top">';
+  html += '<img class="' + avatarClass + '" src="' + escapeHtml(avatarSrc) + '" alt="" />';
+  html += '<div class="cv-card-info">';
+  html += '<div class="cv-name">' + escapeHtml(c.name) + '</div>';
+  html += '<div class="cv-location">' + escapeHtml(c.location || '') + '</div>';
+  if (c.date_introduced) { html += '<div class="cv-date-added">Added ' + formatDate(c.date_introduced) + '</div>'; }
+  html += '<div class="cv-tags">' + renderTags(c.notes) + '</div>';
+  html += '</div></div>';
+
+  // Bio
+  var bio = extractBio(c.notes);
+  if (bio) { html += '<div class="cv-card-bio">' + escapeHtml(bio) + '</div>'; }
+
+  // Actions — jc_id is a UUID from our DB, safe for attribute use
+  var safeId = escapeHtml(c.jc_id);
+  html += '<div class="cv-card-actions">';
+  html += '<button class="cv-btn cv-btn-outline" data-action="view" data-jcid="' + safeId + '">More Info</button>';
+  html += '<button class="cv-btn cv-btn-primary" data-action="interview" data-jcid="' + safeId + '">Request Interview</button>';
+  html += '<button class="cv-btn cv-btn-danger" data-action="pass" data-jcid="' + safeId + '">Pass</button>';
+  if (c.profile_link) {
+    html += '<a class="cv-profile-link" href="' + escapeHtml(c.profile_link) + '" target="_blank" rel="noopener">Profile &rarr;</a>';
+  }
+  html += '</div></div>';
+  return html;
+}
+
+// --- Render Passed Card ---
+function renderPassedCard(c) {
+  var avatarSrc = c.avatar_url || ('https://ui-avatars.com/api/?name=' + encodeURIComponent(c.name || 'U') + '&background=EDEEF2&color=8C93A3&size=128');
+  var html = '<div class="cv-passed-card">';
+  html += '<div class="cv-card-top">';
+  html += '<img class="cv-avatar" style="width:56px;height:56px;filter:grayscale(50%);border:3px solid #D1D5DE;" src="' + escapeHtml(avatarSrc) + '" alt="" />';
+  html += '<div class="cv-card-info">';
+  html += '<div style="display:flex;align-items:center;">';
+  html += '<span class="cv-passed-name">' + escapeHtml(c.name) + '</span>';
+  html += '<span class="cv-passed-badge">PASSED</span>';
+  html += '</div>';
+  html += '<div style="font-size:11px;color:#8C93A3;">' + escapeHtml(c.location || '') + (c.date_introduced ? ' &middot; Added ' + formatDate(c.date_introduced) : '') + '</div>';
+  html += '</div></div>';
+  if (c.client_feedback) {
+    html += '<div class="cv-passed-feedback">';
+    html += '<div class="cv-passed-feedback-title">Client Feedback</div>';
+    html += '<div class="cv-passed-feedback-text">' + escapeHtml(c.client_feedback) + '</div>';
+    html += '</div>';
+  }
+  html += '</div>';
+  return html;
+}
+
+// --- Pipeline Board ---
+function renderPipelineBoard(candidates) {
+  var cols = [
+    { key: 'interview_scheduled', label: '1st Interview', cls: 'cv-col-1st' },
+    { key: 'pending_2nd_interview', label: '2nd Interview', cls: 'cv-col-2nd' },
+    { key: 'pending_decision', label: 'Pending Decision', cls: 'cv-col-pending' },
+    { key: 'hired', label: 'Hired', cls: 'cv-col-hired' }
+  ];
+
+  var grouped = {};
+  cols.forEach(function(col) { grouped[col.key] = []; });
+  candidates.forEach(function(c) {
+    var ns = normalizeStatus(c.status);
+    if (grouped[ns]) grouped[ns].push(c);
+  });
+
+  var html = '<div class="cv-pipeline">';
+  html += '<div class="cv-pipeline-title">Interview Pipeline</div>';
+  html += '<div class="cv-pipeline-board">';
+
+  for (var i = 0; i < cols.length; i++) {
+    var col = cols[i];
+    var items = grouped[col.key];
+    html += '<div class="cv-pipeline-col ' + col.cls + '">';
+    html += '<div class="cv-pipeline-col-header">';
+    html += '<div class="cv-pipeline-col-dot"></div>';
+    html += '<div class="cv-pipeline-col-label">' + col.label + '</div>';
+    html += '<span class="cv-pipeline-col-count">' + items.length + '</span>';
+    html += '</div>';
+
+    if (items.length === 0) {
+      html += '<div class="cv-pipeline-empty">No candidates yet</div>';
+    } else {
+      for (var j = 0; j < items.length; j++) {
+        html += renderMiniCard(items[j]);
+      }
+    }
+    html += '</div>';
+  }
+
+  html += '</div></div>';
+  return html;
+}
+
+function renderMiniCard(c) {
+  var avatarSrc = c.avatar_url || ('https://ui-avatars.com/api/?name=' + encodeURIComponent(c.name || 'U') + '&background=E8EEFB&color=204ECF&size=64');
+  var html = '<div class="cv-mini-card">';
+  html += '<div class="cv-mini-card-top">';
+  html += '<img src="' + escapeHtml(avatarSrc) + '" alt="" />';
+  html += '<div><div class="cv-mini-card-name">' + escapeHtml(c.name) + '</div>';
+  html += '<div class="cv-mini-card-loc">' + escapeHtml(c.location || '') + '</div></div></div>';
+  if (c.date_interview) {
+    html += '<div class="cv-mini-card-date">Scheduled: ' + formatDate(c.date_interview) + '</div>';
+  }
+  html += '</div>';
+  return html;
+}
+
+// --- Tags & Bio extraction from notes field ---
+function renderTags(notes) {
+  if (!notes) return '';
+  var tagColors = ['cv-tag-blue', 'cv-tag-green', 'cv-tag-orange', 'cv-tag-purple'];
+  var tags = [];
+  var lines = notes.split('\n');
+  for (var i = 0; i < lines.length && tags.length < 4; i++) {
+    var line = lines[i].trim();
+    if (line.length > 0 && line.length < 60) {
+      var parts = line.split(/[,;|]+/);
+      for (var j = 0; j < parts.length && tags.length < 4; j++) {
+        var tag = parts[j].trim();
+        if (tag.length > 0 && tag.length < 25) tags.push(tag);
+      }
+      if (tags.length > 0) break;
+    }
+  }
+  var html = '';
+  for (var k = 0; k < tags.length; k++) {
+    html += '<span class="cv-tag ' + tagColors[k % tagColors.length] + '">' + escapeHtml(tags[k]) + '</span>';
+  }
+  return html;
+}
+
+function extractBio(notes) {
+  if (!notes) return '';
+  var lines = notes.split('\n');
+  var best = '';
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i].trim();
+    if (line.length > 60 && line.length > best.length) best = line;
+  }
+  return best || (lines.length > 1 ? lines.slice(1).join(' ').substring(0, 200) : '');
+}
+
+// --- API Action caller ---
+async function callAction(type, jcId, data) {
+  try {
+    var resp = await fetch('/api/client-action', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        token: TOKEN,
+        email: EMAIL,
+        action_type: type,
+        job_candidate_id: jcId,
+        action_data: data || {}
+      })
+    });
+    var result = await resp.json();
+    if (!resp.ok) throw new Error(result.error || 'Action failed');
+    return result;
+  } catch (err) {
+    showToast('Action failed: ' + err.message, 'error');
+    throw err;
+  }
+}
+
+async function markViewed(jcId) {
+  try {
+    await callAction('viewed', jcId);
+    await loadShareData();
+  } catch (err) { /* toast already shown */ }
+}
+
+// --- Interview Modal ---
+function showInterviewModal(jcId) {
+  var c = findCandidate(jcId);
+  if (!c) return;
+  var avatarSrc = c.avatar_url || ('https://ui-avatars.com/api/?name=' + encodeURIComponent(c.name || 'U') + '&background=E8EEFB&color=204ECF&size=96');
+
+  var modal = document.getElementById('modalContent');
+  modal.textContent = '';
+
+  // Header
+  var header = document.createElement('div');
+  header.className = 'cv-modal-header';
+  var hImg = document.createElement('img');
+  hImg.src = avatarSrc;
+  hImg.style.border = '2px solid #204ECF';
+  header.appendChild(hImg);
+  var hText = document.createElement('div');
+  var h3 = document.createElement('h3');
+  h3.textContent = 'Request Interview with ' + c.name;
+  hText.appendChild(h3);
+  var pRole = document.createElement('p');
+  pRole.textContent = c._role || '';
+  hText.appendChild(pRole);
+  header.appendChild(hText);
+  modal.appendChild(header);
+
+  // Scheduling label
+  var schedLabel = document.createElement('label');
+  schedLabel.textContent = 'How would you like to schedule?';
+  schedLabel.style.marginBottom = '10px';
+  modal.appendChild(schedLabel);
+
+  // Schedule options (using innerHTML for static form structure only — no user data)
+  var schedDiv = document.createElement('div');
+  schedDiv.className = 'cv-modal-sched-options';
+  schedDiv.innerHTML =
+    '<div class="cv-modal-sched-option active" id="schedCalendly" onclick="toggleSched(\'calendly\')">' +
+    '<h4>Share Calendly Link</h4><p>Paste your scheduling link</p>' +
+    '<input type="text" id="interviewCalendly" placeholder="https://calendly.com/your-link" />' +
+    '</div>' +
+    '<div class="cv-modal-sched-option inactive" id="schedAvail" onclick="toggleSched(\'avail\')">' +
+    '<h4>Share Your Availability</h4><p>Type your available times</p>' +
+    '<textarea id="interviewAvail" placeholder="e.g. Mon-Wed next week, 2-5pm EST"></textarea>' +
+    '</div>';
+  modal.appendChild(schedDiv);
+
+  // Notes
+  var notesDiv = document.createElement('div');
+  notesDiv.style.marginBottom = '14px';
+  var notesLabel = document.createElement('label');
+  notesLabel.textContent = 'Additional notes (optional)';
+  notesDiv.appendChild(notesLabel);
+  var notesArea = document.createElement('textarea');
+  notesArea.id = 'interviewNotes';
+  notesArea.placeholder = 'Any specific topics, team members to include, etc.';
+  notesDiv.appendChild(notesArea);
+  modal.appendChild(notesDiv);
+
+  // Actions
+  var actionsDiv = document.createElement('div');
+  actionsDiv.className = 'cv-modal-actions';
+  var submitBtn = document.createElement('button');
+  submitBtn.className = 'cv-btn cv-btn-primary-lg';
+  submitBtn.textContent = 'Submit Interview Request';
+  submitBtn.addEventListener('click', function() { submitInterview(jcId); });
+  actionsDiv.appendChild(submitBtn);
+  var cancelBtn = document.createElement('button');
+  cancelBtn.className = 'cv-btn cv-btn-cancel';
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.addEventListener('click', closeModal);
+  actionsDiv.appendChild(cancelBtn);
+  modal.appendChild(actionsDiv);
+
+  document.getElementById('modalOverlay').classList.add('active');
+}
+
+function toggleSched(type) {
+  var cal = document.getElementById('schedCalendly');
+  var avail = document.getElementById('schedAvail');
+  if (type === 'calendly') {
+    cal.className = 'cv-modal-sched-option active';
+    avail.className = 'cv-modal-sched-option inactive';
+  } else {
+    cal.className = 'cv-modal-sched-option inactive';
+    avail.className = 'cv-modal-sched-option active';
+  }
+}
+
+async function submitInterview(jcId) {
+  var calendly = document.getElementById('interviewCalendly').value.trim();
+  var avail = document.getElementById('interviewAvail').value.trim();
+  var notes = document.getElementById('interviewNotes').value.trim();
+  var interviewNotes = calendly || avail;
+
+  if (!interviewNotes) {
+    showToast('Please provide a scheduling link or your availability.', 'error');
+    return;
+  }
+
+  try {
+    await callAction('interview_requested', jcId, {
+      interview_notes: interviewNotes + (notes ? '\n\nNotes: ' + notes : '')
+    });
+    closeModal();
+    showToast('Interview request submitted!', 'success');
+    await loadShareData();
+  } catch (err) { /* toast already shown */ }
+}
+
+// --- Pass Modal ---
+function showPassModal(jcId) {
+  var c = findCandidate(jcId);
+  if (!c) return;
+  var avatarSrc = c.avatar_url || ('https://ui-avatars.com/api/?name=' + encodeURIComponent(c.name || 'U') + '&background=EDEEF2&color=8C93A3&size=96');
+
+  var modal = document.getElementById('modalContent');
+  modal.textContent = '';
+
+  // Header
+  var header = document.createElement('div');
+  header.className = 'cv-modal-header';
+  var hImg = document.createElement('img');
+  hImg.src = avatarSrc;
+  hImg.style.border = '2px solid #EF4444';
+  header.appendChild(hImg);
+  var hText = document.createElement('div');
+  var h3 = document.createElement('h3');
+  h3.textContent = 'Pass on ' + c.name + '?';
+  hText.appendChild(h3);
+  var pRole = document.createElement('p');
+  pRole.textContent = c._role || '';
+  hText.appendChild(pRole);
+  header.appendChild(hText);
+  modal.appendChild(header);
+
+  // Feedback
+  var fbDiv = document.createElement('div');
+  fbDiv.style.marginBottom = '14px';
+  var fbLabel = document.createElement('label');
+  fbLabel.textContent = 'Feedback (optional but helps us find better matches)';
+  fbDiv.appendChild(fbLabel);
+  var fbArea = document.createElement('textarea');
+  fbArea.id = 'passFeedback';
+  fbArea.placeholder = "What didn't fit? e.g. 'Need more AWS experience', 'Timezone doesn't work'...";
+  fbArea.style.height = '72px';
+  fbDiv.appendChild(fbArea);
+  modal.appendChild(fbDiv);
+
+  // Actions
+  var actionsDiv = document.createElement('div');
+  actionsDiv.className = 'cv-modal-actions';
+  var submitBtn = document.createElement('button');
+  submitBtn.className = 'cv-btn cv-btn-danger-lg';
+  submitBtn.textContent = 'Confirm Pass';
+  submitBtn.addEventListener('click', function() { submitPass(jcId); });
+  actionsDiv.appendChild(submitBtn);
+  var cancelBtn = document.createElement('button');
+  cancelBtn.className = 'cv-btn cv-btn-cancel';
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.addEventListener('click', closeModal);
+  actionsDiv.appendChild(cancelBtn);
+  modal.appendChild(actionsDiv);
+
+  document.getElementById('modalOverlay').classList.add('active');
+}
+
+async function submitPass(jcId) {
+  var feedback = document.getElementById('passFeedback').value.trim();
+  try {
+    await callAction('passed', jcId, { feedback: feedback });
+    closeModal();
+    showToast('Candidate passed.', 'success');
+    await loadShareData();
+  } catch (err) { /* toast already shown */ }
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('active');
+}
+
+// --- Find candidate across all jobs ---
+function findCandidate(jcId) {
+  if (!SHARE_DATA) return null;
+  var jobs = SHARE_DATA.jobs || [];
+  for (var i = 0; i < jobs.length; i++) {
+    var cs = jobs[i].candidates || [];
+    for (var j = 0; j < cs.length; j++) {
+      if (cs[j].jc_id === jcId) {
+        var c = Object.assign({}, cs[j]);
+        c._role = jobs[i].role_title;
+        return c;
+      }
+    }
+  }
+  return null;
+}
+
+// --- Event Delegation ---
+document.getElementById('gateSubmitBtn').addEventListener('click', verifyEmail);
+document.getElementById('gateEmail').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') verifyEmail();
+});
+document.getElementById('gateNotYou').addEventListener('click', clearSession);
+document.getElementById('modalOverlay').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+
+// Delegate card button clicks
+document.getElementById('cvMain').addEventListener('click', function(e) {
+  var btn = e.target.closest('[data-action]');
+  if (!btn) return;
+  var action = btn.getAttribute('data-action');
+  var jcId = btn.getAttribute('data-jcid');
+  if (!jcId) return;
+  if (action === 'view') markViewed(jcId);
+  else if (action === 'interview') showInterviewModal(jcId);
+  else if (action === 'pass') showPassModal(jcId);
+});
+</script>
+
+</body>
+</html>
