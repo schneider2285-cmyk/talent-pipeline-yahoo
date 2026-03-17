@@ -2493,12 +2493,6 @@ function render() {
     '<div class="last-refresh"><span class="live-dot"></span>Live from Supabase &middot; Last refreshed ' + refreshTime + '</div>' +
     '</div><div class="header-right">';
 
-  Object.entries(STATUS_MAP).forEach(function(entry) {
-    var key = entry[0], cfg = entry[1];
-    headerHTML += '<button class="filter-btn ' + (activeFilters.has(key) ? 'active' : '') + '" data-status="' + key + '">' +
-      '<span class="dot" style="background:' + cfg.color + '"></span>' + cfg.label + '</button>';
-  });
-
   // Notification bell
   var notifs = generateNotifications();
   var unreadNotifs = notifs.filter(function(n) { return !isDismissed(n.id); });
