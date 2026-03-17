@@ -236,7 +236,7 @@
   .bu-stat { font-size: 12px; color: var(--text-secondary); display: flex; align-items: center; gap: 5px; }
   .bu-stat strong { color: var(--toptal-dark); font-weight: 600; font-size: 14px; }
   .bu-body { max-height: 0; overflow: hidden; transition: max-height 0.35s ease; }
-  .bu-section.open .bu-body { max-height: 8000px; }
+  .bu-section.open .bu-body { max-height: none; overflow: visible; }
   .bu-actions { display: flex; gap: 8px; margin-left: auto; }
   .bu-action-btn {
     display: inline-flex; align-items: center; gap: 4px;
@@ -318,7 +318,7 @@
   .project-statuses { display: flex; gap: 3px; margin-right: 6px; }
   .mini-pip { width: 7px; height: 7px; border-radius: 50%; opacity: 0.9; }
   .project-body { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; }
-  .project-section.open .project-body { max-height: 5000px; }
+  .project-section.open .project-body { max-height: none; overflow: visible; }
 
   /* ── Project Dashboard ── */
   .proj-dashboard {
@@ -832,7 +832,7 @@
     font-weight: 700; padding: 3px 12px; border-radius: 100px;
   }
   .open-jobs-body { max-height: 0; overflow: hidden; transition: max-height 0.4s ease; }
-  .open-jobs-section.open .open-jobs-body { max-height: 3000px; }
+  .open-jobs-section.open .open-jobs-body { max-height: none; overflow: visible; }
   .open-jobs-subtitle { padding: 0 24px 16px; font-size: 13px; color: #1D4ED8; }
   .open-jobs-grid {
     display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
