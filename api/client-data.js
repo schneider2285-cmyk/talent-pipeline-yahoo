@@ -75,7 +75,7 @@ export default async function handler(req, res) {
 
     // 4. Fetch job_candidates with candidate details for these jobs
     const jcResp = await fetch(
-      `${supabaseUrl}/rest/v1/job_candidates?job_id=in.(${jobIdFilter})&select=*,candidates(id,name,profile_link,location,avatar_url,notes)`,
+      `${supabaseUrl}/rest/v1/job_candidates?job_id=in.(${jobIdFilter})&select=*,candidates(id,name,profile_link,location,rate,notes)`,
       { headers }
     );
     if (!jcResp.ok) {
@@ -104,7 +104,7 @@ export default async function handler(req, res) {
         name: cand.name || 'Unknown',
         profile_link: cand.profile_link || null,
         location: cand.location || null,
-        avatar_url: cand.avatar_url || null,
+        avatar_url: null,
         notes: cand.notes || null,
         status: jc.status,
         date_introduced: jc.date_introduced,
