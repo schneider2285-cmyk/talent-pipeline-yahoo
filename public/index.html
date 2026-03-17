@@ -2592,32 +2592,65 @@ function render() {
     endOfWeek.setDate(endOfWeek.getDate() + daysToSun);
     var endOfWeekStr = endOfWeek.toISOString().slice(0, 10);
 
-    var iwToday = [], iwTomorrow = [], iwWeek = [];
+    // Collect candidates in interview-stage statuses
+    var interviewStatuses = new Set(['INTERVIEW SCHEDULED', 'PENDING INTERVIEW', 'PENDING 2ND INTERVIEW']);
+    var iwScheduledToday = [], iwScheduledRecent = [], iwPending = [];
+
     FULFILLMENT_DATA.forEach(function(j) {
       (j.candidates || []).forEach(function(c) {
+        if (!interviewStatuses.has(c.status)) return;
+        var entry = {
+          name: c.name, role: j.role_title, bu: j.bu, project: j.project_name,
+          status: c.status, dateStr: c.date_interview || c.status_changed_at || ''
+        };
+        // Parse the interview/status-change date
+        var dStr = '';
+        if (entry.dateStr) {
+          var d = new Date(entry.dateStr);
+          if (!isNaN(d.getTime())) dStr = d.toISOString().slice(0, 10);
+        }
+        entry._sortDate = dStr;
+        if (dStr === todayStr) iwScheduledToday.push(entry);
+        else if (dStr >= tomorrowStr && dStr <= endOfWeekStr) iwScheduledRecent.push(entry);
+        else iwPending.push(entry);
+      });
+    });
+
+    // Also pick up candidates with future date_interview values regardless of status
+    FULFILLMENT_DATA.forEach(function(j) {
+      (j.candidates || []).forEach(function(c) {
+        if (interviewStatuses.has(c.status)) return; // already counted
         if (!c.date_interview) return;
         var d = new Date(c.date_interview);
         if (isNaN(d.getTime())) return;
         var dStr = d.toISOString().slice(0, 10);
-        var entry = { name: c.name, role: j.role_title, bu: j.bu, project: j.project_name, date: d, dateStr: dStr };
-        if (dStr === todayStr) iwToday.push(entry);
-        else if (dStr === tomorrowStr) iwTomorrow.push(entry);
-        else if (dStr > tomorrowStr && dStr <= endOfWeekStr) iwWeek.push(entry);
+        if (dStr >= todayStr && dStr <= endOfWeekStr) {
+          var entry = { name: c.name, role: j.role_title, bu: j.bu, project: j.project_name, status: c.status, _sortDate: dStr };
+          if (dStr === todayStr) iwScheduledToday.push(entry);
+          else iwScheduledRecent.push(entry);
+        }
       });
     });
-    var iwTotal = iwToday.length + iwTomorrow.length + iwWeek.length;
 
-    function iwRenderRows(arr) {
-      if (arr.length === 0) return '<div class="iw-empty">No interviews scheduled</div>';
-      arr.sort(function(a, b) { return a.date - b.date; });
+    var iwTotal = iwScheduledToday.length + iwScheduledRecent.length + iwPending.length;
+
+    function iwRenderRows(arr, emptyMsg) {
+      if (arr.length === 0) return '<div class="iw-empty">' + (emptyMsg || 'None') + '</div>';
+      arr.sort(function(a, b) { return (a._sortDate || '').localeCompare(b._sortDate || ''); });
       var h = '';
       arr.forEach(function(e) {
-        var dayName = e.date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+        var statusLabel = e.status === 'PENDING 2ND INTERVIEW' ? '2nd Interview' :
+                          e.status === 'PENDING INTERVIEW' ? 'Pending' : 'Scheduled';
+        var dateLabel = '';
+        if (e._sortDate) {
+          var dd = new Date(e._sortDate + 'T12:00:00');
+          dateLabel = dd.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+        }
         h += '<div class="iw-row">' +
           '<span class="iw-name">' + escHTML(e.name) + '</span>' +
           '<span class="iw-role">' + escHTML(e.role) + '</span>' +
           '<span class="iw-bu">' + escHTML(e.bu) + '</span>' +
-          '<span class="iw-date">' + escHTML(dayName) + '</span>' +
+          '<span class="iw-date">' + (dateLabel ? escHTML(dateLabel) : '<span style="color:#6941C6;font-weight:600">' + escHTML(statusLabel) + '</span>') + '</span>' +
           '</div>';
       });
       return h;
@@ -2626,13 +2659,13 @@ function render() {
     iwHTML = '<div class="interview-widget' + (interviewWidgetOpen ? ' open' : '') + '" id="interviewWidget">' +
       '<button class="interview-toggle" id="interviewToggle">' +
       '<svg class="iw-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>' +
-      '\uD83D\uDCC5 Upcoming Interviews' +
-      (iwTotal > 0 ? '<span class="iw-badge">' + iwTotal + '</span>' : '<span style="font-size:12px;color:var(--text-muted);font-weight:400;">none this week</span>') +
+      '\uD83D\uDCC5 Interviews & Pipeline' +
+      (iwTotal > 0 ? '<span class="iw-badge">' + iwTotal + '</span>' : '<span style="font-size:12px;color:var(--text-muted);font-weight:400;">none active</span>') +
       '</button>' +
       '<div class="interview-panel">' +
-      '<div class="iw-section"><div class="iw-section-title today">Today' + (iwToday.length > 0 ? ' (' + iwToday.length + ')' : '') + '</div>' + iwRenderRows(iwToday) + '</div>' +
-      '<div class="iw-section"><div class="iw-section-title tomorrow">Tomorrow' + (iwTomorrow.length > 0 ? ' (' + iwTomorrow.length + ')' : '') + '</div>' + iwRenderRows(iwTomorrow) + '</div>' +
-      '<div class="iw-section"><div class="iw-section-title week">Rest of Week' + (iwWeek.length > 0 ? ' (' + iwWeek.length + ')' : '') + '</div>' + iwRenderRows(iwWeek) + '</div>' +
+      '<div class="iw-section"><div class="iw-section-title today">Today' + (iwScheduledToday.length > 0 ? ' (' + iwScheduledToday.length + ')' : '') + '</div>' + iwRenderRows(iwScheduledToday, 'No interviews today') + '</div>' +
+      '<div class="iw-section"><div class="iw-section-title tomorrow">This Week' + (iwScheduledRecent.length > 0 ? ' (' + iwScheduledRecent.length + ')' : '') + '</div>' + iwRenderRows(iwScheduledRecent, 'None this week') + '</div>' +
+      '<div class="iw-section"><div class="iw-section-title week">All In Interview Stage' + (iwPending.length > 0 ? ' (' + iwPending.length + ')' : '') + '</div>' + iwRenderRows(iwPending, 'No candidates in interview stages') + '</div>' +
       '</div></div>';
   }
 
