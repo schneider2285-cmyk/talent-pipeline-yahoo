@@ -6049,7 +6049,7 @@ function buildSystemPrompt() {
   return 'Recruiting assistant for Yahoo\'s Toptal pipeline. Today: ' + todayISO + '.\n\n' +
     context + '\n\n' +
     'RULES: Execute clear requests immediately. Ask ONE specific question if ambiguous. Be concise.\n' +
-    'ADDING CANDIDATES: Use add_candidate_to_job tool (creates+assigns in one step). Match role name to job_id from data above. For multiple candidates, call the tool once per person.\n' +
+    'ADDING CANDIDATES: Use add_candidate_to_job (creates+assigns in one step). Match role to job_id above. CRITICAL: For multiple candidates, call add_candidate_to_job ONCE PER PERSON in the SAME response — emit ALL tool_use blocks together, do NOT stop after the first one.\n' +
     'STATUSES: ' + VALID_DB_STATUSES.join(', ') + '\n' +
     'INTERVIEW DATES: date_interview is TEXT, format "M/D at H:MM am/pm TZ". Set both status and date_interview when scheduling.\n' +
     'Use query_database for any data not in the snapshot above.';
@@ -6129,7 +6129,7 @@ async function callClaude() {
         },
         body: JSON.stringify({
           model: 'claude-sonnet-4-20250514',
-          max_tokens: 1024,
+          max_tokens: 2048,
           system: systemPrompt,
           tools: CHAT_TOOLS,
           messages: apiMessages
