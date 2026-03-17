@@ -171,6 +171,15 @@
     .cv-col-hired .cv-mini-card { border-color: #BBF7D0; }
     .cv-col-hired .cv-mini-card-date { color: #059669; }
 
+    /* Expanded card detail panel */
+    .cv-detail-panel { margin: 0 20px 16px; background: #F7F8FA; border: 1px solid #D1D5DE; border-radius: 10px; padding: 16px; }
+    .cv-detail-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; font-size: 12px; }
+    .cv-detail-row:last-child { margin-bottom: 0; }
+    .cv-detail-label { font-weight: 700; color: #5A6171; text-transform: uppercase; font-size: 10px; letter-spacing: 0.4px; min-width: 70px; }
+    .cv-detail-value { color: #262D3D; font-weight: 500; }
+    .cv-detail-value a { color: #204ECF; text-decoration: none; font-weight: 600; }
+    .cv-detail-value a:hover { text-decoration: underline; }
+
     /* Modal */
     .cv-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 500; display: none; align-items: center; justify-content: center; }
     .cv-modal-overlay.active { display: flex; }
@@ -265,6 +274,7 @@
 var TOKEN = null;
 var EMAIL = null;
 var SHARE_DATA = null;
+var expandedCards = {}; // jcId → true/false for "More Info" toggle
 
 // --- XSS Prevention Helper ---
 function escapeHtml(str) {
@@ -523,8 +533,9 @@ function renderCard(c, job) {
   var days = daysSince(c.date_introduced);
   var isNew = !c.client_viewed_at;
   var isAwaiting = isNew && days >= 3;
-  var cardClass = 'cv-card' + (isAwaiting ? ' awaiting' : '');
-  var avatarClass = isNew ? 'cv-avatar cv-avatar-new' : 'cv-avatar cv-avatar-default';
+  var isCardExpanded = expandedCards && expandedCards[c.jc_id];
+  var cardClass = 'cv-card' + (isAwaiting ? ' awaiting' : '') + (isCardExpanded ? ' expanded' : '');
+  var avatarClass = isNew ? 'cv-avatar cv-avatar-new' : (isCardExpanded ? 'cv-avatar cv-avatar-expanded' : 'cv-avatar cv-avatar-default');
 
   var html = '<div class="' + cardClass + '">';
 
@@ -553,10 +564,32 @@ function renderCard(c, job) {
   var bio = extractBio(c.notes);
   if (bio) { html += '<div class="cv-card-bio">' + escapeHtml(bio) + '</div>'; }
 
-  // Actions — jc_id is a UUID from our DB, safe for attribute use
+  // Detail panel (shown when expanded)
   var safeId = escapeHtml(c.jc_id);
+  var isExpanded = expandedCards && expandedCards[c.jc_id];
+  if (isExpanded) {
+    html += '<div class="cv-detail-panel">';
+    if (c.location) {
+      html += '<div class="cv-detail-row"><span class="cv-detail-label">Location</span><span class="cv-detail-value">' + escapeHtml(c.location) + '</span></div>';
+    }
+    if (c.rate) {
+      html += '<div class="cv-detail-row"><span class="cv-detail-label">Rate</span><span class="cv-detail-value">$' + escapeHtml(String(c.rate)) + '/hr</span></div>';
+    }
+    if (c.date_introduced) {
+      html += '<div class="cv-detail-row"><span class="cv-detail-label">Introduced</span><span class="cv-detail-value">' + formatDate(c.date_introduced) + '</span></div>';
+    }
+    if (c.profile_link) {
+      html += '<div class="cv-detail-row"><span class="cv-detail-label">Profile</span><span class="cv-detail-value"><a href="' + escapeHtml(c.profile_link) + '" target="_blank" rel="noopener">View Full Profile &rarr;</a></span></div>';
+    }
+    if (c.status) {
+      html += '<div class="cv-detail-row"><span class="cv-detail-label">Status</span><span class="cv-detail-value">' + escapeHtml(c.status) + '</span></div>';
+    }
+    html += '</div>';
+  }
+
+  // Actions — jc_id is a UUID from our DB, safe for attribute use
   html += '<div class="cv-card-actions">';
-  html += '<button class="cv-btn cv-btn-outline" data-action="view" data-jcid="' + safeId + '">More Info</button>';
+  html += '<button class="cv-btn cv-btn-outline" data-action="view" data-jcid="' + safeId + '">' + (isExpanded ? 'Less Info' : 'More Info') + '</button>';
   html += '<button class="cv-btn cv-btn-primary" data-action="interview" data-jcid="' + safeId + '">Request Interview</button>';
   html += '<button class="cv-btn cv-btn-danger" data-action="pass" data-jcid="' + safeId + '">Pass</button>';
   if (c.profile_link) {
@@ -706,9 +739,15 @@ async function callAction(type, jcId, data) {
 }
 
 async function markViewed(jcId) {
+  // Toggle expanded state
+  expandedCards[jcId] = !expandedCards[jcId];
+  renderPage();
+  // Mark as viewed in background (don't re-render to avoid collapsing)
   try {
     await callAction('viewed', jcId);
-    await loadShareData();
+    // Silently update the local data so NEW ribbon disappears on next full render
+    var c = findCandidate(jcId);
+    if (c && !c.client_viewed_at) c.client_viewed_at = new Date().toISOString();
   } catch (err) { /* toast already shown */ }
 }
 

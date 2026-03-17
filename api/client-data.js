@@ -79,9 +79,9 @@ export default async function handler(req, res) {
     let jcUrl;
     if (jcIds.length > 0) {
       const jcIdFilter = jcIds.join(',');
-      jcUrl = `${supabaseUrl}/rest/v1/job_candidates?id=in.(${jcIdFilter})&job_id=in.(${jobIdFilter})&select=*,candidates(id,name,profile_link,location,rate)`;
+      jcUrl = `${supabaseUrl}/rest/v1/job_candidates?id=in.(${jcIdFilter})&job_id=in.(${jobIdFilter})&select=*,candidates(id,name,profile_link,location,rate,avatar_url)`;
     } else {
-      jcUrl = `${supabaseUrl}/rest/v1/job_candidates?job_id=in.(${jobIdFilter})&select=*,candidates(id,name,profile_link,location,rate)`;
+      jcUrl = `${supabaseUrl}/rest/v1/job_candidates?job_id=in.(${jobIdFilter})&select=*,candidates(id,name,profile_link,location,rate,avatar_url)`;
     }
     const jcResp = await fetch(jcUrl, { headers });
     if (!jcResp.ok) {
@@ -110,8 +110,8 @@ export default async function handler(req, res) {
         name: cand.name || 'Unknown',
         profile_link: cand.profile_link || null,
         location: cand.location || null,
-        avatar_url: null,
-        notes: null,
+        rate: cand.rate || null,
+        avatar_url: cand.avatar_url || null,
         status: jc.status,
         date_introduced: jc.date_introduced,
         date_interview: jc.date_interview,

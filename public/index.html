@@ -1529,6 +1529,8 @@
   .ff-cand-shared { margin-left:auto; font-size:10px; color:#16a34a; font-weight:600; white-space:nowrap; display:flex; align-items:center; gap:4px; }
   .ff-cand-shared a { color:#204ECF; text-decoration:none; font-weight:600; }
   .ff-cand-shared a:hover { text-decoration:underline; }
+  .ff-cand-remove-btn { background:none; border:none; color:#DC2626; font-size:12px; font-weight:700; cursor:pointer; padding:0 2px; font-family:'DM Sans',sans-serif; opacity:0.6; }
+  .ff-cand-remove-btn:hover { opacity:1; }
   .ff-grid-2col { grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); }
 
   /* ── Daily Briefing ── */
@@ -2262,7 +2264,7 @@ async function loadPipelineData() {
 async function loadFulfillmentData() {
   const { data: jobs, error: jobsErr } = await sb.from('jobs').select('*');
   if (jobsErr) throw new Error('Jobs fetch failed: ' + jobsErr.message);
-  const { data: jcData, error: jcErr } = await sb.from('job_candidates').select('*, candidates(id, name, profile_link, location, rate)');
+  const { data: jcData, error: jcErr } = await sb.from('job_candidates').select('*, candidates(id, name, profile_link, location, rate, avatar_url)');
   if (jcErr) throw new Error('JC fetch failed: ' + jcErr.message);
   // Aggregate client-side
   var jobMap = {};
@@ -3391,7 +3393,8 @@ function renderFulfillmentView() {
             if (sharedInfo) {
               var sharedDate = new Date(sharedInfo.updated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
               shareHtml = '<span class="ff-cand-shared">✓ Shared ' + sharedDate +
-                ' · <a href="/client?token=' + escHTML(sharedInfo.token) + '" target="_blank">View</a></span>';
+                ' · <a href="/client?token=' + escHTML(sharedInfo.token) + '" target="_blank">View</a>' +
+                ' · <button class="ff-cand-remove-btn" data-remove-from-cv="' + escHTML(c.jc_id) + '" data-share-id="' + escHTML(sharedInfo.share_id) + '" title="Remove from client view">✕</button></span>';
             } else if (projShare) {
               shareHtml = '<button class="ff-cand-share-btn" data-send-to-cv="' + escHTML(c.jc_id) + '" data-share-id="' + escHTML(projShare.id) + '">Send to Client</button>';
             }
@@ -3447,6 +3450,16 @@ function bindEvents() {
     btn.addEventListener('click', function(e) {
       e.stopPropagation();
       sendCandidateToClientView(btn.dataset.sendToCv, btn.dataset.shareId, btn);
+    });
+  });
+
+  // "Remove from Client View" buttons
+  document.querySelectorAll('[data-remove-from-cv]').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      if (confirm('Remove this candidate from the client view?')) {
+        removeCandidateFromClientView(btn.dataset.removeFromCv, btn.dataset.shareId);
+      }
     });
   });
 
@@ -4570,6 +4583,31 @@ async function sendCandidateToClientView(jcId, shareId, btnEl) {
     alert('Failed to send candidate: ' + (err.message || 'Unknown error'));
     btnEl.disabled = false;
     btnEl.textContent = 'Send to Client';
+  }
+}
+
+// Remove a candidate from an existing client view share
+async function removeCandidateFromClientView(jcId, shareId) {
+  try {
+    var { data: shareData, error: fetchErr } = await sb.from('client_shares').select('job_candidate_ids').eq('id', shareId).single();
+    if (fetchErr) throw fetchErr;
+
+    var currentIds = shareData.job_candidate_ids || [];
+    var updatedIds = currentIds.filter(function(id) { return id !== jcId; });
+
+    var { error: updateErr } = await sb.from('client_shares').update({
+      job_candidate_ids: updatedIds,
+      updated_at: new Date().toISOString()
+    }).eq('id', shareId);
+
+    if (updateErr) throw updateErr;
+
+    await logActivity('client_share', shareId, 'remove_candidate', { note: 'Candidate removed from client view' });
+    await loadActiveShares();
+    render();
+  } catch (err) {
+    console.error('Error removing candidate from client view:', err);
+    alert('Failed to remove candidate: ' + (err.message || 'Unknown error'));
   }
 }
 
