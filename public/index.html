@@ -239,13 +239,13 @@
   .bu-section.open .bu-body { max-height: none; overflow: visible; }
   .bu-actions { display: flex; gap: 8px; margin-left: auto; }
   .bu-action-btn {
-    display: inline-flex; align-items: center; gap: 4px;
-    padding: 4px 12px; border-radius: 8px; font-size: 11px;
-    font-weight: 600; border: 1.5px solid var(--border); background: white;
-    color: var(--text-secondary); cursor: pointer; white-space: nowrap;
+    display: inline-flex; align-items: center; gap: 3px;
+    padding: 3px 10px; border-radius: 6px; font-size: 11px;
+    font-weight: 500; border: 1px solid #D1D5DE; background: white;
+    color: #6B7280; cursor: pointer; white-space: nowrap;
     transition: all 0.15s;
   }
-  .bu-action-btn:hover { background: var(--toptal-blue); color: white; border-color: var(--toptal-blue); }
+  .bu-action-btn:hover { background: #F1F5F9; color: #374151; border-color: #94A3B8; }
   .bu-action-btn svg { width: 12px; height: 12px; }
   .bu-filter-bar {
     display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
@@ -299,49 +299,48 @@
     color: var(--text-muted); flex-shrink: 0;
   }
   .project-section.open .project-chevron { transform: rotate(90deg); color: #6366F1; }
-  .project-name { font-size: 14px; font-weight: 500; flex: 1; color: var(--text-secondary); }
-  .project-section.open .project-name { color: #3730A3; font-weight: 700; font-size: 15px; }
+  .project-name { font-size: 14px; font-weight: 500; color: var(--text-secondary); }
+  .project-section.open .project-name { color: #1E293B; font-weight: 600; font-size: 15px; }
   .project-count {
     font-size: 11px; background: var(--surface-raised);
     border: 1px solid var(--border); padding: 2px 10px;
-    border-radius: 100px; color: var(--text-secondary); font-weight: 600;
+    border-radius: 100px; color: var(--text-muted); font-weight: 500;
   }
-  .project-section.open .project-count { background: #E0E7FF; color: #4338CA; border-color: #A5B4FC; }
+  .project-section.open .project-count { background: #F1F5F9; color: #475569; border-color: #CBD5E1; }
   .poc-badge {
     font-size: 11px; color: var(--text-muted);
-    background: var(--surface-raised); border: 1px solid var(--border);
-    padding: 2px 10px; border-radius: 100px; white-space: nowrap; margin-right: 4px;
+    background: transparent; border: none;
+    padding: 0 4px; white-space: nowrap; margin-right: 4px;
   }
-  .project-section.open .poc-badge { background: #E0E7FF; border-color: #A5B4FC; color: #4338CA; }
-  .project-section.open .poc-badge span { color: #3730A3; }
+  .project-section.open .poc-badge { color: #64748B; }
+  .project-section.open .poc-badge span { color: #334155; }
   .poc-badge span { color: var(--toptal-dark); font-weight: 600; }
-  .project-statuses { display: flex; gap: 3px; margin-right: 6px; }
-  .mini-pip { width: 7px; height: 7px; border-radius: 50%; opacity: 0.9; }
+  .project-statuses { display: flex; gap: 2px; margin-right: 6px; }
+  .mini-pip { width: 6px; height: 6px; border-radius: 50%; opacity: 0.7; }
   .project-body { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; }
   .project-section.open .project-body { max-height: none; overflow: visible; }
 
   /* ── Project Dashboard ── */
   .proj-dashboard {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
-    padding: 16px 20px; margin: 0 12px 12px; background: white;
-    border-radius: 12px; border: 1px solid #DBEAFE;
-    box-shadow: 0 1px 6px rgba(30,64,175,0.06);
+    display: flex; flex-direction: column; gap: 12px;
+    padding: 14px 16px; margin: 0 12px 12px; background: #FAFBFC;
+    border-radius: 10px; border: 1px solid #E8ECF1;
   }
-  .proj-dashboard-full { grid-column: 1 / -1; }
+  .proj-dashboard-full { }
   .proj-dash-card {
-    padding: 14px 16px; border-radius: 10px; background: #F8FAFC;
-    border: 1px solid #E2E8F0;
+    padding: 12px 14px; border-radius: 8px; background: white;
+    border: 1px solid #EDF0F4;
   }
-  .proj-dash-card.urgent { background: #FEF2F2; border-color: #FECACA; }
-  .proj-dash-card.good { background: #F0FDF4; border-color: #BBF7D0; }
-  .proj-dash-card.warn { background: #FFFBEB; border-color: #FDE68A; }
+  .proj-dash-card.urgent { border-left: 3px solid #EF4444; }
+  .proj-dash-card.good { border-left: 3px solid #22C55E; }
+  .proj-dash-card.warn { border-left: 3px solid #F59E0B; }
   .proj-dash-label {
-    font-size: 10px; text-transform: uppercase; letter-spacing: 0.8px;
-    color: #64748B; font-weight: 700; margin-bottom: 8px;
+    font-size: 11px; font-weight: 600;
+    color: #64748B; margin-bottom: 6px;
   }
-  .proj-dash-card.urgent .proj-dash-label { color: #DC2626; }
-  .proj-dash-card.good .proj-dash-label { color: #059669; }
-  .proj-dash-card.warn .proj-dash-label { color: #B45309; }
+  .proj-dash-card.urgent .proj-dash-label { color: #B91C1C; }
+  .proj-dash-card.good .proj-dash-label { color: #15803D; }
+  .proj-dash-card.warn .proj-dash-label { color: #A16207; }
 
   /* Fulfillment progress bar */
   .proj-progress-wrap { margin-bottom: 6px; }
@@ -361,79 +360,81 @@
     color: #64748B; margin-top: 4px;
   }
   .proj-progress-pct {
-    font-size: 28px; font-weight: 800; line-height: 1; margin-bottom: 2px;
+    font-size: 22px; font-weight: 700; line-height: 1; margin-bottom: 2px;
   }
 
   /* Urgency alerts */
-  .proj-alerts { display: flex; flex-direction: column; gap: 6px; }
+  .proj-alerts { display: flex; flex-direction: column; gap: 4px; }
   .proj-alert-item {
-    display: flex; align-items: center; gap: 8px; font-size: 12px;
-    padding: 6px 10px; border-radius: 8px; font-weight: 500;
+    display: flex; align-items: flex-start; gap: 6px; font-size: 12px;
+    padding: 5px 8px; border-radius: 6px; font-weight: 400; line-height: 1.4;
   }
-  .proj-alert-item.critical { background: #FEE2E2; color: #991B1B; }
-  .proj-alert-item.warning { background: #FEF3C7; color: #92400E; }
-  .proj-alert-item.info { background: #DBEAFE; color: #1E40AF; }
-  .proj-alert-item.success { background: #DCFCE7; color: #166534; }
-  .proj-alert-icon { font-size: 14px; flex-shrink: 0; }
+  .proj-alert-item.critical { background: #FEF2F2; color: #7F1D1D; }
+  .proj-alert-item.warning { background: #FFFBEB; color: #78350F; }
+  .proj-alert-item.info { background: #F0F7FF; color: #1E3A5F; }
+  .proj-alert-item.success { background: #F0FDF4; color: #14532D; }
+  .proj-alert-icon { font-size: 12px; flex-shrink: 0; margin-top: 1px; }
 
   /* Role progress cards in dashboard */
-  .proj-roles-grid { display: flex; flex-direction: column; gap: 8px; }
+  .proj-roles-grid { display: flex; flex-direction: column; gap: 5px; }
   .proj-role-row {
-    display: flex; align-items: center; gap: 12px; padding: 8px 12px;
-    background: white; border-radius: 8px; border: 1px solid #E2E8F0;
+    display: flex; align-items: center; gap: 10px; padding: 7px 10px;
+    background: white; border-radius: 6px; border: 1px solid #EDF0F4;
+    transition: border-color 0.15s;
   }
-  .proj-role-row.needs-attention { border-color: #FECACA; background: #FFFBFB; }
+  .proj-role-row:hover { border-color: #CBD5E1; }
+  .proj-role-row.needs-attention { border-left: 3px solid #FCA5A5; }
   .proj-role-ring {
-    width: 42px; height: 42px; flex-shrink: 0; position: relative;
+    width: 36px; height: 36px; flex-shrink: 0; position: relative;
   }
-  .proj-role-ring svg { width: 42px; height: 42px; transform: rotate(-90deg); }
+  .proj-role-ring svg { width: 36px; height: 36px; transform: rotate(-90deg); }
   .proj-role-ring-pct {
     position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
-    font-size: 10px; font-weight: 800; color: #1E293B;
+    font-size: 9px; font-weight: 700; color: #374151;
   }
   .proj-role-info { flex: 1; min-width: 0; }
-  .proj-role-name { font-size: 13px; font-weight: 700; color: #1E293B; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .proj-role-meta { font-size: 11px; color: #64748B; display: flex; gap: 10px; flex-wrap: wrap; }
-  .proj-role-meta strong { color: #1E293B; }
+  .proj-role-name { font-size: 13px; font-weight: 600; color: #1E293B; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .proj-role-meta { font-size: 11px; color: #6B7280; display: flex; gap: 10px; flex-wrap: wrap; }
+  .proj-role-meta strong { color: #374151; }
   .proj-role-badges { display: flex; gap: 4px; flex-shrink: 0; }
   .proj-role-badge {
-    font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 10px;
+    font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 10px;
     white-space: nowrap;
   }
-  .proj-role-badge.empty { background: #FEE2E2; color: #DC2626; }
-  .proj-role-badge.stale { background: #FEF3C7; color: #92400E; }
-  .proj-role-badge.on-track { background: #DCFCE7; color: #166534; }
-  .proj-role-badge.filled { background: #D1FAE5; color: #047857; }
-  .proj-role-badge.interviewing { background: #EDE9FE; color: #6D28D9; }
+  .proj-role-badge.empty { background: #FEF2F2; color: #B91C1C; }
+  .proj-role-badge.stale { background: #FFFBEB; color: #A16207; }
+  .proj-role-badge.on-track { background: #F0FDF4; color: #15803D; }
+  .proj-role-badge.filled { background: #F0FDF4; color: #047857; }
+  .proj-role-badge.interviewing { background: #F5F3FF; color: #6D28D9; }
 
   /* ── Role Fulfillment Summary Bar ── */
   .role-fulfill-bar {
     display: flex; align-items: stretch; gap: 0; margin-bottom: 12px;
-    border-radius: 10px; overflow: hidden; border: 1px solid #E2E8F0;
-    background: #F8FAFC;
+    border-radius: 8px; overflow: hidden; border: 1px solid #EDF0F4;
+    background: white;
   }
   .role-fulfill-cell {
-    flex: 1; padding: 10px 14px; text-align: center;
-    border-right: 1px solid #E2E8F0; position: relative;
+    flex: 1; padding: 8px 10px; text-align: center;
+    border-right: 1px solid #EDF0F4; position: relative;
   }
   .role-fulfill-cell:last-child { border-right: none; }
-  .role-fulfill-cell.highlight-red { background: #FEF2F2; }
-  .role-fulfill-cell.highlight-green { background: #F0FDF4; }
-  .role-fulfill-cell.highlight-amber { background: #FFFBEB; }
-  .role-fulfill-cell.highlight-blue { background: #EFF6FF; }
-  .role-fulfill-cell.highlight-purple { background: #F5F3FF; }
+  .role-fulfill-cell.highlight-red { background: #FEF8F8; }
+  .role-fulfill-cell.highlight-green { background: #F8FDF9; }
+  .role-fulfill-cell.highlight-amber { background: #FEFDF8; }
+  .role-fulfill-cell.highlight-blue { background: #F8FBFF; }
+  .role-fulfill-cell.highlight-purple { background: #FAF9FF; }
   .role-fulfill-num {
-    font-size: 22px; font-weight: 800; line-height: 1.1;
+    font-size: 17px; font-weight: 700; line-height: 1.2;
   }
   .role-fulfill-num.red { color: #DC2626; }
   .role-fulfill-num.green { color: #059669; }
   .role-fulfill-num.amber { color: #D97706; }
   .role-fulfill-num.blue { color: #2563EB; }
   .role-fulfill-num.purple { color: #7C3AED; }
-  .role-fulfill-num.muted { color: #94A3B8; }
+  .role-fulfill-num.muted { color: #CBD5E1; }
   .role-fulfill-label {
-    font-size: 10px; text-transform: uppercase; letter-spacing: 0.6px;
-    color: #64748B; font-weight: 700; margin-top: 2px;
+    font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px;
+    color: #94A3B8; font-weight: 600; margin-top: 2px;
   }
   .role-fulfill-progress {
     height: 4px; background: #E2E8F0; border-radius: 4px;
@@ -443,51 +444,42 @@
     height: 100%; border-radius: 4px; transition: width 0.4s ease;
   }
   .role-fulfill-status {
-    display: inline-flex; align-items: center; gap: 5px;
-    font-size: 11px; font-weight: 700; padding: 3px 10px;
-    border-radius: 8px; margin-top: 4px;
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 11px; font-weight: 600; padding: 3px 10px;
+    border-radius: 6px; margin-top: 2px;
   }
-  .role-fulfill-status.critical { background: #FEE2E2; color: #DC2626; }
-  .role-fulfill-status.warning { background: #FEF3C7; color: #92400E; }
-  .role-fulfill-status.good { background: #DCFCE7; color: #166534; }
-  .role-fulfill-status.info { background: #DBEAFE; color: #1E40AF; }
+  .role-fulfill-status.critical { background: #FEF2F2; color: #B91C1C; }
+  .role-fulfill-status.warning { background: #FFFBEB; color: #A16207; }
+  .role-fulfill-status.good { background: #F0FDF4; color: #15803D; }
+  .role-fulfill-status.info { background: #F0F7FF; color: #1D4ED8; }
 
   /* ── Project Sourcing Alert (in header) ── */
   .proj-needs-sourcing {
-    display: inline-flex; align-items: center; gap: 5px;
-    font-size: 11px; font-weight: 700; padding: 3px 10px;
-    border-radius: 100px; background: #FEE2E2; color: #DC2626;
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 11px; font-weight: 600; padding: 2px 8px;
+    border-radius: 100px; background: #FEF2F2; color: #B91C1C;
     border: 1px solid #FECACA; white-space: nowrap;
-    animation: pulseAlert 2s ease-in-out infinite;
-  }
-  @keyframes pulseAlert {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(220,38,38,0.15); }
-    50% { box-shadow: 0 0 0 4px rgba(220,38,38,0.08); }
   }
   .proj-needs-sourcing .alert-dot {
-    width: 6px; height: 6px; border-radius: 50%; background: #DC2626;
-    animation: blink 1.5s ease-in-out infinite;
-  }
-  @keyframes blink {
-    0%, 100% { opacity: 1; } 50% { opacity: 0.3; }
+    width: 5px; height: 5px; border-radius: 50%; background: #EF4444;
   }
 
   /* ── Table ── */
   .talent-table { width: 100%; border-collapse: collapse; }
   .talent-table thead th {
-    text-align: left; padding: 8px 16px; font-size: 10px;
-    text-transform: uppercase; letter-spacing: 1.2px;
-    color: var(--text-muted); font-weight: 600;
-    background: var(--surface-raised); border-bottom: 1px solid var(--border);
+    text-align: left; padding: 7px 14px; font-size: 10px;
+    text-transform: uppercase; letter-spacing: 0.8px;
+    color: #94A3B8; font-weight: 600;
+    background: #FAFBFC; border-bottom: 1px solid #EDF0F4;
   }
-  .talent-table thead th:first-child { padding-left: 68px; }
+  .talent-table thead th:first-child { padding-left: 16px; }
   .talent-table tbody tr { transition: background 0.12s; }
-  .talent-table tbody tr:hover { background: var(--surface-hover); }
+  .talent-table tbody tr:hover { background: #F8FAFC; }
   .talent-table td {
-    padding: 10px 16px; font-size: 13px;
-    border-bottom: 1px solid var(--border); vertical-align: middle;
+    padding: 9px 14px; font-size: 13px;
+    border-bottom: 1px solid #F1F5F9; vertical-align: middle;
   }
-  .talent-table td:first-child { padding-left: 68px; }
+  .talent-table td:first-child { padding-left: 16px; }
   .talent-name-cell { display: flex; align-items: center; gap: 10px; }
   .avatar {
     width: 32px; height: 32px; border-radius: 50%;
@@ -3134,13 +3126,15 @@ function renderPipelineView() {
 
             html += '<div class="proj-dashboard">';
 
-            // Card 1: Overall fulfillment
-            html += '<div class="proj-dash-card ' + overallCard + '">' +
-              '<div class="proj-dash-label">' + (dashFillPct >= 75 ? '\u2705 ' : dashFillPct >= 40 ? '\uD83D\uDCC8 ' : '\uD83D\uDEA8 ') + 'Fulfillment Progress</div>' +
+            // Card 1: Overall fulfillment — compact horizontal
+            html += '<div class="proj-dash-card ' + overallCard + '" style="display:flex; align-items:center; gap:16px;">' +
+              '<div style="flex-shrink:0;">' +
               '<div class="proj-progress-pct" style="color:' + (dashFillPct >= 75 ? '#059669' : dashFillPct >= 40 ? '#2563EB' : '#DC2626') + '">' + dashFillPct + '%</div>' +
+              '<div style="font-size:10px; color:#94A3B8; font-weight:600;">FILLED</div></div>' +
+              '<div style="flex:1; min-width:0;">' +
               '<div class="proj-progress-wrap"><div class="proj-progress-bar"><div class="proj-progress-fill ' + pctClass + '" style="width:' + dashFillPct + '%"></div></div>' +
               '<div class="proj-progress-stats"><span>' + dashTotalFilled + ' filled of ' + dashTotalOpenings + ' opening' + (dashTotalOpenings > 1 ? 's' : '') + '</span>' +
-              '<span><strong>' + dashUnfilled + '</strong> still needed</span></div></div>' +
+              '<span>' + dashUnfilled + ' still needed</span></div></div></div>' +
               '</div>';
 
             // Card 2: Urgency / Action Items
@@ -3150,7 +3144,7 @@ function renderPipelineView() {
             var hasAlerts = rolesNeedingSourcing.length > 0 || dashStaleRoles.length > 0 || dashInterviewRoles.length > 0 || dashPendingRoles.length > 0;
             var alertCard = rolesNeedingSourcing.length > 0 ? 'urgent' : dashStaleRoles.length > 0 ? 'warn' : 'good';
             html += '<div class="proj-dash-card ' + alertCard + '">' +
-              '<div class="proj-dash-label">' + (rolesNeedingSourcing.length > 0 ? '\uD83D\uDD25 ' : dashStaleRoles.length > 0 ? '\u26A0\uFE0F ' : '\u2728 ') + 'Action Items</div>';
+              '<div class="proj-dash-label">Action Items</div>';
             html += '<div class="proj-alerts">';
             if (!hasAlerts) {
               html += '<div class="proj-alert-item success"><span class="proj-alert-icon">\u2705</span>All roles have active candidates — looking good!</div>';
@@ -3174,7 +3168,7 @@ function renderPipelineView() {
 
             // Card 3: Role-by-role breakdown (full width)
             html += '<div class="proj-dash-card proj-dashboard-full">' +
-              '<div class="proj-dash-label">\uD83C\uDFAF Role Breakdown</div>' +
+              '<div class="proj-dash-label">Roles</div>' +
               '<div class="proj-roles-grid">';
             filteredJobs.forEach(function(j) {
               var openings = j.openings || 1;
@@ -3250,7 +3244,7 @@ function renderPipelineView() {
               else if (activeC >= unfilled) { roleSt = '\u2714\uFE0F Pipeline On Track'; roleStClass = 'good'; }
               else { roleSt = '\u26A0\uFE0F Needs Attention'; roleStClass = 'warning'; }
 
-              html += '<div style="margin: 0 12px 16px; padding:14px 16px; background:white; border:1px solid #E2E8F0; border-radius:10px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);" data-job-card="' + j.id + '">';
+              html += '<div style="margin: 0 12px 12px; padding:14px 16px; background:white; border:1px solid #EDF0F4; border-radius:8px;" data-job-card="' + j.id + '">';
 
               // Check if this job is being edited
               if (editingJobId === j.id) {
