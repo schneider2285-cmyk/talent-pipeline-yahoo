@@ -36,8 +36,8 @@ export default async function handler(req, res) {
       { headers }
     );
     if (!shareResp.ok) {
-      const errText = await shareResp.text();
-      return res.status(500).json({ error: 'DB query failed for shares', detail: errText });
+      // Invalid UUID format or other DB error — treat as not found
+      return res.status(404).json({ error: 'Share not found or inactive' });
     }
     const shares = await shareResp.json();
 
@@ -75,7 +75,7 @@ export default async function handler(req, res) {
 
     // 4. Fetch job_candidates with candidate details for these jobs
     const jcResp = await fetch(
-      `${supabaseUrl}/rest/v1/job_candidates?job_id=in.(${jobIdFilter})&select=*,candidates(id,name,profile_link,location,rate,notes)`,
+      `${supabaseUrl}/rest/v1/job_candidates?job_id=in.(${jobIdFilter})&select=*,candidates(id,name,profile_link,location,rate)`,
       { headers }
     );
     if (!jcResp.ok) {
@@ -105,7 +105,7 @@ export default async function handler(req, res) {
         profile_link: cand.profile_link || null,
         location: cand.location || null,
         avatar_url: null,
-        notes: cand.notes || null,
+        notes: null,
         status: jc.status,
         date_introduced: jc.date_introduced,
         date_interview: jc.date_interview,
