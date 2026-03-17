@@ -180,6 +180,48 @@
     font-weight: 500; margin-top: 2px;
   }
 
+  /* ── Interview Widget ── */
+  .interview-widget { margin: 0 40px; }
+  .interview-toggle {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 8px 16px; background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); cursor: pointer; font-size: 13px; font-weight: 600;
+    color: #6941C6; transition: all 0.15s; box-shadow: var(--shadow-sm);
+  }
+  .interview-toggle:hover { border-color: #6941C6; box-shadow: var(--shadow); }
+  .interview-toggle .iw-chevron { transition: transform 0.2s; width: 14px; height: 14px; }
+  .interview-widget.open .interview-toggle .iw-chevron { transform: rotate(90deg); }
+  .interview-toggle .iw-badge {
+    background: #6941C6; color: white; font-size: 11px; font-weight: 700;
+    padding: 1px 7px; border-radius: 10px; min-width: 18px; text-align: center;
+  }
+  .interview-panel {
+    display: none; margin-top: 10px; padding: 16px 20px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); box-shadow: var(--shadow-sm);
+  }
+  .interview-widget.open .interview-panel { display: block; }
+  .iw-section { margin-bottom: 14px; }
+  .iw-section:last-child { margin-bottom: 0; }
+  .iw-section-title {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.8px; color: var(--text-muted); margin-bottom: 6px;
+    padding-bottom: 4px; border-bottom: 1px solid var(--border);
+  }
+  .iw-section-title.today { color: #6941C6; border-color: #6941C620; }
+  .iw-section-title.tomorrow { color: #2563EB; border-color: #2563EB20; }
+  .iw-section-title.week { color: #64748B; border-color: #64748B20; }
+  .iw-row {
+    display: flex; align-items: center; gap: 10px; padding: 6px 0;
+    font-size: 13px; color: var(--text-primary);
+  }
+  .iw-row + .iw-row { border-top: 1px solid #F1F5F9; }
+  .iw-row .iw-name { font-weight: 600; min-width: 140px; }
+  .iw-row .iw-role { color: var(--text-secondary); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .iw-row .iw-bu { font-size: 11px; color: var(--text-muted); background: #F1F5F9; padding: 2px 8px; border-radius: 4px; white-space: nowrap; }
+  .iw-row .iw-date { font-size: 12px; color: #6941C6; font-weight: 500; white-space: nowrap; }
+  .iw-empty { font-size: 12px; color: var(--text-muted); font-style: italic; padding: 4px 0; }
+
   /* ── Main ── */
   .main { padding: 0 40px 64px; }
   .search-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
@@ -1985,6 +2027,7 @@ let activeFilters = new Set();
 let searchQuery = '';
 let allExpanded = false;
 let winsOpen = false;
+let interviewWidgetOpen = false;
 let winsViewMode = 'card'; // 'card' or 'list'
 let openJobsOpen = true;
 let openJobsViewMode = 'card'; // 'card' or 'list'
@@ -2533,6 +2576,64 @@ function render() {
   summaryHTML += '<div class="summary-card"><div class="summary-icon" style="background:#F0F2F5; color:var(--toptal-dark)">📊</div>' +
     '<div class="summary-info"><div class="label">Total Active</div><div class="value" style="color:var(--toptal-dark)">' + allTalent.length + '</div></div></div></div>';
 
+  // ── Interview Widget ──
+  var iwHTML = '';
+  if (FULFILLMENT_DATA && FULFILLMENT_DATA.length > 0) {
+    var now = new Date();
+    var todayStr = now.toISOString().slice(0, 10);
+    var tomorrow = new Date(now); tomorrow.setDate(tomorrow.getDate() + 1);
+    var tomorrowStr = tomorrow.toISOString().slice(0, 10);
+    // End of week (Sunday)
+    var endOfWeek = new Date(now);
+    var dayOfWeek = endOfWeek.getDay(); // 0=Sun
+    var daysToSun = dayOfWeek === 0 ? 0 : 7 - dayOfWeek;
+    endOfWeek.setDate(endOfWeek.getDate() + daysToSun);
+    var endOfWeekStr = endOfWeek.toISOString().slice(0, 10);
+
+    var iwToday = [], iwTomorrow = [], iwWeek = [];
+    FULFILLMENT_DATA.forEach(function(j) {
+      (j.candidates || []).forEach(function(c) {
+        if (!c.date_interview) return;
+        var d = new Date(c.date_interview);
+        if (isNaN(d.getTime())) return;
+        var dStr = d.toISOString().slice(0, 10);
+        var entry = { name: c.name, role: j.role_title, bu: j.bu, project: j.project_name, date: d, dateStr: dStr };
+        if (dStr === todayStr) iwToday.push(entry);
+        else if (dStr === tomorrowStr) iwTomorrow.push(entry);
+        else if (dStr > tomorrowStr && dStr <= endOfWeekStr) iwWeek.push(entry);
+      });
+    });
+    var iwTotal = iwToday.length + iwTomorrow.length + iwWeek.length;
+
+    function iwRenderRows(arr) {
+      if (arr.length === 0) return '<div class="iw-empty">No interviews scheduled</div>';
+      arr.sort(function(a, b) { return a.date - b.date; });
+      var h = '';
+      arr.forEach(function(e) {
+        var dayName = e.date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+        h += '<div class="iw-row">' +
+          '<span class="iw-name">' + escHTML(e.name) + '</span>' +
+          '<span class="iw-role">' + escHTML(e.role) + '</span>' +
+          '<span class="iw-bu">' + escHTML(e.bu) + '</span>' +
+          '<span class="iw-date">' + escHTML(dayName) + '</span>' +
+          '</div>';
+      });
+      return h;
+    }
+
+    iwHTML = '<div class="interview-widget' + (interviewWidgetOpen ? ' open' : '') + '" id="interviewWidget">' +
+      '<button class="interview-toggle" id="interviewToggle">' +
+      '<svg class="iw-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>' +
+      '\uD83D\uDCC5 Upcoming Interviews' +
+      (iwTotal > 0 ? '<span class="iw-badge">' + iwTotal + '</span>' : '<span style="font-size:12px;color:var(--text-muted);font-weight:400;">none this week</span>') +
+      '</button>' +
+      '<div class="interview-panel">' +
+      '<div class="iw-section"><div class="iw-section-title today">Today' + (iwToday.length > 0 ? ' (' + iwToday.length + ')' : '') + '</div>' + iwRenderRows(iwToday) + '</div>' +
+      '<div class="iw-section"><div class="iw-section-title tomorrow">Tomorrow' + (iwTomorrow.length > 0 ? ' (' + iwTomorrow.length + ')' : '') + '</div>' + iwRenderRows(iwTomorrow) + '</div>' +
+      '<div class="iw-section"><div class="iw-section-title week">Rest of Week' + (iwWeek.length > 0 ? ' (' + iwWeek.length + ')' : '') + '</div>' + iwRenderRows(iwWeek) + '</div>' +
+      '</div></div>';
+  }
+
   var bodyHTML = '';
   if (currentView === 'pipeline') {
     bodyHTML = renderPipelineView();
@@ -2540,7 +2641,7 @@ function render() {
     bodyHTML = renderAdminView();
   }
 
-  document.getElementById('app').innerHTML = headerHTML + summaryHTML + '<div class="main">' + bodyHTML + '</div>' +
+  document.getElementById('app').innerHTML = headerHTML + summaryHTML + iwHTML + '<div class="main">' + bodyHTML + '</div>' +
     '<button class="chat-fab" id="chatFab" title="Open AI Assistant (Ctrl+/)">\uD83E\uDD16</button>';
 
   bindEvents();
@@ -3663,6 +3764,15 @@ function bindEvents() {
   }
 
   // Wins toggle
+  var iwToggle = document.getElementById('interviewToggle');
+  if (iwToggle) {
+    iwToggle.addEventListener('click', function() {
+      interviewWidgetOpen = !interviewWidgetOpen;
+      var widget = document.getElementById('interviewWidget');
+      if (widget) widget.classList.toggle('open', interviewWidgetOpen);
+    });
+  }
+
   var winsToggle = document.getElementById('winsToggle');
   if (winsToggle) {
     winsToggle.addEventListener('click', function(e) {
