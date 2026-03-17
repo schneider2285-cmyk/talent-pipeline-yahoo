@@ -5973,16 +5973,24 @@ async function sendChat() {
     }
   }
 
-  // Intent detection: show forms instead of calling Claude
+  // Intent detection: show forms only for generic requests without specific names/roles
+  // If the user provides actual names or role targets, let Claude handle it
   var lowerText = text.toLowerCase();
-  if (/\b(add|create|new)\b.*\b(candidate|person|talent|developer|engineer)\b/.test(lowerText) && !/\b(to|for|status)\b.*\b(job|role)\b/.test(lowerText)) {
+
+  // Check if message contains proper nouns (capitalized words that are likely names)
+  var hasProperNouns = /\b[A-Z][a-z]+\s+[A-Z][a-z]+/.test(text);
+  // Check if targeting a specific role (e.g. "for the FIRE role", "to React Developer")
+  var hasRoleTarget = /\b(to|for|on|into)\b.*\b(role|job|position)\b/i.test(text) || /\b(to|for|on|into)\b\s+(the\s+)?[A-Z]/.test(text);
+
+  // Only show form for generic requests like "add a candidate" or "new candidate"
+  if (/\b(add|create|new)\b.*\b(candidate|person|talent)\b/.test(lowerText) && !hasProperNouns && !hasRoleTarget) {
     chatMessages.push({ role: 'user', content: text });
     renderChat();
     showCandidateForm();
     chatSending = false; if (sendBtn) sendBtn.disabled = false;
     return;
   }
-  if (/\b(add|create|new|open)\b.*\b(job|role|req|position)\b/.test(lowerText) && !/\b(candidate|person|developer|engineer)\b.*\b(to|for)\b/.test(lowerText)) {
+  if (/\b(add|create|new|open)\b.*\b(job|role|req|position)\b/.test(lowerText) && !/\b(candidate|person|developer|engineer)\b.*\b(to|for)\b/.test(lowerText) && !hasProperNouns) {
     chatMessages.push({ role: 'user', content: text });
     renderChat();
     showJobForm();
@@ -6021,21 +6029,30 @@ function buildSystemPrompt() {
     '3. Never ask generic questions like "Can you provide more details?" — ask exactly what you need.\n' +
     '4. Extract everything from the message first. Only ask about what\'s truly missing.\n\n' +
 
-    '## CANDIDATE SUBMISSIONS (IMPORTANT)\n' +
-    'Users often paste candidate info in this format (one or multiple at a time):\n' +
+    '## ADDING CANDIDATES (CRITICAL)\n' +
+    'Users can add candidates in TWO ways:\n\n' +
+    '### Natural language (most common)\n' +
+    'Examples:\n' +
+    '- "add bryan henderson and matthew schneider as candidates for the FIRE role"\n' +
+    '- "add John Smith to the React Developer job"\n' +
+    '- "put Jane Doe on the Mail iOS Developer role"\n\n' +
+    'When you get a request like this:\n' +
+    '1. Extract ALL candidate names from the message\n' +
+    '2. Match the role/job mentioned to a job in the data snapshot (fuzzy match on role_title). If ambiguous, ask which specific role.\n' +
+    '3. For EACH candidate: call insert_candidate with their name, then assign_candidate_to_job with the job ID and new candidate ID\n' +
+    '4. Do ALL steps in sequence without asking for confirmation. The user already told you what to do.\n' +
+    '5. Confirm with a summary: "✅ Added X and Y to [Role] ([BU]/[Project])"\n\n' +
+    '### Structured paste format\n' +
+    'Users sometimes paste candidate info like:\n' +
     '  Talent: Phu Nguyen Anh\n' +
     '  Profile: https://talent.toptal.com/resume/...\n' +
     '  Availability: FT (40/40)\n' +
     '  Location: Toronto, ON, Canada\n\n' +
-    'When you receive candidate info like this:\n' +
-    '1. Parse ALL candidate details from the message (name, profile_link, location, availability, rate, etc.)\n' +
-    '2. If the job/role is NOT specified, ask: "Which role should I add [name] to? Here are the open roles:" then list UNFILLED roles from the data snapshot grouped by BU, like:\n' +
-    '   **Mail:** Java Developer, React Engineer\n' +
-    '   **Sports:** iOS Developer\n' +
-    '   **Paranoids:** Cloud Security Engineer\n' +
-    '3. Once the user picks a role, execute ALL steps: insert_candidate → query for IDs → assign_candidate_to_job for EACH candidate\n' +
-    '4. If MULTIPLE candidates are pasted, remember ALL of them. Ask the role question ONCE, then add them all to the same role.\n' +
-    '5. Field mapping: "Talent:" → name, "Profile:" → profile_link, "Location:" → location, "Availability:" → availability, "Rate/RTT:" → rate, URLs with talent.toptal.com → profile_link\n\n' +
+    'When you receive structured pastes:\n' +
+    '1. Parse ALL candidate details (name, profile_link, location, availability, rate)\n' +
+    '2. If the job/role is NOT specified, ask: "Which role should I add [name] to?" then list matching roles\n' +
+    '3. Execute: insert_candidate (with all details) → assign_candidate_to_job for EACH candidate\n' +
+    '4. Field mapping: "Talent:" → name, "Profile:" → profile_link, "Location:" → location, "Availability:" → availability, "Rate/RTT:" → rate\n\n' +
 
     '## TOOLS\n' +
     'You can do everything the UI does: change statuses, set dates, add/edit jobs & candidates, query data.\n' +
@@ -6110,7 +6127,7 @@ function buildApiMessages() {
 // Main Claude API call — handles tool execution loops
 async function callClaude() {
   var systemPrompt = buildSystemPrompt();
-  var maxToolRounds = 5; // Safety limit on consecutive tool-call rounds
+  var maxToolRounds = 10; // Safety limit — adding N candidates needs 2N+ tool rounds
 
   for (var round = 0; round < maxToolRounds; round++) {
     var apiMessages = buildApiMessages();
