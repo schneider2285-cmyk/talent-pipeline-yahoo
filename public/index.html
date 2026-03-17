@@ -4480,6 +4480,23 @@ const CHAT_TOOLS = [
       },
       required: ['table']
     }
+  },
+  {
+    name: 'add_candidate_to_job',
+    description: 'Convenience tool: creates a new candidate AND assigns them to a job in one step. Use this when the user says "add [name] to [role]".',
+    input_schema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Candidate full name' },
+        job_id: { type: 'string', description: 'Job UUID to assign the candidate to' },
+        profile_link: { type: 'string', description: 'Profile URL (optional)' },
+        location: { type: 'string', description: 'Location (optional)' },
+        rate: { type: 'number', description: 'Hourly rate (optional)' },
+        availability: { type: 'string', description: 'Availability (optional)' },
+        status: { type: 'string', description: 'Initial status (default: TALENT INTRODUCED)', default: 'TALENT INTRODUCED' }
+      },
+      required: ['name', 'job_id']
+    }
   }
 ];
 
@@ -5011,6 +5028,36 @@ async function executeTool(toolName, toolInput) {
       var { data, error } = await query;
       if (error) return { error: error.message };
       return { results: data, count: data.length };
+    }
+    case 'add_candidate_to_job': {
+      // Combined: insert candidate + assign to job in one step
+      var candRow = { name: toolInput.name, created_by: currentUser ? currentUser.id : null };
+      if (toolInput.profile_link) candRow.profile_link = toolInput.profile_link;
+      if (toolInput.location) candRow.location = toolInput.location;
+      if (toolInput.rate) candRow.rate = toolInput.rate;
+      if (toolInput.availability) candRow.availability = toolInput.availability;
+      var { data: candData, error: candErr } = await sb.from('candidates').insert(candRow).select();
+      if (candErr) return { error: 'Failed to create candidate: ' + candErr.message };
+      var newCand = candData[0];
+      await logActivity('candidate', newCand.id, 'insert', { note: toolInput.name });
+
+      // Now assign to job
+      var assignNow = new Date().toISOString();
+      var assignStatus = toolInput.status || 'TALENT INTRODUCED';
+      var jcRow = {
+        job_id: toolInput.job_id,
+        candidate_id: newCand.id,
+        status: assignStatus,
+        date_introduced: assignNow.split('T')[0],
+        status_changed_at: assignNow,
+        updated_by: currentUser ? currentUser.id : null
+      };
+      if (assignStatus === 'INTERVIEW SCHEDULED' || assignStatus === 'PENDING INTERVIEW') jcRow.date_interview = assignNow;
+      var { data: jcData, error: jcErr } = await sb.from('job_candidates').insert(jcRow).select();
+      if (jcErr) return { error: 'Candidate created but assignment failed: ' + jcErr.message + '. Candidate ID: ' + newCand.id };
+      await logActivity('job_candidate', jcData[0].id, 'assign', { new_value: assignStatus, note: toolInput.name });
+
+      return { success: true, candidate: newCand, job_candidate: jcData[0], message: toolInput.name + ' added and assigned to job' };
     }
     default:
       return { error: 'Unknown tool: ' + toolName };
@@ -6038,10 +6085,11 @@ function buildSystemPrompt() {
     '- "put Jane Doe on the Mail iOS Developer role"\n\n' +
     'When you get a request like this:\n' +
     '1. Extract ALL candidate names from the message\n' +
-    '2. Match the role/job mentioned to a job in the data snapshot (fuzzy match on role_title). If ambiguous, ask which specific role.\n' +
-    '3. For EACH candidate: call insert_candidate with their name, then assign_candidate_to_job with the job ID and new candidate ID\n' +
+    '2. Match the role/job mentioned to a job in the data snapshot (fuzzy match on role_title). The data snapshot includes job IDs — use them directly. If ambiguous, ask which specific role.\n' +
+    '3. For EACH candidate: first call insert_candidate with their name. The response includes the new candidate object with its id. Then immediately call assign_candidate_to_job with the job_id from the snapshot and the candidate_id from the insert response.\n' +
     '4. Do ALL steps in sequence without asking for confirmation. The user already told you what to do.\n' +
-    '5. Confirm with a summary: "✅ Added X and Y to [Role] ([BU]/[Project])"\n\n' +
+    '5. IMPORTANT: You MUST call both insert_candidate AND assign_candidate_to_job for each candidate. Just inserting a candidate does NOT assign them to a job. Both steps are required.\n' +
+    '6. Confirm with a summary: "✅ Added X and Y to [Role] ([BU]/[Project])"\n\n' +
     '### Structured paste format\n' +
     'Users sometimes paste candidate info like:\n' +
     '  Talent: Phu Nguyen Anh\n' +
@@ -6173,6 +6221,8 @@ async function callClaude() {
         if (textParts.length > 0) {
           chatMessages.push({ role: 'assistant', content: textParts.join('\n') });
         }
+        // Final refresh to make sure UI shows latest data after all tool operations
+        if (round > 0) await refreshData();
         renderChat();
         return; // Exit the loop
       }
@@ -6236,6 +6286,7 @@ function describeToolCall(name, input) {
     case 'update_job_candidate_fields': return 'Updating candidate record fields';
     case 'delete_job': return 'Deleting job ' + (input.job_id || '').substring(0, 8) + '...';
     case 'query_database': return 'Querying ' + input.table;
+    case 'add_candidate_to_job': return 'Adding ' + input.name + ' to job';
     default: return name;
   }
 }
