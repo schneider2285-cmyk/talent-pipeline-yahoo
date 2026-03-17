@@ -3449,7 +3449,7 @@ function bindEvents() {
   document.querySelectorAll('[data-send-to-cv]').forEach(function(btn) {
     btn.addEventListener('click', function(e) {
       e.stopPropagation();
-      sendCandidateToClientView(btn.dataset.sendToCv, btn.dataset.shareId, btn);
+      showSendToClientModal(btn.dataset.sendToCv, btn.dataset.shareId, btn);
     });
   });
 
@@ -4548,7 +4548,48 @@ async function updateClientShare(shareId, buName, projName) {
 }
 
 // Send a single candidate to an existing client view share
-async function sendCandidateToClientView(jcId, shareId, btnEl) {
+// Show modal to add submission notes before sending to client view
+function showSendToClientModal(jcId, shareId, btnEl) {
+  // Find candidate name
+  var candName = 'this candidate';
+  FULFILLMENT_DATA.forEach(function(j) {
+    (j.candidates || []).forEach(function(c) {
+      if (c.jc_id === jcId) candName = c.name || 'this candidate';
+    });
+  });
+
+  var overlay = document.createElement('div');
+  overlay.className = 'cv-share-modal-overlay';
+  overlay.id = 'cvSendOverlay';
+  overlay.innerHTML = '<div class="cv-share-modal" style="max-width:460px;">' +
+    '<h3>Send ' + escHTML(candName) + ' to Client View</h3>' +
+    '<label>Why is this candidate a great fit? <span style="font-weight:400;color:var(--text-secondary);">(shown to client)</span></label>' +
+    '<textarea id="cvSendNotes" style="width:100%;min-height:80px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:\'DM Sans\',sans-serif;resize:vertical;" placeholder="e.g. 8+ years Java experience, strong distributed systems background, worked at similar scale companies. Great communicator with enterprise client experience."></textarea>' +
+    '<p style="font-size:11px;color:var(--text-secondary);margin:6px 0 0;">This will appear on the candidate\'s card in the client view.</p>' +
+    '<div style="margin-top:16px;display:flex;gap:8px;">' +
+      '<button class="cv-share-btn" id="cvSendConfirmBtn">Send to Client</button>' +
+      '<button class="cv-share-btn-cancel" id="cvSendCancelBtn">Cancel</button>' +
+    '</div>' +
+  '</div>';
+  document.body.appendChild(overlay);
+
+  document.getElementById('cvSendConfirmBtn').addEventListener('click', function() {
+    var notes = document.getElementById('cvSendNotes').value.trim();
+    overlay.remove();
+    sendCandidateToClientView(jcId, shareId, btnEl, notes);
+  });
+  document.getElementById('cvSendCancelBtn').addEventListener('click', function() {
+    overlay.remove();
+  });
+  overlay.addEventListener('click', function(e) {
+    if (e.target === overlay) overlay.remove();
+  });
+
+  // Focus the textarea
+  setTimeout(function() { document.getElementById('cvSendNotes').focus(); }, 100);
+}
+
+async function sendCandidateToClientView(jcId, shareId, btnEl, submissionNotes) {
   btnEl.disabled = true;
   btnEl.textContent = 'Sending…';
   try {
@@ -4558,10 +4599,14 @@ async function sendCandidateToClientView(jcId, shareId, btnEl) {
 
     var currentIds = shareData.job_candidate_ids || [];
     if (currentIds.includes(jcId)) {
-      // Already shared — just refresh UI
       await loadActiveShares();
       render();
       return;
+    }
+
+    // Save submission notes to job_candidates if provided
+    if (submissionNotes) {
+      await sb.from('job_candidates').update({ submission_notes: submissionNotes }).eq('id', jcId);
     }
 
     var updatedIds = currentIds.concat([jcId]);
@@ -4573,7 +4618,7 @@ async function sendCandidateToClientView(jcId, shareId, btnEl) {
 
     if (updateErr) throw updateErr;
 
-    await logActivity('client_share', shareId, 'add_candidate', { note: 'Candidate sent to client view' });
+    await logActivity('client_share', shareId, 'add_candidate', { note: 'Candidate sent to client view' + (submissionNotes ? ' with notes' : '') });
 
     // Refresh share data and re-render
     await loadActiveShares();

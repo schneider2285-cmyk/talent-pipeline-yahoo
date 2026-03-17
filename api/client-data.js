@@ -2,6 +2,41 @@
 // Validates share token + email, returns share metadata + candidates
 // Uses direct Supabase PostgREST API (no SDK dependency)
 
+// Resolve avatar URL from a Toptal profile link by scraping og:image
+async function resolveAvatar(profileLink) {
+  if (!profileLink) return null;
+  try {
+    const resp = await fetch(profileLink, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; TalentPipeline/1.0)' },
+      redirect: 'follow',
+      signal: AbortSignal.timeout(5000)
+    });
+    if (!resp.ok) return null;
+    const html = await resp.text();
+    // Look for og:image meta tag
+    const ogMatch = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)
+      || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
+    if (ogMatch && ogMatch[1]) return ogMatch[1];
+    // Fallback: look for profile image in common patterns
+    const imgMatch = html.match(/<img[^>]+class="[^"]*(?:profile|avatar|photo)[^"]*"[^>]+src="([^"]+)"/i)
+      || html.match(/<img[^>]+src="(https:\/\/[^"]+(?:photo|avatar|profile)[^"]*\.(?:jpg|jpeg|png|webp)[^"]*)"/i);
+    if (imgMatch && imgMatch[1]) return imgMatch[1];
+    return null;
+  } catch (e) {
+    return null; // Timeout or network error — skip
+  }
+}
+
+// Cache resolved avatar_url back to the candidates table
+async function cacheAvatar(supabaseUrl, headers, candidateId, avatarUrl) {
+  try {
+    await fetch(
+      `${supabaseUrl}/rest/v1/candidates?id=eq.${candidateId}`,
+      { method: 'PATCH', headers: { ...headers, 'Prefer': 'return=minimal' }, body: JSON.stringify({ avatar_url: avatarUrl }) }
+    );
+  } catch (e) { /* best effort */ }
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -79,9 +114,9 @@ export default async function handler(req, res) {
     let jcUrl;
     if (jcIds.length > 0) {
       const jcIdFilter = jcIds.join(',');
-      jcUrl = `${supabaseUrl}/rest/v1/job_candidates?id=in.(${jcIdFilter})&job_id=in.(${jobIdFilter})&select=*,candidates(id,name,profile_link,location,rate,avatar_url)`;
+      jcUrl = `${supabaseUrl}/rest/v1/job_candidates?id=in.(${jcIdFilter})&job_id=in.(${jobIdFilter})&select=*,candidates(id,name,profile_link,location,avatar_url)`;
     } else {
-      jcUrl = `${supabaseUrl}/rest/v1/job_candidates?job_id=in.(${jobIdFilter})&select=*,candidates(id,name,profile_link,location,rate,avatar_url)`;
+      jcUrl = `${supabaseUrl}/rest/v1/job_candidates?job_id=in.(${jobIdFilter})&select=*,candidates(id,name,profile_link,location,avatar_url)`;
     }
     const jcResp = await fetch(jcUrl, { headers });
     if (!jcResp.ok) {
@@ -90,7 +125,29 @@ export default async function handler(req, res) {
     }
     const jcData = await jcResp.json();
 
-    // 5. Group candidates by job
+    // 5. Resolve missing avatars from Toptal profiles (parallel, max 5 at a time)
+    const needsAvatar = (jcData || []).filter(jc => {
+      const cand = jc.candidates || {};
+      return cand.profile_link && !cand.avatar_url;
+    });
+
+    if (needsAvatar.length > 0) {
+      const toResolve = needsAvatar.slice(0, 5); // Limit to 5 per request
+      const avatarResults = await Promise.allSettled(
+        toResolve.map(async (jc) => {
+          const cand = jc.candidates;
+          const avatarUrl = await resolveAvatar(cand.profile_link);
+          if (avatarUrl) {
+            cand.avatar_url = avatarUrl;
+            // Cache in DB for future requests (fire and forget)
+            cacheAvatar(supabaseUrl, headers, cand.id, avatarUrl);
+          }
+          return { candidateId: cand.id, avatarUrl };
+        })
+      );
+    }
+
+    // 6. Group candidates by job
     const jobMap = {};
     (jobs || []).forEach(j => {
       jobMap[j.id] = {
@@ -110,8 +167,8 @@ export default async function handler(req, res) {
         name: cand.name || 'Unknown',
         profile_link: cand.profile_link || null,
         location: cand.location || null,
-        rate: cand.rate || null,
         avatar_url: cand.avatar_url || null,
+        submission_notes: jc.submission_notes || null,
         status: jc.status,
         date_introduced: jc.date_introduced,
         date_interview: jc.date_interview,
@@ -122,7 +179,7 @@ export default async function handler(req, res) {
       });
     });
 
-    // 6. Return
+    // 7. Return
     return res.status(200).json({
       share: {
         project_name: share.project_name,

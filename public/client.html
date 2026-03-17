@@ -560,11 +560,15 @@ function renderCard(c, job) {
   html += '<div class="cv-tags">' + renderTags(c.notes) + '</div>';
   html += '</div></div>';
 
-  // Bio
-  var bio = extractBio(c.notes);
-  if (bio) { html += '<div class="cv-card-bio">' + escapeHtml(bio) + '</div>'; }
+  // Submission notes / highlights panel — always show if present
+  if (c.submission_notes) {
+    html += '<div class="cv-fit-panel">';
+    html += '<div class="cv-fit-title">Why This Candidate</div>';
+    html += '<div class="cv-card-bio" style="padding:0;margin:0;">' + escapeHtml(c.submission_notes) + '</div>';
+    html += '</div>';
+  }
 
-  // Detail panel (shown when expanded)
+  // Detail panel (shown when expanded via More Info)
   var safeId = escapeHtml(c.jc_id);
   var isExpanded = expandedCards && expandedCards[c.jc_id];
   if (isExpanded) {
@@ -572,17 +576,11 @@ function renderCard(c, job) {
     if (c.location) {
       html += '<div class="cv-detail-row"><span class="cv-detail-label">Location</span><span class="cv-detail-value">' + escapeHtml(c.location) + '</span></div>';
     }
-    if (c.rate) {
-      html += '<div class="cv-detail-row"><span class="cv-detail-label">Rate</span><span class="cv-detail-value">$' + escapeHtml(String(c.rate)) + '/hr</span></div>';
-    }
     if (c.date_introduced) {
       html += '<div class="cv-detail-row"><span class="cv-detail-label">Introduced</span><span class="cv-detail-value">' + formatDate(c.date_introduced) + '</span></div>';
     }
     if (c.profile_link) {
       html += '<div class="cv-detail-row"><span class="cv-detail-label">Profile</span><span class="cv-detail-value"><a href="' + escapeHtml(c.profile_link) + '" target="_blank" rel="noopener">View Full Profile &rarr;</a></span></div>';
-    }
-    if (c.status) {
-      html += '<div class="cv-detail-row"><span class="cv-detail-label">Status</span><span class="cv-detail-value">' + escapeHtml(c.status) + '</span></div>';
     }
     html += '</div>';
   }
