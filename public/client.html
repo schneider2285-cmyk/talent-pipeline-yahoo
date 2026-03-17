@@ -377,7 +377,7 @@ async function verifyEmail() {
     SHARE_DATA = data;
     renderPage();
   } catch (err) {
-    errEl.textContent = 'Something went wrong. Please try again.';
+    errEl.textContent = 'Something went wrong: ' + (err.message || err) + '. Please try again.';
     errEl.style.display = 'block';
     console.error('Gate error:', err);
   }
@@ -396,8 +396,12 @@ async function loadShareData() {
     SHARE_DATA = data;
     renderPage();
   } catch (err) {
-    showToast('Failed to load data. Please refresh.', 'error');
     console.error('Load error:', err);
+    // Show the gate again so user can retry
+    document.getElementById('gateOverlay').style.display = 'flex';
+    var errEl = document.getElementById('gateError');
+    errEl.textContent = 'Failed to load: ' + (err.message || err) + '. Please try again.';
+    errEl.style.display = 'block';
   }
 }
 
