@@ -4293,45 +4293,29 @@ const VALID_DB_STATUSES = [
   'REMOVED DUE TO LOCATION', 'TALENT NO LONGER AVAILABLE', 'TALENT WITHDRAWN'
 ];
 
-// Build rich context from live data for Claude
+// Build compact context from live data for Claude — kept small to avoid token limits
 function buildChatContext() {
   var lines = [];
 
   var cancelSt = new Set(['ROLE CANCELLED/FILED', 'REQ COMPLETE', 'ENGAGEMENT COMPLETED']);
   var openJobs = (FULFILLMENT_DATA || []).filter(function(j) { return !cancelSt.has(j.status); });
 
-  // Group by BU → Project → Roles with candidates
+  // Compact: BU > role_title (id) — no candidate names in context (use query_database)
   var byBU = {};
+  var totalCands = 0;
   openJobs.forEach(function(j) {
-    var bu = j.bu || 'Unknown';
-    var proj = j.project_name || 'Unknown';
-    if (!byBU[bu]) byBU[bu] = {};
-    if (!byBU[bu][proj]) byBU[bu][proj] = [];
-    var unfilled = (j.openings || 1) - (j.hired_count || 0);
-    var entry = j.role_title + ' (id:' + j.id + ', ' + unfilled + ' needed, ' + (j.active_candidates || 0) + ' active, status:' + (j.status || 'ACTIVE') + ')';
-    // Include candidates for this role
-    var cands = (j.candidates || []).map(function(c) {
-      return c.name + ' [' + (c.status || c._status || '') + ']' + (c.jc_id ? ' jcid:' + c.jc_id : '');
-    });
-    if (cands.length > 0) entry += '\n    Candidates: ' + cands.join(', ');
-    byBU[bu][proj].push(entry);
+    var bu = j.bu || '?';
+    if (!byBU[bu]) byBU[bu] = [];
+    totalCands += (j.candidates || []).length;
+    byBU[bu].push(j.role_title + '|' + j.id + '|' + (j.project_name || '') + '|' + (j.active_candidates || 0) + 'c');
   });
 
-  lines.push('PIPELINE BY BU > PROJECT > ROLE:');
+  lines.push('ROLES (' + openJobs.length + ' open, ' + totalCands + ' candidates):');
   Object.keys(byBU).sort().forEach(function(bu) {
-    lines.push('\n' + bu + ':');
-    Object.keys(byBU[bu]).sort().forEach(function(proj) {
-      lines.push('  ' + proj + ':');
-      byBU[bu][proj].forEach(function(r) { lines.push('    - ' + r); });
-    });
+    lines.push(bu + ': ' + byBU[bu].join('; '));
   });
-
-  var candCount = 0;
-  (FULFILLMENT_DATA || []).forEach(function(j) { candCount += (j.candidates || []).length; });
-
-  lines.push('\nSUMMARY: ' + openJobs.length + ' open jobs | ' + candCount + ' candidates | ' + HIRED_DATA.length + ' hired');
-  lines.push('BUs: ' + Object.keys(byBU).join(', '));
-  lines.push('Use query_database for details (dates, locations, IDs) not shown above.');
+  lines.push('Format: title|job_id|project|active_candidates');
+  lines.push('Use query_database for candidate names, dates, details.');
 
   return lines.join('\n');
 }
@@ -6062,58 +6046,13 @@ async function sendChat() {
 function buildSystemPrompt() {
   var context = buildChatContext();
   var todayISO = new Date().toISOString().slice(0, 10);
-  return 'You are a recruiting assistant for Yahoo\'s Toptal staffing pipeline. You have database read/write access via tools.\n' +
-    'Today is ' + todayISO + '.\n\n' +
-
-    '## DATA SNAPSHOT\n' + context + '\n\n' +
-
-    '## HOW TO OPERATE\n' +
-    '1. If the user\'s request is clear → execute immediately with tools, then confirm briefly.\n' +
-    '2. If anything is ambiguous → ask ONE specific clarifying question. Examples:\n' +
-    '   - "Which role? I see: [list matching roles]"\n' +
-    '   - "Got it. What BU is this for?"\n' +
-    '   - "Do you mean Narcis Gabriel Gemene who\'s already in the system?"\n' +
-    '3. Never ask generic questions like "Can you provide more details?" — ask exactly what you need.\n' +
-    '4. Extract everything from the message first. Only ask about what\'s truly missing.\n\n' +
-
-    '## ADDING CANDIDATES (CRITICAL)\n' +
-    'Users can add candidates in TWO ways:\n\n' +
-    '### Natural language (most common)\n' +
-    'Examples:\n' +
-    '- "add bryan henderson and matthew schneider as candidates for the FIRE role"\n' +
-    '- "add John Smith to the React Developer job"\n' +
-    '- "put Jane Doe on the Mail iOS Developer role"\n\n' +
-    'When you get a request like this:\n' +
-    '1. Extract ALL candidate names from the message\n' +
-    '2. Match the role/job mentioned to a job in the data snapshot (fuzzy match on role_title). The data snapshot includes job IDs — use them directly. If ambiguous, ask which specific role.\n' +
-    '3. For EACH candidate: first call insert_candidate with their name. The response includes the new candidate object with its id. Then immediately call assign_candidate_to_job with the job_id from the snapshot and the candidate_id from the insert response.\n' +
-    '4. Do ALL steps in sequence without asking for confirmation. The user already told you what to do.\n' +
-    '5. IMPORTANT: You MUST call both insert_candidate AND assign_candidate_to_job for each candidate. Just inserting a candidate does NOT assign them to a job. Both steps are required.\n' +
-    '6. Confirm with a summary: "✅ Added X and Y to [Role] ([BU]/[Project])"\n\n' +
-    '### Structured paste format\n' +
-    'Users sometimes paste candidate info like:\n' +
-    '  Talent: Phu Nguyen Anh\n' +
-    '  Profile: https://talent.toptal.com/resume/...\n' +
-    '  Availability: FT (40/40)\n' +
-    '  Location: Toronto, ON, Canada\n\n' +
-    'When you receive structured pastes:\n' +
-    '1. Parse ALL candidate details (name, profile_link, location, availability, rate)\n' +
-    '2. If the job/role is NOT specified, ask: "Which role should I add [name] to?" then list matching roles\n' +
-    '3. Execute: insert_candidate (with all details) → assign_candidate_to_job for EACH candidate\n' +
-    '4. Field mapping: "Talent:" → name, "Profile:" → profile_link, "Location:" → location, "Availability:" → availability, "Rate/RTT:" → rate\n\n' +
-
-    '## TOOLS\n' +
-    'You can do everything the UI does: change statuses, set dates, add/edit jobs & candidates, query data.\n' +
-    '- Status values: ' + VALID_DB_STATUSES.join(', ') + '\n' +
-    '- Dates (date_introduced, date_interview, date_hired) → update_job_candidate_fields\n' +
-    '- date_interview is a TEXT field. Store interview date+time as "M/D at H:MM am/pm TZ" (e.g. "3/17 at 2:00 pm PDT"). This format is parsed by the interview widget.\n' +
-    '- When scheduling an interview, ALWAYS set both the status to INTERVIEW SCHEDULED and the date_interview field with the date and time.\n' +
-    '- Status changes → update_candidate_status (auto-sets milestone dates)\n' +
-    '- Use query_database to look up IDs or data not in the snapshot\n' +
-    '- Multi-step ops (add candidate + assign to job): do all steps in sequence\n\n' +
-
-    '## STYLE\n' +
-    'Concise. No fluff. Bullet points for data. Confirm actions with ✅. Flag issues proactively.';
+  return 'Recruiting assistant for Yahoo\'s Toptal pipeline. Today: ' + todayISO + '.\n\n' +
+    context + '\n\n' +
+    'RULES: Execute clear requests immediately. Ask ONE specific question if ambiguous. Be concise.\n' +
+    'ADDING CANDIDATES: Use add_candidate_to_job tool (creates+assigns in one step). Match role name to job_id from data above. For multiple candidates, call the tool once per person.\n' +
+    'STATUSES: ' + VALID_DB_STATUSES.join(', ') + '\n' +
+    'INTERVIEW DATES: date_interview is TEXT, format "M/D at H:MM am/pm TZ". Set both status and date_interview when scheduling.\n' +
+    'Use query_database for any data not in the snapshot above.';
 }
 
 // Build API messages from chatMessages — handles tool_use/tool_result pairing correctly
@@ -6159,9 +6098,9 @@ function buildApiMessages() {
     }
   }
 
-  // Sliding window: keep last 30 API messages to stay under token limits
+  // Sliding window: keep last 12 API messages to stay under token limits
   // Always ensure the first message is a user message (API requirement)
-  var MAX_MESSAGES = 30;
+  var MAX_MESSAGES = 12;
   if (allMessages.length > MAX_MESSAGES) {
     allMessages = allMessages.slice(-MAX_MESSAGES);
     // Ensure first message is user role
@@ -6190,7 +6129,7 @@ async function callClaude() {
         },
         body: JSON.stringify({
           model: 'claude-sonnet-4-20250514',
-          max_tokens: 4096,
+          max_tokens: 1024,
           system: systemPrompt,
           tools: CHAT_TOOLS,
           messages: apiMessages
