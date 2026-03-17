@@ -3821,6 +3821,14 @@ function bindEvents() {
       btn.textContent = 'Deleting...';
       try {
         // Delete job_candidates first, then the job
+        // Clean up client_actions_log and client_shares for this job's candidates
+        var { data: jcRows } = await sb.from('job_candidates').select('id').eq('job_id', jobId);
+        if (jcRows && jcRows.length > 0) {
+          var jcDelIds = jcRows.map(function(r) { return r.id; });
+          for (var di = 0; di < jcDelIds.length; di++) {
+            await sb.from('client_actions_log').delete().eq('job_candidate_id', jcDelIds[di]);
+          }
+        }
         await sb.from('job_candidates').delete().eq('job_id', jobId);
         var { error } = await sb.from('jobs').delete().eq('id', jobId);
         if (error) { alert('Failed to delete: ' + error.message); btn.disabled = false; btn.textContent = '🗑️ Delete'; return; }
@@ -3874,6 +3882,17 @@ function bindEvents() {
       if (!confirm('Remove "' + candName + '" from this job?\n\nThis deletes the job-candidate link. The candidate record itself is preserved.')) return;
       btn.disabled = true;
       try {
+        // 1. Delete client_actions_log entries referencing this job_candidate
+        await sb.from('client_actions_log').delete().eq('job_candidate_id', jcId);
+        // 2. Remove from any client_shares.job_candidate_ids arrays
+        var { data: shares } = await sb.from('client_shares').select('id, job_candidate_ids').filter('job_candidate_ids', 'cs', '{"' + jcId + '"}');
+        if (shares && shares.length > 0) {
+          for (var si = 0; si < shares.length; si++) {
+            var updatedIds = (shares[si].job_candidate_ids || []).filter(function(id) { return id !== jcId; });
+            await sb.from('client_shares').update({ job_candidate_ids: updatedIds }).eq('id', shares[si].id);
+          }
+        }
+        // 3. Delete the job_candidate link
         var { error } = await sb.from('job_candidates').delete().eq('id', jcId);
         if (error) { alert('Failed to remove: ' + error.message); btn.disabled = false; return; }
         await logActivity('job_candidate', jcId, 'delete', { note: 'Removed candidate: ' + candName });
