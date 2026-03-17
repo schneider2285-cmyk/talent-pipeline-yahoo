@@ -114,9 +114,9 @@ export default async function handler(req, res) {
     let jcUrl;
     if (jcIds.length > 0) {
       const jcIdFilter = jcIds.join(',');
-      jcUrl = `${supabaseUrl}/rest/v1/job_candidates?id=in.(${jcIdFilter})&job_id=in.(${jobIdFilter})&select=*,candidates(id,name,profile_link,location,avatar_url)`;
+      jcUrl = `${supabaseUrl}/rest/v1/job_candidates?id=in.(${jcIdFilter})&job_id=in.(${jobIdFilter})&select=*,candidates(*)`;
     } else {
-      jcUrl = `${supabaseUrl}/rest/v1/job_candidates?job_id=in.(${jobIdFilter})&select=*,candidates(id,name,profile_link,location,avatar_url)`;
+      jcUrl = `${supabaseUrl}/rest/v1/job_candidates?job_id=in.(${jobIdFilter})&select=*,candidates(*)`;
     }
     const jcResp = await fetch(jcUrl, { headers });
     if (!jcResp.ok) {
