@@ -4249,7 +4249,8 @@ const CHAT_TOOLS = [
 ];
 
 // ── Client View Share Modal ──
-function showClientViewModal(buName, projName) {
+// Checks for an existing active share first; if found, opens manage mode
+async function showClientViewModal(buName, projName) {
   // Find jobs for this project
   var projJobs = FULFILLMENT_DATA.filter(function(j) {
     return j.project_name === projName && j.bu === buName;
@@ -4260,6 +4261,27 @@ function showClientViewModal(buName, projName) {
     return;
   }
 
+  // Check for an existing active share for this project+bu
+  var existingShare = null;
+  try {
+    var { data: shares } = await sb.from('client_shares')
+      .select('*')
+      .eq('project_name', projName)
+      .eq('bu', buName)
+      .eq('is_active', true)
+      .order('created_at', { ascending: false })
+      .limit(1);
+    if (shares && shares.length > 0) existingShare = shares[0];
+  } catch (e) { /* ignore, will create new */ }
+
+  _renderClientViewModal(buName, projName, projJobs, existingShare);
+}
+
+function _renderClientViewModal(buName, projName, projJobs, existingShare) {
+  var isManage = !!existingShare;
+  var existingJcIds = isManage ? (existingShare.job_candidate_ids || []) : [];
+  var existingJobIds = isManage ? (existingShare.job_ids || []) : [];
+
   var overlay = document.createElement('div');
   overlay.className = 'cv-share-modal-overlay';
   overlay.id = 'cvShareOverlay';
@@ -4267,16 +4289,17 @@ function showClientViewModal(buName, projName) {
   var rolesHtml = '';
   projJobs.forEach(function(j) {
     var candCount = (j.candidates || []).length;
+    var roleChecked = isManage ? existingJobIds.includes(j.id) : true;
     rolesHtml += '<label class="role-check">' +
-      '<input type="checkbox" checked value="' + escHTML(j.id) + '" data-role-cb />' +
+      '<input type="checkbox" ' + (roleChecked ? 'checked' : '') + ' value="' + escHTML(j.id) + '" data-role-cb />' +
       '<span>' + escHTML(j.role_title) + ' (' + candCount + ' candidate' + (candCount !== 1 ? 's' : '') + ')</span></label>';
-    // Show candidates under this role
     if (candCount > 0) {
-      rolesHtml += '<div class="cv-cand-group" data-role-cands="' + escHTML(j.id) + '">';
+      rolesHtml += '<div class="cv-cand-group" data-role-cands="' + escHTML(j.id) + '"' + (!roleChecked ? ' style="display:none"' : '') + '>';
       rolesHtml += '<div class="cv-cand-group-title">Select candidates to include <span class="cv-cand-select-all" data-select-all="' + escHTML(j.id) + '">Select All</span></div>';
       (j.candidates || []).forEach(function(c) {
+        var candChecked = isManage ? existingJcIds.includes(c.jc_id) : false;
         rolesHtml += '<label class="cv-cand-check">' +
-          '<input type="checkbox" value="' + escHTML(c.jc_id) + '" data-cand-cb data-job-id="' + escHTML(j.id) + '" />' +
+          '<input type="checkbox" ' + (candChecked ? 'checked' : '') + ' value="' + escHTML(c.jc_id) + '" data-cand-cb data-job-id="' + escHTML(j.id) + '" />' +
           '<span class="cv-cand-name">' + escHTML(c.name) + '</span>' +
           '<span class="cv-cand-status">' + escHTML(c.status || '') + '</span>' +
           '</label>';
@@ -4285,22 +4308,29 @@ function showClientViewModal(buName, projName) {
     }
   });
 
+  var title = isManage ? 'Manage Client View for ' + escHTML(projName) : 'Create Client View for ' + escHTML(projName);
+  var btnLabel = isManage ? 'Update Share' : 'Generate Link';
+  var emailVal = isManage ? (existingShare.allowed_emails || []).join(', ') : '';
+  var logoVal = isManage ? (existingShare.client_logo_url || '') : '';
+
   var modalHtml = '<div class="cv-share-modal">' +
-    '<h3>Create Client View for ' + escHTML(projName) + '</h3>' +
+    '<h3>' + title + '</h3>' +
+    (isManage ? '<p style="font-size:12px;color:#204ECF;margin:0 0 12px;font-weight:600;">✏️ Editing existing share — update candidates and click "Update Share"</p>' : '') +
     '<label>Roles & Candidates to Include</label>' +
     '<p style="font-size:12px;color:var(--text-secondary);margin:2px 0 8px;">Check the candidates you want the client to see.</p>' +
     '<div class="role-checks" id="cvShareRoles">' + rolesHtml + '</div>' +
     '<label>Client Email Addresses</label>' +
-    '<input type="text" id="cvShareEmails" placeholder="email@company.com, email2@company.com" />' +
+    '<input type="text" id="cvShareEmails" placeholder="email@company.com, email2@company.com" value="' + escHTML(emailVal) + '" />' +
     '<label>Client Logo URL (optional)</label>' +
-    '<input type="url" id="cvShareLogo" placeholder="https://example.com/logo.png" />' +
-    '<div class="cv-share-result" id="cvShareResult">' +
+    '<input type="url" id="cvShareLogo" placeholder="https://example.com/logo.png" value="' + escHTML(logoVal) + '" />' +
+    '<div class="cv-share-result" id="cvShareResult"' + (isManage ? ' style="display:block"' : '') + '>' +
       '<label>Share Link</label>' +
-      '<input type="text" id="cvShareLink" readonly onclick="this.select()" />' +
+      '<input type="text" id="cvShareLink" readonly onclick="this.select()" value="' + (isManage ? escHTML(window.location.origin + '/client?token=' + existingShare.token) : '') + '" />' +
     '</div>' +
     '<div style="margin-top:16px;">' +
-      '<button class="cv-share-btn" id="cvShareGenBtn">Generate Link</button>' +
+      '<button class="cv-share-btn" id="cvShareGenBtn">' + btnLabel + '</button>' +
       '<button class="cv-share-btn-cancel" id="cvShareCancelBtn">Cancel</button>' +
+      (isManage ? '<button class="cv-share-btn-cancel" id="cvShareNewBtn" style="margin-left:4px;color:#204ECF;">+ New Share</button>' : '') +
     '</div>' +
   '</div>';
 
@@ -4308,17 +4338,28 @@ function showClientViewModal(buName, projName) {
   document.body.appendChild(overlay);
 
   document.getElementById('cvShareGenBtn').addEventListener('click', function() {
-    createClientShare(buName, projName);
+    if (isManage) {
+      updateClientShare(existingShare.id, buName, projName);
+    } else {
+      createClientShare(buName, projName);
+    }
   });
   document.getElementById('cvShareCancelBtn').addEventListener('click', function() {
     var el = document.getElementById('cvShareOverlay');
     if (el) el.remove();
   });
+  if (isManage) {
+    document.getElementById('cvShareNewBtn').addEventListener('click', function() {
+      var el = document.getElementById('cvShareOverlay');
+      if (el) el.remove();
+      _renderClientViewModal(buName, projName, projJobs, null);
+    });
+  }
   overlay.addEventListener('click', function(e) {
     if (e.target === overlay) overlay.remove();
   });
 
-  // When a role checkbox is unchecked, uncheck all its candidates; when checked, leave candidates as-is
+  // When a role checkbox is unchecked, uncheck all its candidates
   overlay.querySelectorAll('[data-role-cb]').forEach(function(roleCb) {
     roleCb.addEventListener('change', function() {
       var jobId = this.value;
@@ -4347,21 +4388,20 @@ function showClientViewModal(buName, projName) {
   });
 }
 
-async function createClientShare(buName, projName) {
+// Collect selected job IDs and candidate IDs from the modal
+function _collectShareSelections() {
   var roleCheckboxes = document.querySelectorAll('#cvShareRoles [data-role-cb]:checked');
   var jobIds = [];
   roleCheckboxes.forEach(function(cb) { jobIds.push(cb.value); });
 
   if (jobIds.length === 0) {
     alert('Please select at least one role.');
-    return;
+    return null;
   }
 
-  // Collect handpicked candidate IDs (job_candidate_ids)
   var candCheckboxes = document.querySelectorAll('#cvShareRoles [data-cand-cb]:checked');
   var jobCandidateIds = [];
   candCheckboxes.forEach(function(cb) {
-    // Only include candidates whose parent role is also checked
     if (jobIds.includes(cb.getAttribute('data-job-id'))) {
       jobCandidateIds.push(cb.value);
     }
@@ -4369,30 +4409,37 @@ async function createClientShare(buName, projName) {
 
   if (jobCandidateIds.length === 0) {
     alert('Please select at least one candidate to share with the client.');
-    return;
+    return null;
   }
 
   var emailsRaw = document.getElementById('cvShareEmails').value.trim();
   if (!emailsRaw) {
     alert('Please enter at least one client email address.');
-    return;
+    return null;
   }
   var emails = emailsRaw.split(',').map(function(e) { return e.trim().toLowerCase(); }).filter(function(e) { return e.length > 0; });
   if (emails.length === 0) {
     alert('Please enter valid email addresses.');
-    return;
+    return null;
   }
 
   var logoUrl = document.getElementById('cvShareLogo').value.trim() || null;
+
+  return { jobIds: jobIds, jobCandidateIds: jobCandidateIds, emails: emails, logoUrl: logoUrl };
+}
+
+async function createClientShare(buName, projName) {
+  var sel = _collectShareSelections();
+  if (!sel) return;
 
   try {
     var { data, error } = await sb.from('client_shares').insert({
       project_name: projName,
       bu: buName,
-      job_ids: jobIds,
-      job_candidate_ids: jobCandidateIds,
-      allowed_emails: emails,
-      client_logo_url: logoUrl,
+      job_ids: sel.jobIds,
+      job_candidate_ids: sel.jobCandidateIds,
+      allowed_emails: sel.emails,
+      client_logo_url: sel.logoUrl,
       created_by: currentUser.id
     }).select();
 
@@ -4406,10 +4453,39 @@ async function createClientShare(buName, projName) {
     document.getElementById('cvShareGenBtn').textContent = 'Link Generated!';
     document.getElementById('cvShareGenBtn').disabled = true;
 
-    await logActivity('client_share', data[0].id, 'create', { note: 'Client view created for ' + projName + ' — shared with ' + emails.join(', ') });
+    await logActivity('client_share', data[0].id, 'create', { note: 'Client view created for ' + projName + ' — shared with ' + sel.emails.join(', ') });
   } catch (err) {
     console.error('Error creating client share:', err);
     alert('Failed to create client share: ' + (err.message || 'Unknown error'));
+  }
+}
+
+async function updateClientShare(shareId, buName, projName) {
+  var sel = _collectShareSelections();
+  if (!sel) return;
+
+  try {
+    var { error } = await sb.from('client_shares').update({
+      job_ids: sel.jobIds,
+      job_candidate_ids: sel.jobCandidateIds,
+      allowed_emails: sel.emails,
+      client_logo_url: sel.logoUrl,
+      updated_at: new Date().toISOString()
+    }).eq('id', shareId);
+
+    if (error) throw error;
+
+    document.getElementById('cvShareGenBtn').textContent = '✅ Updated!';
+    document.getElementById('cvShareGenBtn').disabled = true;
+    setTimeout(function() {
+      document.getElementById('cvShareGenBtn').textContent = 'Update Share';
+      document.getElementById('cvShareGenBtn').disabled = false;
+    }, 2000);
+
+    await logActivity('client_share', shareId, 'update', { note: 'Client view updated for ' + projName + ' — ' + sel.jobCandidateIds.length + ' candidates selected' });
+  } catch (err) {
+    console.error('Error updating client share:', err);
+    alert('Failed to update client share: ' + (err.message || 'Unknown error'));
   }
 }
 
