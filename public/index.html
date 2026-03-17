@@ -4883,13 +4883,19 @@ async function executeTool(toolName, toolInput) {
       return { success: true, candidate: data[0] };
     }
     case 'assign_candidate_to_job': {
+      var assignNow = new Date().toISOString();
+      var assignStatus = toolInput.status || 'TALENT INTRODUCED';
       var row = {
         job_id: toolInput.job_id,
         candidate_id: toolInput.candidate_id,
-        status: toolInput.status || 'TALENT INTRODUCED',
-        date_introduced: new Date().toISOString().split('T')[0],
+        status: assignStatus,
+        date_introduced: assignNow.split('T')[0],
+        status_changed_at: assignNow,
         updated_by: currentUser ? currentUser.id : null
       };
+      // Auto-set milestone dates based on initial status
+      if (assignStatus === 'INTERVIEW SCHEDULED' || assignStatus === 'PENDING INTERVIEW') row.date_interview = assignNow;
+      if (assignStatus === 'ACTIVE' || assignStatus.startsWith('HIRED-')) row.date_hired = assignNow;
       var { data, error } = await sb.from('job_candidates').insert(row).select();
       if (error) return { error: error.message };
       await logActivity('job_candidate', data[0].id, 'assign', { new_value: row.status });
@@ -4907,8 +4913,15 @@ async function executeTool(toolName, toolInput) {
       });
       if (!match) return { error: 'No candidate found matching "' + toolInput.candidate_name + '"' };
       var oldStatus = match.status;
+      var now = new Date().toISOString();
+      var statusUpdate = { status: toolInput.new_status, status_changed_at: now, updated_at: now, updated_by: currentUser ? currentUser.id : null };
+      // Auto-set milestone dates based on status
+      if (toolInput.new_status === 'INTERVIEW SCHEDULED' || toolInput.new_status === 'PENDING INTERVIEW') statusUpdate.date_interview = now;
+      if (toolInput.new_status === 'ACTIVE' || toolInput.new_status === 'HIRED-PENDING SOW' || toolInput.new_status === 'HIRED-PENDING CWE' || toolInput.new_status === 'HIRED-PENDING START') statusUpdate.date_hired = now;
+      if (toolInput.new_status === 'TALENT INTRODUCED' && !match.date_introduced) statusUpdate.date_introduced = now.split('T')[0];
+      if (toolInput.new_status === 'REJECTED') statusUpdate.date_rejected = now;
       var { data, error } = await sb.from('job_candidates')
-        .update({ status: toolInput.new_status, updated_at: new Date().toISOString(), updated_by: currentUser ? currentUser.id : null })
+        .update(statusUpdate)
         .eq('id', match.id).select();
       if (error) return { error: error.message };
       await logActivity('job_candidate', match.id, 'status_change', { old_value: oldStatus, new_value: toolInput.new_status, note: match.candidates.name });
