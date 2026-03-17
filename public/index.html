@@ -2732,7 +2732,7 @@ function renderPipelineView() {
       // Talent table with status dropdowns and save buttons
       var ojShareKey = (j.bu || '') + '||' + (j.project_name || '');
       var ojProjShare = ACTIVE_SHARES[ojShareKey] || null;
-      out += '<table class="talent-table"><thead><tr><th>Candidate</th><th>Status</th><th>Introduced</th><th>Interview</th><th>Client View</th></tr></thead><tbody>';
+      out += '<table class="talent-table"><thead><tr><th>Candidate</th><th>Status</th><th>Introduced</th><th>Interview</th><th>Client View</th><th></th></tr></thead><tbody>';
       j.candidates.forEach(function(c) {
         var st = c._status || 'other';
         var cfg = STATUS_MAP[st] || {};
@@ -2792,7 +2792,9 @@ function renderPipelineView() {
         } else {
           out += '<span style="font-size:11px;color:var(--text-muted);">\u2014</span>';
         }
-        out += '</td></tr>';
+        out += '</td>' +
+          '<td><button data-delete-candidate="' + escHTML(jcId) + '" data-delete-candidate-name="' + escHTML(c.name) + '" style="background:none; border:none; cursor:pointer; color:#CBD5E1; font-size:14px; padding:2px 4px; border-radius:4px; transition:color 0.15s;" title="Remove candidate" onmouseover="this.style.color=\'#DC2626\'" onmouseout="this.style.color=\'#CBD5E1\'">🗑️</button></td>' +
+          '</tr>';
       });
       var ojVisibleCount = j.candidates.filter(function(c) {
         var st = c._status || 'other';
@@ -3859,6 +3861,27 @@ function bindEvents() {
         alert('Error deleting BU: ' + err.message);
         btn.disabled = false;
         btn.textContent = '🗑️ Delete BU';
+      }
+    });
+  });
+
+  // Delete Candidate
+  document.querySelectorAll('[data-delete-candidate]').forEach(function(btn) {
+    btn.addEventListener('click', async function(e) {
+      e.stopPropagation();
+      var jcId = btn.dataset.deleteCandidate;
+      var candName = btn.dataset.deleteCandidateName || 'this candidate';
+      if (!confirm('Remove "' + candName + '" from this job?\n\nThis deletes the job-candidate link. The candidate record itself is preserved.')) return;
+      btn.disabled = true;
+      try {
+        var { error } = await sb.from('job_candidates').delete().eq('id', jcId);
+        if (error) { alert('Failed to remove: ' + error.message); btn.disabled = false; return; }
+        await logActivity('job_candidate', jcId, 'delete', { note: 'Removed candidate: ' + candName });
+        await refreshData();
+        render();
+      } catch(err) {
+        alert('Error removing candidate: ' + err.message);
+        btn.disabled = false;
       }
     });
   });
