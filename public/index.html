@@ -2738,6 +2738,8 @@ function renderPipelineView() {
         var cfg = STATUS_MAP[st] || {};
         var days = daysSince(c.status_changed_at || c.date_introduced);
         var isHidden = ojSecFilters.size > 0 && !ojSecFilters.has(st);
+        // Also hide candidates that don't match the global status filter
+        if (ojFilterStatus && c.status !== ojFilterStatus) isHidden = true;
         var jcId = c.jc_id || c.id || '';
         var isInterviewStatus = st === 'interview_scheduled' || st === 'pending_interview' || st === 'pending_2nd_interview';
         out += '<tr' + (isHidden ? ' class="filtered-out"' : '') + ' data-talent-status="' + escHTML(st) + '"' +
@@ -2798,7 +2800,9 @@ function renderPipelineView() {
       });
       var ojVisibleCount = j.candidates.filter(function(c) {
         var st = c._status || 'other';
-        return ojSecFilters.size === 0 || ojSecFilters.has(st);
+        if (ojSecFilters.size > 0 && !ojSecFilters.has(st)) return false;
+        if (ojFilterStatus && c.status !== ojFilterStatus) return false;
+        return true;
       }).length;
       out += '</tbody></table>';
       out += '<div class="section-summary-bar"><span style="font-weight:600;">Showing ' + ojVisibleCount + ' of ' + j.candidates.length + ' candidates</span></div>';
@@ -2966,7 +2970,7 @@ function renderPipelineView() {
           var buCandCount = Object.values(buProjects).reduce(function(s, p) { return s + p.totalCandidates; }, 0);
           var buProjCount = Object.keys(buProjects).length;
           var buColor = BU_COLORS[buName] || DEFAULT_BU_COLOR;
-          var ojBuOpen = ojOpenBUs.has(buName) || (searchQuery && searchQuery.length > 0);
+          var ojBuOpen = ojOpenBUs.has(buName) || (searchQuery && searchQuery.length > 0) || !!ojFilterStatus;
 
           html += '<div class="bu-section ' + (ojBuOpen ? 'open' : '') + '">' +
             '<div class="bu-header" data-toggle-oj-bu="' + escHTML(buName) + '">' +
@@ -3028,7 +3032,7 @@ function renderPipelineView() {
             }
 
             var ojProjKey = 'oj::' + buName + '::' + projName;
-            var ojProjOpen = ojOpenProjects.has(ojProjKey) || (searchQuery && searchQuery.length > 0);
+            var ojProjOpen = ojOpenProjects.has(ojProjKey) || (searchQuery && searchQuery.length > 0) || !!ojFilterStatus;
 
             // Collect candidate statuses across all jobs in this project
             var projCandStatuses = {};
