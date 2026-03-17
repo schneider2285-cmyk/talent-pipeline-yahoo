@@ -2531,14 +2531,18 @@ function render() {
   headerHTML += '</div></div>';
 
   var summaryHTML = '<div class="summary-strip">';
-  var bgMap = { 'introduced': '#EBF0FF', 'interview_scheduled': '#F0EBFF', 'pending_decision': '#FFF5E0', 'pending_2nd_interview': '#FDE8EF' };
-  var iconMap = { 'introduced': '\uD83D\uDC64', 'interview_scheduled': '\uD83D\uDCC5', 'pending_decision': '\u23F3', 'pending_2nd_interview': '\uD83D\uDD04' };
-  Object.entries(STATUS_MAP).forEach(function(entry) {
-    var key = entry[0], cfg = entry[1];
-    summaryHTML += '<div class="summary-card"><div class="summary-icon" style="background:' + bgMap[key] + '; color:' + cfg.color + '">' + iconMap[key] + '</div>' +
-      '<div class="summary-info"><div class="label">' + cfg.label + '</div><div class="value" style="color:' + cfg.color + '">' + statusCounts[key] + '</div></div></div>';
+  var summaryCards = [
+    { key: 'introduced', bg: '#EBF0FF', icon: '👤', label: 'Talent Introduced' },
+    { key: 'interview_scheduled', bg: '#F0EBFF', icon: '📅', label: 'Interviews Scheduled' },
+    { key: 'pending_decision', bg: '#FFF5E0', icon: '⏳', label: 'Pending Decision' },
+    { key: 'hired', bg: '#ECFDF5', icon: '🎉', label: 'Hired' }
+  ];
+  summaryCards.forEach(function(card) {
+    var cfg = STATUS_MAP[card.key];
+    summaryHTML += '<div class="summary-card"><div class="summary-icon" style="background:' + card.bg + '; color:' + cfg.color + '">' + card.icon + '</div>' +
+      '<div class="summary-info"><div class="label">' + card.label + '</div><div class="value" style="color:' + cfg.color + '">' + (statusCounts[card.key] || 0) + '</div></div></div>';
   });
-  summaryHTML += '<div class="summary-card"><div class="summary-icon" style="background:#F0F2F5; color:var(--toptal-dark)">\uD83D\uDCCA</div>' +
+  summaryHTML += '<div class="summary-card"><div class="summary-icon" style="background:#F0F2F5; color:var(--toptal-dark)">📊</div>' +
     '<div class="summary-info"><div class="label">Total Active</div><div class="value" style="color:var(--toptal-dark)">' + allTalent.length + '</div></div></div></div>';
 
   var bodyHTML = '';
