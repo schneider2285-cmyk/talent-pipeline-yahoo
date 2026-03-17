@@ -84,6 +84,7 @@ CREATE TABLE IF NOT EXISTS client_shares (
   project_name TEXT NOT NULL,
   bu TEXT NOT NULL,
   job_ids UUID[] NOT NULL DEFAULT '{}',
+  job_candidate_ids UUID[] DEFAULT '{}',
   allowed_emails TEXT[] NOT NULL DEFAULT '{}',
   client_logo_url TEXT,
   created_by UUID REFERENCES auth.users(id),

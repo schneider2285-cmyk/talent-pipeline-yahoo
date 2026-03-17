@@ -1699,6 +1699,14 @@
   .cv-share-btn { margin-top:16px; padding:10px 20px; border:none; border-radius:10px; background:linear-gradient(135deg,#204ECF,#1A3FA6); color:white; font-size:13px; font-weight:700; font-family:'DM Sans',sans-serif; cursor:pointer; }
   .cv-share-btn:hover { opacity:0.92; }
   .cv-share-btn-cancel { margin-left:8px; padding:10px 20px; border:1px solid var(--border); border-radius:10px; background:white; color:var(--text-secondary); font-size:13px; font-weight:600; font-family:'DM Sans',sans-serif; cursor:pointer; }
+  .cv-cand-group { margin-top:10px; margin-bottom:6px; }
+  .cv-cand-group-title { font-size:12px; font-weight:700; color:var(--text-primary); margin-bottom:6px; padding:4px 0; border-bottom:1px solid var(--border); }
+  .cv-cand-check { display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer; padding:4px 0 4px 8px; }
+  .cv-cand-check input { width:15px; height:15px; accent-color:#204ECF; }
+  .cv-cand-check .cv-cand-name { font-weight:500; }
+  .cv-cand-check .cv-cand-status { font-size:11px; color:var(--text-secondary); margin-left:auto; padding-right:4px; }
+  .cv-cand-select-all { font-size:11px; color:#204ECF; cursor:pointer; margin-left:8px; font-weight:600; }
+  .cv-cand-select-all:hover { text-decoration:underline; }
 </style>
 </head>
 <body>
@@ -4258,14 +4266,29 @@ function showClientViewModal(buName, projName) {
 
   var rolesHtml = '';
   projJobs.forEach(function(j) {
+    var candCount = (j.candidates || []).length;
     rolesHtml += '<label class="role-check">' +
-      '<input type="checkbox" checked value="' + escHTML(j.id) + '" />' +
-      '<span>' + escHTML(j.role_title) + ' (' + (j.openings || 1) + ' opening' + ((j.openings || 1) > 1 ? 's' : '') + ')</span></label>';
+      '<input type="checkbox" checked value="' + escHTML(j.id) + '" data-role-cb />' +
+      '<span>' + escHTML(j.role_title) + ' (' + candCount + ' candidate' + (candCount !== 1 ? 's' : '') + ')</span></label>';
+    // Show candidates under this role
+    if (candCount > 0) {
+      rolesHtml += '<div class="cv-cand-group" data-role-cands="' + escHTML(j.id) + '">';
+      rolesHtml += '<div class="cv-cand-group-title">Select candidates to include <span class="cv-cand-select-all" data-select-all="' + escHTML(j.id) + '">Select All</span></div>';
+      (j.candidates || []).forEach(function(c) {
+        rolesHtml += '<label class="cv-cand-check">' +
+          '<input type="checkbox" value="' + escHTML(c.jc_id) + '" data-cand-cb data-job-id="' + escHTML(j.id) + '" />' +
+          '<span class="cv-cand-name">' + escHTML(c.name) + '</span>' +
+          '<span class="cv-cand-status">' + escHTML(c.status || '') + '</span>' +
+          '</label>';
+      });
+      rolesHtml += '</div>';
+    }
   });
 
   var modalHtml = '<div class="cv-share-modal">' +
     '<h3>Create Client View for ' + escHTML(projName) + '</h3>' +
-    '<label>Roles to Include</label>' +
+    '<label>Roles & Candidates to Include</label>' +
+    '<p style="font-size:12px;color:var(--text-secondary);margin:2px 0 8px;">Check the candidates you want the client to see.</p>' +
     '<div class="role-checks" id="cvShareRoles">' + rolesHtml + '</div>' +
     '<label>Client Email Addresses</label>' +
     '<input type="text" id="cvShareEmails" placeholder="email@company.com, email2@company.com" />' +
@@ -4294,15 +4317,58 @@ function showClientViewModal(buName, projName) {
   overlay.addEventListener('click', function(e) {
     if (e.target === overlay) overlay.remove();
   });
+
+  // When a role checkbox is unchecked, uncheck all its candidates; when checked, leave candidates as-is
+  overlay.querySelectorAll('[data-role-cb]').forEach(function(roleCb) {
+    roleCb.addEventListener('change', function() {
+      var jobId = this.value;
+      var candGroup = overlay.querySelector('[data-role-cands="' + jobId + '"]');
+      if (candGroup) {
+        candGroup.style.display = this.checked ? 'block' : 'none';
+        if (!this.checked) {
+          candGroup.querySelectorAll('[data-cand-cb]').forEach(function(cb) { cb.checked = false; });
+        }
+      }
+    });
+  });
+
+  // "Select All" links
+  overlay.querySelectorAll('[data-select-all]').forEach(function(link) {
+    link.addEventListener('click', function(e) {
+      e.preventDefault();
+      var jobId = this.getAttribute('data-select-all');
+      var group = overlay.querySelector('[data-role-cands="' + jobId + '"]');
+      if (!group) return;
+      var cbs = group.querySelectorAll('[data-cand-cb]');
+      var allChecked = Array.from(cbs).every(function(cb) { return cb.checked; });
+      cbs.forEach(function(cb) { cb.checked = !allChecked; });
+      this.textContent = allChecked ? 'Select All' : 'Deselect All';
+    });
+  });
 }
 
 async function createClientShare(buName, projName) {
-  var checkboxes = document.querySelectorAll('#cvShareRoles input[type="checkbox"]:checked');
+  var roleCheckboxes = document.querySelectorAll('#cvShareRoles [data-role-cb]:checked');
   var jobIds = [];
-  checkboxes.forEach(function(cb) { jobIds.push(cb.value); });
+  roleCheckboxes.forEach(function(cb) { jobIds.push(cb.value); });
 
   if (jobIds.length === 0) {
     alert('Please select at least one role.');
+    return;
+  }
+
+  // Collect handpicked candidate IDs (job_candidate_ids)
+  var candCheckboxes = document.querySelectorAll('#cvShareRoles [data-cand-cb]:checked');
+  var jobCandidateIds = [];
+  candCheckboxes.forEach(function(cb) {
+    // Only include candidates whose parent role is also checked
+    if (jobIds.includes(cb.getAttribute('data-job-id'))) {
+      jobCandidateIds.push(cb.value);
+    }
+  });
+
+  if (jobCandidateIds.length === 0) {
+    alert('Please select at least one candidate to share with the client.');
     return;
   }
 
@@ -4324,6 +4390,7 @@ async function createClientShare(buName, projName) {
       project_name: projName,
       bu: buName,
       job_ids: jobIds,
+      job_candidate_ids: jobCandidateIds,
       allowed_emails: emails,
       client_logo_url: logoUrl,
       created_by: currentUser.id

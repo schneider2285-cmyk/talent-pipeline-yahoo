@@ -74,10 +74,16 @@ export default async function handler(req, res) {
     const jobs = await jobsResp.json();
 
     // 4. Fetch job_candidates with candidate details for these jobs
-    const jcResp = await fetch(
-      `${supabaseUrl}/rest/v1/job_candidates?job_id=in.(${jobIdFilter})&select=*,candidates(id,name,profile_link,location,rate)`,
-      { headers }
-    );
+    // If share has job_candidate_ids, only return those specific candidates (handpicked)
+    const jcIds = share.job_candidate_ids || [];
+    let jcUrl;
+    if (jcIds.length > 0) {
+      const jcIdFilter = jcIds.join(',');
+      jcUrl = `${supabaseUrl}/rest/v1/job_candidates?id=in.(${jcIdFilter})&job_id=in.(${jobIdFilter})&select=*,candidates(id,name,profile_link,location,rate)`;
+    } else {
+      jcUrl = `${supabaseUrl}/rest/v1/job_candidates?job_id=in.(${jobIdFilter})&select=*,candidates(id,name,profile_link,location,rate)`;
+    }
+    const jcResp = await fetch(jcUrl, { headers });
     if (!jcResp.ok) {
       const errText = await jcResp.text();
       return res.status(500).json({ error: 'DB query failed for candidates', detail: errText });
