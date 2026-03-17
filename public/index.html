@@ -2823,7 +2823,10 @@ function renderPipelineView() {
       if (j.bu && !_buSet[j.bu]) { _buSet[j.bu] = 1; ojBUs.push(j.bu); }
       if (j.project_name && !_projSet[j.project_name]) { _projSet[j.project_name] = 1; ojProjects.push(j.project_name); }
       if (j.role_title && !_roleSet[j.role_title]) { _roleSet[j.role_title] = 1; ojRoles.push(j.role_title); }
-      if (j.status && !_statusSet[j.status]) { _statusSet[j.status] = 1; ojStatuses.push(j.status); }
+      // Collect candidate-level statuses (not job-level) for the status filter
+      (j.candidates || []).forEach(function(c) {
+        if (c.status && !_statusSet[c.status]) { _statusSet[c.status] = 1; ojStatuses.push(c.status); }
+      });
     });
     ojBUs.sort(); ojProjects.sort(); ojRoles.sort();
 
@@ -2832,7 +2835,10 @@ function renderPipelineView() {
       if (ojFilterBU && j.bu !== ojFilterBU) return false;
       if (ojFilterProject && j.project_name !== ojFilterProject) return false;
       if (ojFilterRole && j.role_title !== ojFilterRole) return false;
-      if (ojFilterStatus && j.status !== ojFilterStatus) return false;
+      if (ojFilterStatus) {
+        var hasStatus = (j.candidates || []).some(function(c) { return c.status === ojFilterStatus; });
+        if (!hasStatus) return false;
+      }
       if (ojFilterPOC && !(j.poc_names || '').toLowerCase().includes(ojFilterPOC.toLowerCase())) return false;
       // Search bar filter
       if (searchQuery) {
