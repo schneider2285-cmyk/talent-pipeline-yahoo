@@ -1725,9 +1725,10 @@
       <svg width="40" height="40" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="#204ECF"><path d="M20.227 10.038L10.188 0l-2.04 2.04 3.773 3.769-8.155 8.153L13.807 24l2.039-2.039-3.772-3.771 8.16-8.152h-.007zM8.301 14.269l6.066-6.063 1.223 1.223-6.064 6.113-1.223-1.26-.002-.013z"/></svg>
     </div>
     <h2>Talent Pipeline</h2>
-    <p class="login-sub">Sign in with your email to continue</p>
+    <p class="login-sub">Sign in to continue</p>
     <input class="login-input" id="loginEmail" type="email" placeholder="you@company.com" />
-    <button class="login-btn" id="loginBtn">Send Magic Link</button>
+    <input class="login-input" id="loginPassword" type="password" placeholder="Password" style="margin-top:8px;" />
+    <button class="login-btn" id="loginBtn">Sign In</button>
     <div class="login-msg" id="loginMsg"></div>
   </div>
 </div>
@@ -1848,33 +1849,38 @@ sb.auth.onAuthStateChange(function(event, session) {
 // Login button handler
 document.getElementById('loginBtn').addEventListener('click', async function() {
   var email = document.getElementById('loginEmail').value.trim();
+  var password = document.getElementById('loginPassword').value;
   var msgEl = document.getElementById('loginMsg');
   var btn = document.getElementById('loginBtn');
 
-  if (!email) { msgEl.textContent = 'Please enter your email'; return; }
+  if (!email) { msgEl.textContent = 'Please enter your email'; msgEl.style.color = 'var(--rose)'; return; }
+  if (!password) { msgEl.textContent = 'Please enter your password'; msgEl.style.color = 'var(--rose)'; return; }
 
   btn.disabled = true;
-  btn.textContent = 'Sending...';
+  btn.textContent = 'Signing in...';
   msgEl.textContent = '';
   msgEl.style.color = '';
 
-  var { error } = await sb.auth.signInWithOtp({ email: email });
+  var { error } = await sb.auth.signInWithPassword({ email: email, password: password });
 
   if (error) {
-    if (error.message && error.message.toLowerCase().includes('rate limit')) {
-      msgEl.textContent = 'Too many attempts — please wait a few minutes and try again.';
+    msgEl.style.color = 'var(--rose)';
+    if (error.message && error.message.toLowerCase().includes('invalid login')) {
+      msgEl.textContent = 'Invalid email or password.';
+    } else if (error.message && error.message.toLowerCase().includes('rate limit')) {
+      msgEl.textContent = 'Too many attempts — please wait a few minutes.';
     } else {
       msgEl.textContent = error.message;
     }
     btn.disabled = false;
-    btn.textContent = 'Send Magic Link';
-  } else {
-    msgEl.style.color = 'var(--green)';
-    msgEl.textContent = 'Check your email for the magic link!';
-    btn.textContent = 'Link Sent';
-    // Re-enable after 30s so they can retry
-    setTimeout(function() { btn.disabled = false; btn.textContent = 'Send Magic Link'; }, 30000);
+    btn.textContent = 'Sign In';
   }
+  // On success, onAuthStateChange handles the rest
+});
+
+// Allow Enter key to submit login
+document.getElementById('loginPassword').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') document.getElementById('loginBtn').click();
 });
 
 const TARGET_STATUSES = new Set([
@@ -3790,29 +3796,36 @@ function bindEvents() {
     });
   }
 
-  // Admin: Invite
+  // Admin: Create User
   var inviteSendBtn = document.getElementById('inviteSendBtn');
   if (inviteSendBtn) {
     inviteSendBtn.addEventListener('click', async function() {
       var email = document.getElementById('inviteEmail').value.trim();
       var name = document.getElementById('inviteName').value.trim();
+      var password = document.getElementById('invitePassword').value;
+      var role = document.getElementById('inviteRole').value;
       var msgEl = document.getElementById('inviteMsg');
+      if (!name) { msgEl.textContent = 'Full name is required'; msgEl.style.color = 'var(--rose)'; return; }
       if (!email) { msgEl.textContent = 'Email is required'; msgEl.style.color = 'var(--rose)'; return; }
+      if (!password || password.length < 6) { msgEl.textContent = 'Password must be at least 6 characters'; msgEl.style.color = 'var(--rose)'; return; }
 
       inviteSendBtn.disabled = true;
-      inviteSendBtn.textContent = 'Sending...';
+      inviteSendBtn.textContent = 'Creating...';
       try {
         var token = await getAccessToken();
         var resp = await fetch('/api/invite', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-          body: JSON.stringify({ email: email, full_name: name })
+          body: JSON.stringify({ email: email, full_name: name, password: password, role: role })
         });
         var result = await resp.json();
         if (result.success) {
-          adminInviteMsg = '<span style="color:var(--green)">Invitation sent to ' + escHTML(email) + '</span>';
+          adminInviteMsg = '<span style="color:var(--green)">✅ User ' + escHTML(name) + ' (' + escHTML(email) + ') created as ' + escHTML(role) + '</span>';
           document.getElementById('inviteEmail').value = '';
           document.getElementById('inviteName').value = '';
+          document.getElementById('invitePassword').value = '';
+          document.getElementById('inviteRole').value = 'member';
+          await loadAdminData();
         } else {
           adminInviteMsg = '<span style="color:var(--rose)">' + escHTML(result.error || 'Failed') + '</span>';
         }
@@ -3820,10 +3833,43 @@ function bindEvents() {
         adminInviteMsg = '<span style="color:var(--rose)">Network error</span>';
       }
       inviteSendBtn.disabled = false;
-      inviteSendBtn.textContent = 'Invite';
+      inviteSendBtn.textContent = 'Create User';
       render();
     });
   }
+
+  // Admin: Remove user
+  document.querySelectorAll('[data-remove-user]').forEach(function(btn) {
+    btn.addEventListener('click', async function() {
+      var userId = btn.dataset.removeUser;
+      var member = adminMembers.find(function(m) { return m.id === userId; });
+      var confirmName = member ? (member.full_name || member.email) : userId;
+      if (!confirm('Remove user "' + confirmName + '"? This cannot be undone.')) return;
+      btn.disabled = true;
+      btn.textContent = 'Removing...';
+      try {
+        var token = await getAccessToken();
+        var resp = await fetch('/api/invite', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          body: JSON.stringify({ user_id: userId })
+        });
+        var result = await resp.json();
+        if (result.success) {
+          await loadAdminData();
+          render();
+        } else {
+          alert('Failed to remove user: ' + (result.error || 'Unknown error'));
+          btn.disabled = false;
+          btn.textContent = 'Remove';
+        }
+      } catch(e) {
+        alert('Network error removing user');
+        btn.disabled = false;
+        btn.textContent = 'Remove';
+      }
+    });
+  });
 
   // Admin: Role toggle
   document.querySelectorAll('[data-toggle-role]').forEach(function(btn) {
@@ -3887,18 +3933,22 @@ function renderAdminView() {
     if (!isMe) {
       var newRole = m.role === 'admin' ? 'member' : 'admin';
       membersHTML += '<button class="filter-btn" data-toggle-role="' + m.id + '" data-new-role="' + newRole + '" style="font-size:11px;padding:4px 10px;">Make ' + newRole + '</button>';
+      membersHTML += '<button class="filter-btn" data-remove-user="' + m.id + '" style="font-size:11px;padding:4px 10px;color:#DC2626;border-color:#FCA5A5;">Remove</button>';
     }
     membersHTML += '</div></div>';
   });
 
   return '<div class="admin-grid">' +
     '<div class="admin-card"><h3>Team Members (' + adminMembers.length + ')</h3>' + membersHTML + '</div>' +
-    '<div class="admin-card"><h3>Invite New Member</h3>' +
-    '<p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px;">Send a magic link invitation to join the team.</p>' +
-    '<div class="invite-form">' +
-    '<input type="email" id="inviteEmail" placeholder="colleague@company.com" />' +
-    '<input type="text" id="inviteName" placeholder="Full Name (optional)" style="max-width:160px;" />' +
-    '<button id="inviteSendBtn">Invite</button></div>' +
+    '<div class="admin-card"><h3>Add New User</h3>' +
+    '<p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px;">Create a new user account with email and password.</p>' +
+    '<div class="invite-form" style="flex-wrap:wrap;">' +
+    '<input type="text" id="inviteName" placeholder="Full Name" style="max-width:180px;" />' +
+    '<input type="email" id="inviteEmail" placeholder="email@company.com" />' +
+    '<input type="password" id="invitePassword" placeholder="Password (min 6 chars)" style="max-width:200px;" />' +
+    '<select id="inviteRole" style="padding:8px 12px;border:1px solid #D1D5DE;border-radius:8px;font-size:13px;">' +
+    '<option value="member">Member</option><option value="admin">Admin</option></select>' +
+    '<button id="inviteSendBtn">Create User</button></div>' +
     '<div class="invite-msg" id="inviteMsg">' + adminInviteMsg + '</div></div></div>';
 }
 
