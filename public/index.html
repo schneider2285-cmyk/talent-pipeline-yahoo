@@ -2969,6 +2969,7 @@ function renderPipelineView() {
             '<div class="bu-meta"><div class="bu-stat"><strong>' + buProjCount + '</strong> project' + (buProjCount > 1 ? 's' : '') + '</div>' +
             '<div class="bu-stat"><strong>' + buJobCount + '</strong> open role' + (buJobCount > 1 ? 's' : '') + '</div>' +
             '<div class="bu-stat"><strong>' + buCandCount + '</strong> candidate' + (buCandCount > 1 ? 's' : '') + '</div></div>' +
+            '<button data-delete-bu="' + escHTML(buName) + '" style="margin-left:auto; background:none; border:1px solid #FECACA; border-radius:6px; padding:3px 8px; cursor:pointer; font-size:11px; color:#DC2626; display:flex; align-items:center; gap:3px; flex-shrink:0;" title="Delete all jobs in ' + escHTML(buName) + '">🗑️ Delete BU</button>' +
             '</div>' +
             '<div class="bu-body">';
 
@@ -3245,7 +3246,10 @@ function renderPipelineView() {
               if (j.status && j.status !== 'ACTIVE') html += '<span class="open-job-tag status-tag">' + escHTML(j.status) + '</span>';
               if (j.toptal_job_link) html += '<a href="' + escHTML(j.toptal_job_link) + '" target="_blank" style="font-size:11px; color:var(--toptal-blue); text-decoration:none; font-weight:600;">Platform \u2197</a>';
               if (j.salesforce_link) html += '<a href="' + escHTML(j.salesforce_link) + '" target="_blank" style="font-size:11px; color:var(--toptal-blue); text-decoration:none; font-weight:600;">SFDC \u2197</a>';
-              html += '<button data-edit-job="' + j.id + '" style="margin-left:auto; background:none; border:1px solid #D1D5DE; border-radius:6px; padding:3px 8px; cursor:pointer; font-size:12px; color:#6B7280; display:flex; align-items:center; gap:4px;" title="Edit job details">✏️ Edit</button>';
+              html += '<div style="margin-left:auto; display:flex; gap:4px;">' +
+                '<button data-edit-job="' + j.id + '" style="background:none; border:1px solid #D1D5DE; border-radius:6px; padding:3px 8px; cursor:pointer; font-size:12px; color:#6B7280; display:flex; align-items:center; gap:4px;" title="Edit job details">✏️ Edit</button>' +
+                '<button data-delete-job="' + j.id + '" data-delete-job-name="' + escHTML(j.role_title) + '" style="background:none; border:1px solid #FECACA; border-radius:6px; padding:3px 8px; cursor:pointer; font-size:12px; color:#DC2626; display:flex; align-items:center; gap:4px;" title="Delete job">🗑️ Delete</button>' +
+                '</div>';
               html += '</div>';
 
               // Fulfillment summary bar
@@ -3800,6 +3804,61 @@ function bindEvents() {
         alert('Error saving job: ' + err.message);
         btn.disabled = false;
         btn.textContent = '💾 Save Changes';
+      }
+    });
+  });
+
+  // Delete Job
+  document.querySelectorAll('[data-delete-job]').forEach(function(btn) {
+    btn.addEventListener('click', async function(e) {
+      e.stopPropagation();
+      var jobId = btn.dataset.deleteJob;
+      var jobName = btn.dataset.deleteJobName || 'this job';
+      if (!confirm('Delete "' + jobName + '"?\n\nThis will also remove all candidates linked to this job. This cannot be undone.')) return;
+      btn.disabled = true;
+      btn.textContent = 'Deleting...';
+      try {
+        // Delete job_candidates first, then the job
+        await sb.from('job_candidates').delete().eq('job_id', jobId);
+        var { error } = await sb.from('jobs').delete().eq('id', jobId);
+        if (error) { alert('Failed to delete: ' + error.message); btn.disabled = false; btn.textContent = '🗑️ Delete'; return; }
+        await logActivity('job', jobId, 'delete', { note: 'Deleted job: ' + jobName });
+        await refreshData();
+        render();
+      } catch(err) {
+        alert('Error deleting job: ' + err.message);
+        btn.disabled = false;
+        btn.textContent = '🗑️ Delete';
+      }
+    });
+  });
+
+  // Delete BU (all jobs in that business unit)
+  document.querySelectorAll('[data-delete-bu]').forEach(function(btn) {
+    btn.addEventListener('click', async function(e) {
+      e.stopPropagation();
+      var buName = btn.dataset.deleteBu;
+      var buJobs = (FULFILLMENT_DATA || []).filter(function(j) { return j.bu === buName; });
+      if (buJobs.length === 0) { alert('No jobs found in ' + buName); return; }
+      if (!confirm('Delete the entire "' + buName + '" business unit?\n\nThis will delete ' + buJobs.length + ' job(s) and all their candidates. This cannot be undone.')) return;
+      btn.disabled = true;
+      btn.textContent = 'Deleting...';
+      try {
+        var jobIds = buJobs.map(function(j) { return j.id; });
+        // Delete all job_candidates for these jobs
+        for (var i = 0; i < jobIds.length; i++) {
+          await sb.from('job_candidates').delete().eq('job_id', jobIds[i]);
+        }
+        // Delete all jobs
+        var { error } = await sb.from('jobs').delete().in('id', jobIds);
+        if (error) { alert('Failed to delete: ' + error.message); btn.disabled = false; btn.textContent = '🗑️ Delete BU'; return; }
+        await logActivity('bu', buName, 'delete', { note: 'Deleted BU: ' + buName + ' (' + jobIds.length + ' jobs)' });
+        await refreshData();
+        render();
+      } catch(err) {
+        alert('Error deleting BU: ' + err.message);
+        btn.disabled = false;
+        btn.textContent = '🗑️ Delete BU';
       }
     });
   });
