@@ -1,63 +1,77 @@
-const { createClient } = require('@supabase/supabase-js');
+// Vercel Serverless Function: Client Data API
+// Validates share token + email, returns share metadata + candidates
+// Uses direct Supabase PostgREST API (no SDK dependency)
 
-module.exports = async function handler(req, res) {
-  // CORS headers
+export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
-  var token = req.query.token;
-  var email = (req.query.email || '').toLowerCase().trim();
+  const token = req.query.token;
+  const email = (req.query.email || '').toLowerCase().trim();
 
   if (!token || !email) {
     return res.status(400).json({ error: 'Token and email are required' });
   }
 
-  var sb = createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-  );
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !serviceKey) {
+    return res.status(500).json({ error: 'Server misconfigured' });
+  }
+
+  const headers = {
+    'apikey': serviceKey,
+    'Authorization': `Bearer ${serviceKey}`,
+    'Content-Type': 'application/json',
+    'Prefer': 'return=representation'
+  };
 
   try {
     // 1. Validate share token
-    var { data: share, error: shareErr } = await sb
-      .from('client_shares')
-      .select('*')
-      .eq('token', token)
-      .eq('is_active', true)
-      .single();
+    const shareResp = await fetch(
+      `${supabaseUrl}/rest/v1/client_shares?token=eq.${encodeURIComponent(token)}&is_active=eq.true&select=*`,
+      { headers }
+    );
+    const shares = await shareResp.json();
 
-    if (shareErr || !share) {
+    if (!shareResp.ok || !shares || shares.length === 0) {
       return res.status(404).json({ error: 'Share not found or inactive' });
     }
+    const share = shares[0];
 
     // 2. Validate email
-    var allowed = (share.allowed_emails || []).map(function(e) { return e.toLowerCase().trim(); });
-    if (allowed.indexOf(email) === -1) {
+    const allowed = (share.allowed_emails || []).map(e => e.toLowerCase().trim());
+    if (!allowed.includes(email)) {
       return res.status(403).json({ error: 'Email not recognized for this share' });
     }
 
     // 3. Fetch jobs for this share
-    var { data: jobs, error: jobsErr } = await sb
-      .from('jobs')
-      .select('*')
-      .in('id', share.job_ids);
+    const jobIds = share.job_ids || [];
+    if (jobIds.length === 0) {
+      return res.status(200).json({ share: { project_name: share.project_name, bu: share.bu, client_logo_url: share.client_logo_url }, jobs: [] });
+    }
 
-    if (jobsErr) throw jobsErr;
+    const jobIdFilter = jobIds.map(id => `"${id}"`).join(',');
+    const jobsResp = await fetch(
+      `${supabaseUrl}/rest/v1/jobs?id=in.(${jobIdFilter})&select=*`,
+      { headers }
+    );
+    const jobs = await jobsResp.json();
 
-    // 4. Fetch candidates for these jobs
-    var { data: jcData, error: jcErr } = await sb
-      .from('job_candidates')
-      .select('*, candidates(id, name, profile_link, location, avatar_url, notes)')
-      .in('job_id', share.job_ids);
-
-    if (jcErr) throw jcErr;
+    // 4. Fetch job_candidates with candidate details for these jobs
+    const jcResp = await fetch(
+      `${supabaseUrl}/rest/v1/job_candidates?job_id=in.(${jobIdFilter})&select=*,candidates(id,name,profile_link,location,avatar_url,notes)`,
+      { headers }
+    );
+    const jcData = await jcResp.json();
 
     // 5. Group candidates by job
-    var jobMap = {};
-    (jobs || []).forEach(function(j) {
+    const jobMap = {};
+    (jobs || []).forEach(j => {
       jobMap[j.id] = {
         id: j.id,
         role_title: j.role_title,
@@ -66,16 +80,17 @@ module.exports = async function handler(req, res) {
       };
     });
 
-    (jcData || []).forEach(function(jc) {
+    (jcData || []).forEach(jc => {
       if (!jobMap[jc.job_id]) return;
+      const cand = jc.candidates || {};
       jobMap[jc.job_id].candidates.push({
         jc_id: jc.id,
         candidate_id: jc.candidate_id,
-        name: jc.candidates ? jc.candidates.name : 'Unknown',
-        profile_link: jc.candidates ? jc.candidates.profile_link : null,
-        location: jc.candidates ? jc.candidates.location : null,
-        avatar_url: jc.candidates ? jc.candidates.avatar_url : null,
-        notes: jc.candidates ? jc.candidates.notes : null,
+        name: cand.name || 'Unknown',
+        profile_link: cand.profile_link || null,
+        location: cand.location || null,
+        avatar_url: cand.avatar_url || null,
+        notes: cand.notes || null,
         status: jc.status,
         date_introduced: jc.date_introduced,
         date_interview: jc.date_interview,
@@ -86,7 +101,7 @@ module.exports = async function handler(req, res) {
       });
     });
 
-    // 6. Return share metadata + jobs
+    // 6. Return
     return res.status(200).json({
       share: {
         project_name: share.project_name,
@@ -100,4 +115,4 @@ module.exports = async function handler(req, res) {
     console.error('client-data error:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
-};
+}
