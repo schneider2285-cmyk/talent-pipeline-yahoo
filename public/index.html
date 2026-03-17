@@ -2844,13 +2844,30 @@ function renderPipelineView() {
     });
     ojBUs.sort(); ojProjects.sort(); ojRoles.sort();
 
-    // Apply filters
+    // Apply filters (including search bar)
     var openJobs = openJobsAll.filter(function(j) {
       if (ojFilterBU && j.bu !== ojFilterBU) return false;
       if (ojFilterProject && j.project_name !== ojFilterProject) return false;
       if (ojFilterRole && j.role_title !== ojFilterRole) return false;
       if (ojFilterStatus && j.status !== ojFilterStatus) return false;
       if (ojFilterPOC && !(j.poc_names || '').toLowerCase().includes(ojFilterPOC.toLowerCase())) return false;
+      // Search bar filter
+      if (searchQuery) {
+        var q = searchQuery;
+        var jobMatch = (j.role_title || '').toLowerCase().includes(q) ||
+          (j.bu || '').toLowerCase().includes(q) ||
+          (j.project_name || '').toLowerCase().includes(q) ||
+          (j.poc_names || '').toLowerCase().includes(q) ||
+          (j.status || '').toLowerCase().includes(q) ||
+          (j.sow_number || '').toLowerCase().includes(q) ||
+          (j.notes || '').toLowerCase().includes(q);
+        // Also search candidate names/locations within this job
+        var candMatch = (j.candidates || []).some(function(c) {
+          return (c.name || '').toLowerCase().includes(q) ||
+            (c.location || '').toLowerCase().includes(q);
+        });
+        if (!jobMatch && !candMatch) return false;
+      }
       return true;
     }).sort(function(a, b) {
       if (a.total_candidates === 0 && b.total_candidates > 0) return -1;
@@ -2922,10 +2939,10 @@ function renderPipelineView() {
         html += '<option value="' + escHTML(p) + '"' + (ojFilterPOC === p ? ' selected' : '') + '>' + escHTML(p) + '</option>';
       });
       html += '</select>';
-      if (hasActiveFilters) {
+      if (hasActiveFilters || searchQuery) {
         html += '<button class="oj-filter-clear" id="ojFilterClear">\u2715 Clear Filters</button>';
       }
-      html += '<span class="oj-filter-count">Showing ' + openJobs.length + ' of ' + openJobsAll.length + '</span>';
+      html += '<span class="oj-filter-count">Showing ' + openJobs.length + ' of ' + openJobsAll.length + (searchQuery ? ' (searching: "' + escHTML(searchQuery) + '")' : '') + '</span>';
       html += '</div>';
 
       // Group open jobs by BU → Project (matching BU accordion structure)
@@ -2960,7 +2977,7 @@ function renderPipelineView() {
           var buCandCount = Object.values(buProjects).reduce(function(s, p) { return s + p.totalCandidates; }, 0);
           var buProjCount = Object.keys(buProjects).length;
           var buColor = BU_COLORS[buName] || DEFAULT_BU_COLOR;
-          var ojBuOpen = ojOpenBUs.has(buName);
+          var ojBuOpen = ojOpenBUs.has(buName) || (searchQuery && searchQuery.length > 0);
 
           html += '<div class="bu-section ' + (ojBuOpen ? 'open' : '') + '">' +
             '<div class="bu-header" data-toggle-oj-bu="' + escHTML(buName) + '">' +
@@ -3021,7 +3038,7 @@ function renderPipelineView() {
             }
 
             var ojProjKey = 'oj::' + buName + '::' + projName;
-            var ojProjOpen = ojOpenProjects.has(ojProjKey);
+            var ojProjOpen = ojOpenProjects.has(ojProjKey) || (searchQuery && searchQuery.length > 0);
 
             // Collect candidate statuses across all jobs in this project
             var projCandStatuses = {};
@@ -3723,7 +3740,7 @@ function bindEvents() {
   var ojClearEl = document.getElementById('ojFilterClear');
   if (ojClearEl) ojClearEl.addEventListener('click', function(e) {
     e.stopPropagation();
-    ojFilterBU = ''; ojFilterProject = ''; ojFilterRole = ''; ojFilterStatus = ''; ojFilterPOC = '';
+    ojFilterBU = ''; ojFilterProject = ''; ojFilterRole = ''; ojFilterStatus = ''; ojFilterPOC = ''; searchQuery = '';
     render();
   });
 
