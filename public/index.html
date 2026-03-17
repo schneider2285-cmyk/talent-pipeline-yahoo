@@ -1531,6 +1531,7 @@
   .ff-cand-shared a:hover { text-decoration:underline; }
   .ff-cand-remove-btn { background:none; border:none; color:#DC2626; font-size:12px; font-weight:700; cursor:pointer; padding:0 2px; font-family:'DM Sans',sans-serif; opacity:0.6; }
   .ff-cand-remove-btn:hover { opacity:1; }
+  .cv-cell { white-space:nowrap; text-align:center; }
   .ff-grid-2col { grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); }
 
   /* ── Daily Briefing ── */
@@ -2005,18 +2006,10 @@ let ojFilterProject = '';
 let ojFilterRole = '';
 let ojFilterStatus = '';
 let ojFilterPOC = '';
-let analyticsSubView = 'funnel'; // funnel | velocity | stakeholders
 let expandedJobIds = new Set();
 let ojOpenBUs = new Set();
 let ojOpenProjects = new Set();
-let currentView = 'pipeline'; // pipeline | fulfillment
-let ffSortMode = 'urgent'; // urgent | stale | openings | alpha
-let ffFilterBU = '';
-let ffFilterProject = '';
-let ffFocusMode = false;
-let ffHideCancelled = true;
-let ffExpandedCards = new Set();
-let ffOpenBUs = new Set(); // Collapsible BU groups in fulfillment view
+let currentView = 'pipeline'; // pipeline | admin
 let sectionFilters = {}; // Per-project-section active status filters: { 'BU::Project': Set(['introduced', ...]) }
 let buFilterProject = {}; // Per-BU project filter: { 'Mail': 'Webmail Modernization FE' }
 let buFilterRole = {}; // Per-BU role filter: { 'Mail': 'React Developer' }
@@ -2534,9 +2527,7 @@ function render() {
 
   headerHTML += '</div></div>' +
     '<div class="view-tabs">' +
-    '<button class="view-tab ' + (currentView==='pipeline'?'active':'') + '" data-view="pipeline">Pipeline</button>' +
-    '<button class="view-tab ' + (currentView==='fulfillment'?'active':'') + '" data-view="fulfillment">Fulfillment</button>' +
-    '<button class="view-tab ' + (currentView==='analytics'?'active':'') + '" data-view="analytics">Analytics</button>';
+    '<button class="view-tab ' + (currentView==='pipeline'?'active':'') + '" data-view="pipeline">Pipeline</button>';
 
   // Admin tab (visible only for admins)
   if (currentProfile && currentProfile.role === 'admin') {
@@ -2561,10 +2552,6 @@ function render() {
     bodyHTML = renderPipelineView();
   } else if (currentView === 'admin') {
     bodyHTML = renderAdminView();
-  } else if (currentView === 'analytics') {
-    bodyHTML = renderAnalyticsView();
-  } else {
-    bodyHTML = renderFulfillmentView();
   }
 
   document.getElementById('app').innerHTML = headerHTML + summaryHTML + '<div class="main">' + bodyHTML + '</div>' +
@@ -2686,7 +2673,9 @@ function renderPipelineView() {
       out += '</div>';
 
       // Talent table with status dropdowns and save buttons
-      out += '<table class="talent-table"><thead><tr><th>Candidate</th><th>Status</th><th>Introduced</th><th>Interview</th></tr></thead><tbody>';
+      var ojShareKey = (j.bu || '') + '||' + (j.project_name || '');
+      var ojProjShare = ACTIVE_SHARES[ojShareKey] || null;
+      out += '<table class="talent-table"><thead><tr><th>Candidate</th><th>Status</th><th>Introduced</th><th>Interview</th><th>Client View</th></tr></thead><tbody>';
       j.candidates.forEach(function(c) {
         var st = c._status || 'other';
         var cfg = STATUS_MAP[st] || {};
@@ -2699,7 +2688,6 @@ function renderPipelineView() {
           '<td><div class="talent-name-cell">' + avatarHTML(c.name, c.profile_link, 32, c.avatar_url) +
           '<div><div class="talent-label">' + escHTML(c.name) + '</div>' +
           (c.location ? '<div class="talent-location">' + escHTML(c.location) + '</div>' : '') +
-          (c.rate ? '<div class="talent-role">$' + c.rate + '/hr</div>' : '') +
           '</div></div></td>' +
           '<td><div class="status-dropdown-wrap">' +
           '<select class="status-dropdown" data-talent-name="' + escHTML(c.name) + '"' +
@@ -2733,7 +2721,21 @@ function renderPipelineView() {
           '<td class="date-cell"><div class="date-cell-editable" data-date-field="date_interview" data-jc-id="' + escHTML(jcId) + '">' +
             '<span class="date-display">' + (intRaw ? '<span style="color:' + (isInterviewStatus ? '#6941C6' : '#64748B') + '; font-weight:' + (isInterviewStatus ? '600' : '400') + ';">' + (isInterviewStatus ? '\uD83D\uDCC5 ' : '') + fmtDate(intRaw) + '</span>' : '\u2014') + '<span class="edit-icon">\u270E</span></span>' +
             '<input type="date" class="date-edit-input" value="' + intISO + '">' +
-          '</div></td></tr>';
+          '</div></td>';
+        // Client View column
+        var cvSharedInfo = SHARED_JC_MAP[jcId];
+        out += '<td class="cv-cell">';
+        if (cvSharedInfo) {
+          var cvSharedDate = new Date(cvSharedInfo.updated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          out += '<span class="ff-cand-shared" style="font-size:11px;">✓ ' + cvSharedDate +
+            ' <a href="/client?token=' + escHTML(cvSharedInfo.token) + '" target="_blank">View</a>' +
+            ' <button class="ff-cand-remove-btn" data-remove-from-cv="' + escHTML(jcId) + '" data-share-id="' + escHTML(cvSharedInfo.share_id) + '" title="Remove">✕</button></span>';
+        } else if (ojProjShare) {
+          out += '<button class="ff-cand-share-btn" data-send-to-cv="' + escHTML(jcId) + '" data-share-id="' + escHTML(ojProjShare.id) + '">Send to Client</button>';
+        } else {
+          out += '<span style="font-size:11px;color:var(--text-muted);">\u2014</span>';
+        }
+        out += '</td></tr>';
       });
       var ojVisibleCount = j.candidates.filter(function(c) {
         var st = c._status || 'other';
@@ -3216,10 +3218,10 @@ function renderPipelineView() {
   return html;
 }
 
-function renderFulfillmentView() {
-  if (!FULFILLMENT_DATA || FULFILLMENT_DATA.length === 0) {
-    return '<div class="no-results">No fulfillment data available.</div>';
-  }
+/* Fulfillment view removed — start of dead block */
+if (false) {
+  if (!FULFILLMENT_DATA) {
+    /* noop */
 
   var cancelledStatuses = new Set(['ROLE CANCELLED/FILED', 'REQ COMPLETE', 'ENGAGEMENT COMPLETED']);
 
