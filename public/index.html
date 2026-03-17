@@ -220,6 +220,10 @@
   .iw-row .iw-role { color: var(--text-secondary); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .iw-row .iw-bu { font-size: 11px; color: var(--text-muted); background: #F1F5F9; padding: 2px 8px; border-radius: 4px; white-space: nowrap; }
   .iw-row .iw-date { font-size: 12px; color: #6941C6; font-weight: 500; white-space: nowrap; }
+  .iw-row .iw-datetime { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; white-space: nowrap; min-width: 100px; text-align: right; }
+  .iw-date-val { font-size: 12px; color: #6941C6; font-weight: 600; }
+  .iw-time-val { font-size: 11px; color: #8B5CF6; font-weight: 500; }
+  .iw-status-tag { font-size: 11px; color: #6941C6; font-weight: 600; background: #F5F3FF; padding: 2px 8px; border-radius: 4px; }
   .iw-empty { font-size: 12px; color: var(--text-muted); font-style: italic; padding: 4px 0; }
 
   /* ── Main ── */
@@ -2599,36 +2603,20 @@ function render() {
     FULFILLMENT_DATA.forEach(function(j) {
       (j.candidates || []).forEach(function(c) {
         if (!interviewStatuses.has(c.status)) return;
+        var rawDateStr = c.date_interview || '';
+        var interviewTime = parseInterviewTime(rawDateStr);
+        var parsedDate = parseFuzzyDate(rawDateStr);
+        var dStr = parsedDate ? (parsedDate.getFullYear() + '-' + String(parsedDate.getMonth()+1).padStart(2,'0') + '-' + String(parsedDate.getDate()).padStart(2,'0')) : '';
+
         var entry = {
           name: c.name, role: j.role_title, bu: j.bu, project: j.project_name,
-          status: c.status, dateStr: c.date_interview || c.status_changed_at || ''
+          status: c.status, rawDate: rawDateStr, time: interviewTime,
+          _sortDate: dStr, _parsedDate: parsedDate
         };
-        // Parse the interview/status-change date
-        var dStr = '';
-        if (entry.dateStr) {
-          var d = new Date(entry.dateStr);
-          if (!isNaN(d.getTime())) dStr = d.toISOString().slice(0, 10);
-        }
-        entry._sortDate = dStr;
+
         if (dStr === todayStr) iwScheduledToday.push(entry);
         else if (dStr >= tomorrowStr && dStr <= endOfWeekStr) iwScheduledRecent.push(entry);
         else iwPending.push(entry);
-      });
-    });
-
-    // Also pick up candidates with future date_interview values regardless of status
-    FULFILLMENT_DATA.forEach(function(j) {
-      (j.candidates || []).forEach(function(c) {
-        if (interviewStatuses.has(c.status)) return; // already counted
-        if (!c.date_interview) return;
-        var d = new Date(c.date_interview);
-        if (isNaN(d.getTime())) return;
-        var dStr = d.toISOString().slice(0, 10);
-        if (dStr >= todayStr && dStr <= endOfWeekStr) {
-          var entry = { name: c.name, role: j.role_title, bu: j.bu, project: j.project_name, status: c.status, _sortDate: dStr };
-          if (dStr === todayStr) iwScheduledToday.push(entry);
-          else iwScheduledRecent.push(entry);
-        }
       });
     });
 
@@ -2636,21 +2624,28 @@ function render() {
 
     function iwRenderRows(arr, emptyMsg) {
       if (arr.length === 0) return '<div class="iw-empty">' + (emptyMsg || 'None') + '</div>';
-      arr.sort(function(a, b) { return (a._sortDate || '').localeCompare(b._sortDate || ''); });
+      arr.sort(function(a, b) { return (a._sortDate || 'z').localeCompare(b._sortDate || 'z'); });
       var h = '';
       arr.forEach(function(e) {
-        var statusLabel = e.status === 'PENDING 2ND INTERVIEW' ? '2nd Interview' :
+        var statusLabel = e.status === 'PENDING 2ND INTERVIEW' ? '2nd Int.' :
                           e.status === 'PENDING INTERVIEW' ? 'Pending' : 'Scheduled';
         var dateLabel = '';
-        if (e._sortDate) {
-          var dd = new Date(e._sortDate + 'T12:00:00');
-          dateLabel = dd.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+        if (e._parsedDate) {
+          dateLabel = e._parsedDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
         }
+        var timeLabel = e.time || '';
+        // If we have raw date text but couldn't parse, show it as-is
+        if (!dateLabel && e.rawDate) dateLabel = e.rawDate;
+
         h += '<div class="iw-row">' +
           '<span class="iw-name">' + escHTML(e.name) + '</span>' +
           '<span class="iw-role">' + escHTML(e.role) + '</span>' +
           '<span class="iw-bu">' + escHTML(e.bu) + '</span>' +
-          '<span class="iw-date">' + (dateLabel ? escHTML(dateLabel) : '<span style="color:#6941C6;font-weight:600">' + escHTML(statusLabel) + '</span>') + '</span>' +
+          '<span class="iw-datetime">' +
+            (dateLabel ? '<span class="iw-date-val">' + escHTML(dateLabel) + '</span>' : '') +
+            (timeLabel ? '<span class="iw-time-val">' + escHTML(timeLabel) + '</span>' : '') +
+            (!dateLabel && !timeLabel ? '<span class="iw-status-tag">' + escHTML(statusLabel) + '</span>' : '') +
+          '</span>' +
           '</div>';
       });
       return h;
@@ -2663,9 +2658,9 @@ function render() {
       (iwTotal > 0 ? '<span class="iw-badge">' + iwTotal + '</span>' : '<span style="font-size:12px;color:var(--text-muted);font-weight:400;">none active</span>') +
       '</button>' +
       '<div class="interview-panel">' +
-      '<div class="iw-section"><div class="iw-section-title today">Today' + (iwScheduledToday.length > 0 ? ' (' + iwScheduledToday.length + ')' : '') + '</div>' + iwRenderRows(iwScheduledToday, 'No interviews today') + '</div>' +
-      '<div class="iw-section"><div class="iw-section-title tomorrow">This Week' + (iwScheduledRecent.length > 0 ? ' (' + iwScheduledRecent.length + ')' : '') + '</div>' + iwRenderRows(iwScheduledRecent, 'None this week') + '</div>' +
-      '<div class="iw-section"><div class="iw-section-title week">All In Interview Stage' + (iwPending.length > 0 ? ' (' + iwPending.length + ')' : '') + '</div>' + iwRenderRows(iwPending, 'No candidates in interview stages') + '</div>' +
+      '<div class="iw-section"><div class="iw-section-title today">\uD83D\uDD34 Today' + (iwScheduledToday.length > 0 ? ' (' + iwScheduledToday.length + ')' : '') + '</div>' + iwRenderRows(iwScheduledToday, 'No interviews today') + '</div>' +
+      '<div class="iw-section"><div class="iw-section-title tomorrow">\uD83D\uDCC6 This Week' + (iwScheduledRecent.length > 0 ? ' (' + iwScheduledRecent.length + ')' : '') + '</div>' + iwRenderRows(iwScheduledRecent, 'None this week') + '</div>' +
+      '<div class="iw-section"><div class="iw-section-title week">\uD83D\uDCCB All In Interview Stage' + (iwPending.length > 0 ? ' (' + iwPending.length + ')' : '') + '</div>' + iwRenderRows(iwPending, 'No candidates in interview stages') + '</div>' +
       '</div></div>';
   }
 
@@ -4948,8 +4943,8 @@ async function executeTool(toolName, toolInput) {
       var oldStatus = match.status;
       var now = new Date().toISOString();
       var statusUpdate = { status: toolInput.new_status, status_changed_at: now, updated_at: now, updated_by: currentUser ? currentUser.id : null };
-      // Auto-set milestone dates based on status
-      if (toolInput.new_status === 'INTERVIEW SCHEDULED' || toolInput.new_status === 'PENDING INTERVIEW') statusUpdate.date_interview = now;
+      // Auto-set milestone dates based on status — but don't overwrite existing interview date
+      if ((toolInput.new_status === 'INTERVIEW SCHEDULED' || toolInput.new_status === 'PENDING INTERVIEW') && !match.date_interview) statusUpdate.date_interview = now;
       if (toolInput.new_status === 'ACTIVE' || toolInput.new_status === 'HIRED-PENDING SOW' || toolInput.new_status === 'HIRED-PENDING CWE' || toolInput.new_status === 'HIRED-PENDING START') statusUpdate.date_hired = now;
       if (toolInput.new_status === 'TALENT INTRODUCED' && !match.date_introduced) statusUpdate.date_introduced = now.split('T')[0];
       if (toolInput.new_status === 'REJECTED') statusUpdate.date_rejected = now;
@@ -6046,7 +6041,9 @@ function buildSystemPrompt() {
     'You can do everything the UI does: change statuses, set dates, add/edit jobs & candidates, query data.\n' +
     '- Status values: ' + VALID_DB_STATUSES.join(', ') + '\n' +
     '- Dates (date_introduced, date_interview, date_hired) → update_job_candidate_fields\n' +
-    '- Status changes → update_candidate_status\n' +
+    '- date_interview is a TEXT field. Store interview date+time as "M/D at H:MM am/pm TZ" (e.g. "3/17 at 2:00 pm PDT"). This format is parsed by the interview widget.\n' +
+    '- When scheduling an interview, ALWAYS set both the status to INTERVIEW SCHEDULED and the date_interview field with the date and time.\n' +
+    '- Status changes → update_candidate_status (auto-sets milestone dates)\n' +
     '- Use query_database to look up IDs or data not in the snapshot\n' +
     '- Multi-step ops (add candidate + assign to job): do all steps in sequence\n\n' +
 
@@ -6244,8 +6241,6 @@ function parseFuzzyDate(str) {
   if (parts) {
     var now = new Date();
     d = new Date(now.getFullYear(), parseInt(parts[1]) - 1, parseInt(parts[2]));
-    // If date is in the future, use last year
-    if (d > now) d = new Date(now.getFullYear() - 1, parseInt(parts[1]) - 1, parseInt(parts[2]));
     if (!isNaN(d)) return d;
   }
   // Try "M/D/YY" or "M/D/YYYY"
@@ -6256,7 +6251,20 @@ function parseFuzzyDate(str) {
     d = new Date(yr, parseInt(parts2[1]) - 1, parseInt(parts2[2]));
     if (!isNaN(d)) return d;
   }
+  // Try ISO date strings
+  if (/^\d{4}-\d{2}-\d{2}/.test(str)) {
+    d = new Date(str);
+    if (!isNaN(d)) return d;
+  }
   return null;
+}
+
+// Parse interview time from strings like "3/11 at 11:00 am PDT" or "8/13 at 3:00 pm PST"
+function parseInterviewTime(str) {
+  if (!str) return '';
+  var timeMatch = str.match(/at\s+(\d{1,2}:\d{2}\s*(?:am|pm)?(?:\s*[A-Z]{2,4}\.?)?)/i);
+  if (timeMatch) return timeMatch[1].replace(/\.$/, '').trim();
+  return '';
 }
 
 function parsePOCNames(pocStr) {
