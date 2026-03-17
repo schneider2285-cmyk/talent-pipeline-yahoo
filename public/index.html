@@ -1770,9 +1770,11 @@
   <div class="chat-quick-actions" id="chatQuickActions">
     <button class="chat-quick-action add-job" id="quickAddJob">➕ Add Job</button>
     <button class="chat-quick-action add-candidate" id="quickAddCandidate">👤 Add Candidate</button>
+    <button class="chat-quick-action" id="quickSummary" style="color:#6941C6; background:#F5F3FF; border-color:#DDD6FE;">📊 Pipeline Summary</button>
+    <button class="chat-quick-action" id="quickStale" style="color:#D97B00; background:#FFF7ED; border-color:#FED7AA;">⏰ Stale Roles</button>
   </div>
   <div class="chat-input-row">
-    <input class="chat-input" id="chatInput" type="text" placeholder="Ask about the pipeline..." />
+    <input class="chat-input" id="chatInput" type="text" placeholder="Ask anything — status updates, pipeline questions, add candidates..." />
     <button class="chat-send-btn" id="chatSendBtn">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
     </button>
@@ -4055,6 +4057,24 @@ function bindEvents() {
       showCandidateForm();
     });
   }
+  var quickSummaryBtn = document.getElementById('quickSummary');
+  if (quickSummaryBtn) {
+    quickSummaryBtn.addEventListener('click', function() {
+      if (!chatOpen) toggleChat();
+      var input = document.getElementById('chatInput');
+      input.value = 'Give me a quick pipeline summary — what needs attention right now?';
+      sendChat();
+    });
+  }
+  var quickStaleBtn = document.getElementById('quickStale');
+  if (quickStaleBtn) {
+    quickStaleBtn.addEventListener('click', function() {
+      if (!chatOpen) toggleChat();
+      var input = document.getElementById('chatInput');
+      input.value = 'Which roles have gone cold or stale? List any that need follow-up.';
+      sendChat();
+    });
+  }
 
   // User menu dropdown toggle
   var userMenuBtn = document.getElementById('userMenuBtn');
@@ -4249,42 +4269,41 @@ const VALID_DB_STATUSES = [
 function buildChatContext() {
   var lines = [];
 
-  // Compact: only open roles (what Claude needs to assign candidates)
   var cancelSt = new Set(['ROLE CANCELLED/FILED', 'REQ COMPLETE', 'ENGAGEMENT COMPLETED']);
   var openJobs = (FULFILLMENT_DATA || []).filter(function(j) { return !cancelSt.has(j.status); });
 
-  // Group by BU → compact role list
+  // Group by BU → Project → Roles with candidates
   var byBU = {};
   openJobs.forEach(function(j) {
     var bu = j.bu || 'Unknown';
-    if (!byBU[bu]) byBU[bu] = [];
+    var proj = j.project_name || 'Unknown';
+    if (!byBU[bu]) byBU[bu] = {};
+    if (!byBU[bu][proj]) byBU[bu][proj] = [];
     var unfilled = (j.openings || 1) - (j.hired_count || 0);
-    byBU[bu].push(j.role_title + ' (id:' + j.id + ', ' + unfilled + ' needed, ' + (j.active_candidates || 0) + ' active)');
+    var entry = j.role_title + ' (id:' + j.id + ', ' + unfilled + ' needed, ' + (j.active_candidates || 0) + ' active, status:' + (j.status || 'ACTIVE') + ')';
+    // Include candidates for this role
+    var cands = (j.candidates || []).map(function(c) {
+      return c.name + ' [' + (c.status || c._status || '') + ']' + (c.jc_id ? ' jcid:' + c.jc_id : '');
+    });
+    if (cands.length > 0) entry += '\n    Candidates: ' + cands.join(', ');
+    byBU[bu][proj].push(entry);
   });
 
-  lines.push('OPEN ROLES:');
+  lines.push('PIPELINE BY BU > PROJECT > ROLE:');
   Object.keys(byBU).sort().forEach(function(bu) {
-    lines.push(bu + ': ' + byBU[bu].join('; '));
-  });
-
-  // Compact candidate list — only names + role + status (no dates/locations to save tokens)
-  var candCount = 0;
-  var candLines = [];
-  PIPELINE_DATA.forEach(function(bu) {
-    bu.projects.forEach(function(p) {
-      p.talent.forEach(function(t) {
-        candCount++;
-        candLines.push(t.name + ' → ' + t.role + ' [' + t.status + ']');
-      });
+    lines.push('\n' + bu + ':');
+    Object.keys(byBU[bu]).sort().forEach(function(proj) {
+      lines.push('  ' + proj + ':');
+      byBU[bu][proj].forEach(function(r) { lines.push('    - ' + r); });
     });
   });
-  if (candLines.length > 0) {
-    lines.push('\nACTIVE CANDIDATES (' + candCount + '): ' + candLines.join('; '));
-  }
 
-  lines.push('\nBUs: ' + PIPELINE_DATA.map(function(b){return b.name;}).join(', '));
-  lines.push('Jobs: ' + openJobs.length + ' | Active candidates: ' + candCount + ' | Hired: ' + HIRED_DATA.length);
-  lines.push('Use query_database for details (dates, locations, IDs) not shown here.');
+  var candCount = 0;
+  (FULFILLMENT_DATA || []).forEach(function(j) { candCount += (j.candidates || []).length; });
+
+  lines.push('\nSUMMARY: ' + openJobs.length + ' open jobs | ' + candCount + ' candidates | ' + HIRED_DATA.length + ' hired');
+  lines.push('BUs: ' + Object.keys(byBU).join(', '));
+  lines.push('Use query_database for details (dates, locations, IDs) not shown above.');
 
   return lines.join('\n');
 }
@@ -4917,8 +4936,23 @@ async function executeTool(toolName, toolInput) {
       return { success: true, updated: data[0] };
     }
     case 'delete_job': {
-      // Delete associated job_candidates first
-      await sb.from('job_candidates').delete().eq('job_id', toolInput.job_id);
+      // Clean up FK references before deleting
+      var { data: jcRows } = await sb.from('job_candidates').select('id').eq('job_id', toolInput.job_id);
+      if (jcRows && jcRows.length > 0) {
+        var jcDelIds = jcRows.map(function(r) { return r.id; });
+        for (var di = 0; di < jcDelIds.length; di++) {
+          await sb.from('client_actions_log').delete().eq('job_candidate_id', jcDelIds[di]);
+          // Remove from client_shares arrays
+          var { data: shares } = await sb.from('client_shares').select('id, job_candidate_ids').filter('job_candidate_ids', 'cs', '{"' + jcDelIds[di] + '"}');
+          if (shares && shares.length > 0) {
+            for (var si = 0; si < shares.length; si++) {
+              var updatedIds = (shares[si].job_candidate_ids || []).filter(function(id) { return id !== jcDelIds[di]; });
+              await sb.from('client_shares').update({ job_candidate_ids: updatedIds }).eq('id', shares[si].id);
+            }
+          }
+        }
+        await sb.from('job_candidates').delete().eq('job_id', toolInput.job_id);
+      }
       var { error } = await sb.from('jobs').delete().eq('id', toolInput.job_id);
       if (error) return { error: error.message };
       await logActivity('job', toolInput.job_id, 'delete');
@@ -5783,11 +5817,15 @@ function removeTyping() {
   if (el) el.remove();
 }
 
+var chatSending = false;
 async function sendChat() {
   var input = document.getElementById('chatInput');
   var text = input.value.trim();
-  if (!text) return;
+  if (!text || chatSending) return;
   input.value = '';
+  chatSending = true;
+  var sendBtn = document.getElementById('chatSendBtn');
+  if (sendBtn) sendBtn.disabled = true;
 
   // Detect pasted candidate info (Talent:/Profile:/Location: pattern)
   var candPasteMatch = text.match(/(?:^|\n)\s*Talent\s*:\s*(.+)/im);
@@ -5889,6 +5927,7 @@ async function sendChat() {
           });
         });
       }, 50);
+      chatSending = false; if (sendBtn) sendBtn.disabled = false;
       return;
     }
   }
@@ -5899,12 +5938,14 @@ async function sendChat() {
     chatMessages.push({ role: 'user', content: text });
     renderChat();
     showCandidateForm();
+    chatSending = false; if (sendBtn) sendBtn.disabled = false;
     return;
   }
   if (/\b(add|create|new|open)\b.*\b(job|role|req|position)\b/.test(lowerText) && !/\b(candidate|person|developer|engineer)\b.*\b(to|for)\b/.test(lowerText)) {
     chatMessages.push({ role: 'user', content: text });
     renderChat();
     showJobForm();
+    chatSending = false; if (sendBtn) sendBtn.disabled = false;
     return;
   }
 
@@ -5912,13 +5953,21 @@ async function sendChat() {
   renderChat();
   showTyping();
 
-  await callClaude();
+  try {
+    await callClaude();
+  } finally {
+    chatSending = false;
+    var sendBtn = document.getElementById('chatSendBtn');
+    if (sendBtn) sendBtn.disabled = false;
+  }
 }
 
 // Build the system prompt for Claude — called fresh each time to get latest context
 function buildSystemPrompt() {
   var context = buildChatContext();
-  return 'You are a recruiting assistant for Yahoo\'s Toptal staffing pipeline. You have database read/write access via tools.\n\n' +
+  var todayISO = new Date().toISOString().slice(0, 10);
+  return 'You are a recruiting assistant for Yahoo\'s Toptal staffing pipeline. You have database read/write access via tools.\n' +
+    'Today is ' + todayISO + '.\n\n' +
 
     '## DATA SNAPSHOT\n' + context + '\n\n' +
 
@@ -6002,9 +6051,9 @@ function buildApiMessages() {
     }
   }
 
-  // Sliding window: keep last 20 API messages to stay under token limits
+  // Sliding window: keep last 30 API messages to stay under token limits
   // Always ensure the first message is a user message (API requirement)
-  var MAX_MESSAGES = 20;
+  var MAX_MESSAGES = 30;
   if (allMessages.length > MAX_MESSAGES) {
     allMessages = allMessages.slice(-MAX_MESSAGES);
     // Ensure first message is user role
@@ -6033,7 +6082,7 @@ async function callClaude() {
         },
         body: JSON.stringify({
           model: 'claude-sonnet-4-20250514',
-          max_tokens: 1500,
+          max_tokens: 4096,
           system: systemPrompt,
           tools: CHAT_TOOLS,
           messages: apiMessages
